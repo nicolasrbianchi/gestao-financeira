@@ -1,80 +1,34 @@
-# Finanças Mobile PWA
+# Gestão Financeira (Render + React + Express + Google Sheets)
 
-App mobile-first para usar o Google Sheets como banco de dados.
+Arquitetura: React/Vite (frontend) -> Express (Render) -> Apps Script -> Google Sheets.
 
-## Arquivos
+## Estrutura da planilha referência
+- Abas: Resumo, Transações, Categorias, Dividas, meses, Fontes.
+- `Transações` colunas: Data, Nome, Tipo, Reserva, Conta/Canal, Categoria, Subcategoria, Forma, Valor, Status, Parcela, Obs.
+- `Resumo` foi usado para inferir regras: receitas e despesas por `Tipo`; reservas por `Tipo=Reserva` e `Reserva=Entrada/Saida`; saldo derivado.
 
-- `index.html`: tela principal.
-- `styles.css`: visual mobile.
-- `app.js`: lógica do app.
-- `manifest.webmanifest`: instalação como PWA.
-- `sw.js`: cache básico.
-- `Codigo.gs`: código para colar no Google Apps Script.
+## .env
+Veja `.env.example`:
 
-## Como configurar
+APPS_SCRIPT_URL=
+APPS_SCRIPT_TOKEN=
+APP_LOGIN=
+APP_PASSWORD=
+SESSION_SECRET=
+NODE_ENV=development
 
-### 1. Subir a planilha para o Google Sheets
+## Rodar
+- `npm install`
+- `npm run dev`
+- `npm run build`
+- `npm start`
 
-Abra sua planilha no Google Sheets.
+## Deploy Render
+Build: `npm install && npm run build`
+Start: `npm start`
 
-### 2. Criar Apps Script
+## Apps Script
+Atualize `Codigo.gs` com `SPREADSHEET_ID` e `SECRET_TOKEN`, publique Web App e use URL `/exec` em `APPS_SCRIPT_URL`.
 
-No Google Sheets:
-
-1. Vá em `Extensões > Apps Script`.
-2. Apague o conteúdo padrão.
-3. Cole o conteúdo de `Codigo.gs`.
-4. No topo do arquivo, preencha:
-
-```js
-const SPREADSHEET_ID = "ID_DA_SUA_PLANILHA";
-const SECRET_TOKEN = "uma-chave-secreta-sua";
-```
-
-O ID é o trecho da URL entre `/d/` e `/edit`.
-
-Exemplo:
-
-```txt
-https://docs.google.com/spreadsheets/d/1ABCDEF123456/edit
-```
-
-ID:
-
-```txt
-1ABCDEF123456
-```
-
-### 3. Implantar como Web App
-
-No Apps Script:
-
-1. Clique em `Implantar > Nova implantação`.
-2. Escolha o tipo `App da Web`.
-3. Executar como: `Eu`.
-4. Quem pode acessar: `Qualquer pessoa com o link`.
-5. Clique em implantar.
-6. Copie a URL que termina com `/exec`.
-
-### 4. Rodar a interface
-
-Para testar rápido:
-
-1. Abra `index.html` no navegador.
-2. Clique na engrenagem.
-3. Cole a URL do Apps Script.
-4. Cole o mesmo token secreto.
-5. Salve.
-
-Para usar no celular, hospede estes arquivos em qualquer hospedagem estática, como:
-
-- GitHub Pages
-- Netlify
-- Vercel
-- Firebase Hosting
-
-Depois abra o link no celular e use "Adicionar à tela inicial".
-
-## Observação de segurança
-
-Este MVP usa token simples. Para uso pessoal, resolve bem. Para publicar ou compartilhar com outras pessoas, o ideal é evoluir para login Google.
+## Escopo inicial
+Inclui Home, Transações, Categorias, login com sessão e criação/listagem; sem edição/exclusão e sem telas de dívidas/abas mensais.
