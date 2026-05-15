@@ -11,6 +11,10 @@ assertConfig();
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Render/Heroku-style reverse proxy terminates TLS before Node.
+// This is required so req.secure works and secure cookies are set.
+if (config.isProd) app.set('trust proxy', 1);
+
 app.use(express.json());
 
 app.use(
