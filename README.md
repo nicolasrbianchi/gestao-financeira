@@ -11,14 +11,11 @@ Existe uma versão antiga (vanilla JS + PWA) que chamava o Apps Script direto (J
 - `Resumo` foi usado para inferir regras: receitas e despesas por `Tipo`; reservas por `Tipo=Reserva` e `Reserva=Entrada/Saida`; saldo derivado.
 
 ## .env
-Veja `.env.example`:
+Copie `.env.example` para `.env` e ajuste:
 
-APPS_SCRIPT_URL=
-APPS_SCRIPT_TOKEN=
-APP_LOGIN=
-APP_PASSWORD=
-SESSION_SECRET=
-NODE_ENV=development
+- `APP_LOGIN` / `APP_PASSWORD`
+- (opcional) `APPS_SCRIPT_URL` / `APPS_SCRIPT_TOKEN`
+- `USE_MOCK_DATA=true` permite rodar a UI sem Apps Script configurado (dados mock)
 
 ## Rodar
 - `npm install`
