@@ -2,6 +2,9 @@
 
 Arquitetura: React/Vite (frontend) -> Express (Render) -> Apps Script -> Google Sheets.
 
+## Nota sobre o legado
+Existe uma versão antiga (vanilla JS + PWA) que chamava o Apps Script direto (JSONP + token no client). Ela foi movida para `legacy/pwa/` apenas como referência durante a refatoração.
+
 ## Estrutura da planilha referência
 - Abas: Resumo, Transações, Categorias, Dividas, meses, Fontes.
 - `Transações` colunas: Data, Nome, Tipo, Reserva, Conta/Canal, Categoria, Subcategoria, Forma, Valor, Status, Parcela, Obs.

@@ -1,2 +1,43 @@
-export function filterTx(tx,f){return tx.filter(t=>(!f.startDate||t.date>=f.startDate)&&(!f.endDate||t.date<=f.endDate)&&(!f.category||t.category===f.category)&&(!f.subcategory||t.subcategory===f.subcategory)&&(!f.account||t.account===f.account)&&(!f.type||t.type===f.type)&&(!f.status||t.status===f.status)&&(!f.search||t.name.toLowerCase().includes(f.search.toLowerCase())));}
-export function dashboard(tx){const receitas=tx.filter(t=>t.type==='Receita').reduce((a,b)=>a+b.amount,0);const despesas=tx.filter(t=>t.type==='Despesa').reduce((a,b)=>a+b.amount,0);const reservasIn=tx.filter(t=>t.type==='Reserva'&&t.reserve==='Entrada').reduce((a,b)=>a+b.amount,0);const reservasOut=tx.filter(t=>t.type==='Reserva'&&t.reserve==='Saida').reduce((a,b)=>a+b.amount,0);const reservas=reservasIn-reservasOut;const saldo=receitas-(despesas+Math.max(reservas,0));return {summaryCards:{receitas,despesas,reservas,saldo},recentTransactions:[...tx].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,12)};}
+export function filterTx(tx, f) {
+  return tx.filter(
+    (t) =>
+      (!f.startDate || t.date >= f.startDate) &&
+      (!f.endDate || t.date <= f.endDate) &&
+      (!f.category || t.category === f.category) &&
+      (!f.subcategory || t.subcategory === f.subcategory) &&
+      (!f.account || t.account === f.account) &&
+      (!f.type || t.type === f.type) &&
+      (!f.status || t.status === f.status) &&
+      (!f.search || t.name.toLowerCase().includes(f.search.toLowerCase()))
+  );
+}
+
+export function dashboard(tx) {
+  const receitas = tx
+    .filter((t) => t.type === 'Receita')
+    .reduce((a, b) => a + b.amount, 0);
+
+  const despesas = tx
+    .filter((t) => t.type === 'Despesa')
+    .reduce((a, b) => a + b.amount, 0);
+
+  const reservasIn = tx
+    .filter((t) => t.type === 'Reserva' && t.reserve === 'Entrada')
+    .reduce((a, b) => a + b.amount, 0);
+
+  const reservasOut = tx
+    .filter((t) => t.type === 'Reserva' && t.reserve === 'Saida')
+    .reduce((a, b) => a + b.amount, 0);
+
+  const reservas = reservasIn - reservasOut;
+  const saldo = receitas - (despesas + Math.max(reservas, 0));
+
+  const recentTransactions = [...tx]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 12);
+
+  return {
+    summaryCards: { receitas, despesas, reservas, saldo },
+    recentTransactions,
+  };
+}
