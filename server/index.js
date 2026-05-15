@@ -11,6 +11,10 @@ assertConfig();
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Render (e similares) terminam TLS no proxy e enviam para o Node via HTTP.
+// Sem isso, `req.secure` fica false e o express-session não seta cookie `secure`.
+if (config.isProd) app.set('trust proxy', 1);
+
 app.use(express.json());
 
 app.use(
