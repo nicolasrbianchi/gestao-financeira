@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Finanças (Legacy PWA)</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <!--
+      App legado (vanilla JS) que chama o Apps Script direto (JSONP).
+      Mantido aqui apenas como referência durante a refatoração.
+    -->
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Finanças</p>
+          <h1>Legacy PWA</h1>
+        </div>
+        <button id="openSettings" class="icon-button" type="button">⚙️</button>
+      </header>
+
+      <div class="month-card">
+        <label>
+          Mês
+          <input id="monthInput" type="month" />
+        </label>
+        <button id="refreshBtn" class="text-button" type="button">Atualizar</button>
+      </div>
+
+      <section class="hero-card">
+        <div class="label">Saldo</div>
+        <strong id="balanceValue">R$ 0,00</strong>
+        <div class="kpis">
+          <div><span>Receitas</span><b id="incomeValue">R$ 0,00</b></div>
+          <div><span>Despesas</span><b id="expenseValue">R$ 0,00</b></div>
+        </div>
+      </section>
+
+      <div class="quick-actions">
+        <button id="newExpenseBtn" class="primary-button" type="button">Nova despesa</button>
+        <button id="newIncomeBtn" class="secondary-button" type="button">Nova receita</button>
+      </div>
+
+      <section class="card">
+        <div class="section-title">
+          <h2>Gastos por categoria</h2>
+          <small id="categoryTotalLabel">R$ 0,00</small>
+        </div>
+        <div id="categoryList" class="category-list"></div>
+      </section>
+
+      <section class="card">
+        <div class="section-title">
+          <h2>Últimos lançamentos</h2>
+        </div>
+        <div id="recentList" class="recent-list"></div>
+      </section>
+
+      <dialog id="entryDialog" class="bottom-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <h2 id="formTitle">Novo lançamento</h2>
+          <button id="closeDialog" class="icon-button" type="button">✕</button>
+        </div>
+        <form id="entryForm">
+          <input id="tipo" type="hidden" />
+          <label>Data <input id="data" type="date" /></label>
+          <label>Nome <input id="nome" placeholder="Ex: Mercado" /></label>
+
+          <div class="grid-2">
+            <label>Conta <select id="conta"></select></label>
+            <label>Categoria <select id="categoria"></select></label>
+          </div>
+
+          <details>
+            <summary>Mais opções</summary>
+            <div class="grid-2">
+              <label>Reserva <input id="reserva" placeholder="Entrada/Saida" /></label>
+              <label>Subcategoria <input id="subcategoria" /></label>
+            </div>
+            <div class="grid-2">
+              <label>Forma <input id="forma" /></label>
+              <label>Status <input id="status" /></label>
+            </div>
+            <div class="grid-2">
+              <label>Parcela <input id="parcela" /></label>
+              <label>Obs <input id="obs" /></label>
+            </div>
+          </details>
+
+          <label>Valor <input id="valor" inputmode="decimal" placeholder="0,00" /></label>
+
+          <button id="saveBtn" class="primary-button full" type="submit">Salvar lançamento</button>
+          <p class="hint">Esse modo chama o Apps Script direto (token no client). Use só como referência.</p>
+        </form>
+      </dialog>
+
+      <dialog id="settingsDialog" class="bottom-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <h2>Configurações</h2>
+          <button id="closeSettings" class="icon-button" type="button">✕</button>
+        </div>
+        <form>
+          <label>Apps Script URL <input id="apiUrl" placeholder="https://script.google.com/.../exec" /></label>
+          <label>Token <input id="apiToken" placeholder="SECRET_TOKEN" /></label>
+          <button id="saveSettings" class="primary-button full" type="button">Salvar</button>
+        </form>
+      </dialog>
+
+      <div id="toast" class="toast"></div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
