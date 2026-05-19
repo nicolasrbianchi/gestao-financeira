@@ -4,19 +4,68 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
-body { @apply m-0 bg-surface font-sans text-ink antialiased; }
+:root {
+  color-scheme: light;
+  background: #f6f7fb;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+body {
+  @apply bg-surface font-sans text-ink antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+input,
+select,
+textarea {
+  @apply w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700 outline-none transition focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100;
+}
 
 @layer components {
-  .card { @apply my-3 rounded-4xl bg-white p-4 shadow-soft; }
+  .app-frame { @apply mx-auto min-h-dvh w-full max-w-[430px] bg-surface px-4 pt-4; padding-bottom: calc(7.5rem + env(safe-area-inset-bottom)); }
+  .card { @apply my-3 min-w-0 rounded-4xl bg-white p-4 shadow-soft; }
   .chip { @apply rounded-full bg-white px-3 py-2 text-xs text-slate-500 shadow-soft; }
   .badge { @apply rounded-full bg-slate-100 px-2 py-1 text-[11px] text-slate-500; }
-  .sheet { @apply fixed inset-0 z-50 flex items-end bg-slate-900/40 p-4; }
+  .sheet { @apply fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 px-4 pt-4; padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+  .sheet-panel { @apply max-h-[88dvh] w-full max-w-[430px] overflow-y-auto rounded-t-[2rem] bg-white p-5 shadow-soft; }
   .h { @apply min-h-[280px]; }
-  .loading-state { @apply py-10 text-center text-slate-500; }
-  input, select, button { @apply rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700; }
+  .loading-state { @apply rounded-4xl bg-white p-6 text-center text-sm text-slate-500 shadow-soft; }
+  .empty-state { @apply rounded-4xl bg-white p-6 text-center text-sm text-slate-500 shadow-soft; }
+  .error-state { @apply rounded-4xl bg-white p-5 text-sm text-rose-600 shadow-soft; }
   .pos { @apply text-emerald-600; }
   .neg { @apply text-rose-500; }
-  .progress { @apply h-2 rounded-full bg-slate-100; }
+  .progress { @apply h-2 overflow-hidden rounded-full bg-slate-100; }
   .progress span { @apply block h-full rounded-full bg-indigo-500; }
+  .toast { @apply fixed left-1/2 z-[60] w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 rounded-3xl bg-slate-950 px-4 py-3 text-center text-sm font-semibold text-white shadow-soft; bottom: calc(6.25rem + env(safe-area-inset-bottom)); }
+  .bottom-nav { @apply fixed inset-x-0 bottom-0 z-40 mx-auto grid w-full max-w-[430px] grid-cols-5 items-end gap-1 rounded-t-[2rem] border border-slate-100 bg-white/95 px-3 pt-3 shadow-[0_-8px_28px_rgba(15,23,42,0.08)] backdrop-blur; padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
 }

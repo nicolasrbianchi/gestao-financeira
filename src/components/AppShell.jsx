@@ -1,51 +1,119 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import BottomNav from './BottomNav';
 import FilterSheet from './FilterSheet';
+import TransactionSheet from './TransactionSheet';
 import Home from '../pages/Home';
 import Transactions from '../pages/Transactions';
 import Categories from '../pages/Categories';
 import More from '../pages/More';
 
+const ROUTES = {
+  home: '/dashboard',
+  transactions: '/transactions',
+  categories: '/categories',
+  more: null
+};
+
+function getErrorDetails(error) {
+  const message = error?.message || String(error || 'Erro desconhecido');
+  const requestId = message.match(/Código:\s*([^\s]+)/)?.[1] || null;
+  return { message, requestId };
+}
+
+function ErrorState({ error, onRetry }) {
+  const details = getErrorDetails(error);
+  return (
+    <div className='error-state'>
+      <p className='font-semibold'>Não consegui carregar esta tela.</p>
+      <p className='mt-1 text-rose-500/90'>{details.message}</p>
+      {details.requestId && <p className='mt-2 text-xs text-slate-500'>requestId: {details.requestId}</p>}
+      {onRetry && (
+        <button type='button' onClick={onRetry} className='mt-4 rounded-2xl bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-600'>
+          Tentar novamente
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function AppShell(props) {
-  const { tab, onTab, filters, setFilters, metadata, onReload, api, withQuery, onLogout } = props;
+  const { tab, onTab, filters, setFilters, metadata, api, withQuery, onLogout, onToast, onReload } = props;
   const [showFilters, setShowFilters] = useState(false);
+  const [showTransactionSheet, setShowTransactionSheet] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const route = useMemo(() => (tab === 'home' ? '/dashboard' : tab === 'transactions' ? '/transactions' : '/categories'), [tab]);
+  const safeTab = ROUTES[tab] === undefined ? 'home' : tab;
+  const route = useMemo(() => ROUTES[safeTab], [safeTab]);
 
   useEffect(() => {
+    if (safeTab !== tab) onTab('home');
+  }, [safeTab, tab, onTab]);
+
+  const reload = useCallback(() => setReloadKey((value) => value + 1), []);
+
+  useEffect(() => {
+    if (!route) {
+      setLoading(false);
+      setError(null);
+      setData(null);
+      return undefined;
+    }
+
     let mounted = true;
     setLoading(true);
-    setError('');
+    setError(null);
+
     api(withQuery(route, filters))
-      .then((d) => mounted && setData(d))
-      .catch((e) => mounted && setError(e.message))
-      .finally(() => mounted && setLoading(false));
+      .then((response) => {
+        if (mounted) setData(response || {});
+      })
+      .catch((err) => {
+        if (mounted) setError(err);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
     return () => {
       mounted = false;
     };
-  }, [route, filters, onReload]);
+  }, [api, withQuery, route, filters, reloadKey]);
+
+  const handleSaved = () => {
+    setShowTransactionSheet(false);
+    onToast?.('Transação salva com sucesso.');
+    onReload?.();
+    reload();
+  };
+
+  const renderPage = () => {
+    if (error) return <ErrorState error={error} onRetry={reload} />;
+
+    if (safeTab === 'home') return <Home data={data} loading={loading} />;
+    if (safeTab === 'transactions') {
+      return <Transactions data={data} loading={loading} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} />;
+    }
+    if (safeTab === 'categories') return <Categories data={data} loading={loading} />;
+    return <More api={api} metadata={metadata || {}} onLogout={onLogout} />;
+  };
 
   return (
-    <div className='mx-auto min-h-screen w-full max-w-[430px] bg-surface px-4 pb-28 pt-4'>
-      <main>
-        {error ? (
-          <div className='rounded-4xl bg-white p-5 text-sm text-rose-500 shadow-soft'>Erro ao carregar dados: {error}</div>
-        ) : tab === 'home' ? (
-          <Home data={data} loading={loading} />
-        ) : tab === 'transactions' ? (
-          <Transactions data={data} loading={loading} filters={filters} setFilters={setFilters} />
-        ) : tab === 'categories' ? (
-          <Categories data={data} loading={loading} />
-        ) : (
-          <More api={api} onLogout={onLogout} />
-        )}
-      </main>
+    <div className='app-frame'>
+      <main className='min-w-0'>{renderPage()}</main>
 
-      <BottomNav tab={tab} onTab={onTab} />
-      <FilterSheet open={showFilters} onClose={() => setShowFilters(false)} filters={filters} setFilters={setFilters} metadata={metadata} />
+      <BottomNav tab={safeTab} onTab={onTab} onAdd={() => setShowTransactionSheet(true)} />
+      <FilterSheet open={showFilters} onClose={() => setShowFilters(false)} filters={filters} setFilters={setFilters} metadata={metadata || {}} />
+      <TransactionSheet
+        open={showTransactionSheet}
+        onClose={() => setShowTransactionSheet(false)}
+        metadata={metadata || {}}
+        api={api}
+        onSaved={handleSaved}
+        onToast={onToast}
+      />
     </div>
   );
 }

@@ -16,134 +16,157 @@ import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 import { money } from '../utils/format';
 
 const quickActions = [
-  { label: 'Send', icon: Send },
-  { label: 'Receive', icon: ArrowDownLeft },
-  { label: 'Transfer', icon: HandCoins },
-  { label: 'More', icon: MoreHorizontal }
+  { label: 'Enviar', icon: Send },
+  { label: 'Receber', icon: ArrowDownLeft },
+  { label: 'Reserva', icon: HandCoins },
+  { label: 'Mais', icon: MoreHorizontal }
 ];
 
 const txIcons = {
-  Salary: Wallet,
-  Food: CreditCard,
-  Savings: PiggyBank,
-  Shopping: CreditCard
+  Receita: Wallet,
+  Despesa: CreditCard,
+  Reserva: PiggyBank
 };
 
-export default function Home({ data, loading }) {
-  if (loading || !data) return <p className='px-2 py-10 text-center text-slate-500'>Loading dashboard...</p>;
+function cardValue(cards = [], key) {
+  return cards.find((card) => card.key === key)?.value ?? 0;
+}
 
-  const totalBalance = data.summaryCards.find((card) => card.key === 'saldo')?.value ?? 0;
-  const income = data.summaryCards.find((card) => card.key === 'receitas')?.value ?? 0;
-  const expense = Math.abs(data.summaryCards.find((card) => card.key === 'despesas')?.value ?? 0);
-  const series = data.charts.dailySeries.slice(-7).map((d) => ({
-    day: d.date.slice(5),
-    balance: (d.receitas || 0) - (d.despesas || 0)
+function LoadingSkeleton() {
+  return (
+    <div className='space-y-4'>
+      <div className='loading-state'>Carregando dashboard…</div>
+      <div className='h-44 animate-pulse rounded-5xl bg-white/70' />
+      <div className='grid grid-cols-4 gap-3'>{[1, 2, 3, 4].map((item) => <div key={item} className='h-20 animate-pulse rounded-3xl bg-white/70' />)}</div>
+    </div>
+  );
+}
+
+export default function Home({ data, loading }) {
+  if (loading && !data) return <LoadingSkeleton />;
+
+  const summaryCards = data?.summaryCards || [];
+  const charts = data?.charts || {};
+  const recentTransactions = data?.recentTransactions || [];
+  const totalBalance = cardValue(summaryCards, 'saldoOperacional');
+  const reserves = cardValue(summaryCards, 'reservas');
+  const income = cardValue(summaryCards, 'receitas');
+  const expense = Math.abs(cardValue(summaryCards, 'despesas'));
+  const series = (charts.dailySeries || []).slice(-7).map((item) => ({
+    day: item.date?.slice(5) || '',
+    balance: (item.receitas || 0) - (item.despesas || 0)
   }));
-  const transactions = data.latestTransactions.slice(0, 5);
+  const transactions = recentTransactions.slice(0, 5);
 
   return (
-    <div className='space-y-6 pb-28'>
-      <header className='flex items-center justify-between px-1 pt-1'>
-        <div>
-          <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Good morning</p>
-          <h1 className='text-2xl font-bold text-slate-900'>Alex Johnson</h1>
+    <div className='space-y-5'>
+      <header className='flex items-center justify-between gap-3 px-1 pt-1'>
+        <div className='min-w-0'>
+          <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Resumo financeiro</p>
+          <h1 className='truncate text-2xl font-bold text-slate-900'>Minha carteira</h1>
         </div>
-        <div className='flex items-center gap-2'>
-          <button className='grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-600 shadow-soft transition hover:-translate-y-0.5'>
+        <div className='flex shrink-0 items-center gap-2'>
+          <button type='button' className='grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-600 shadow-soft transition active:scale-95'>
             <Bell size={18} />
           </button>
-          <div className='grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 text-sm font-bold text-white shadow-soft'>
-            AJ
-          </div>
+          <div className='grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 text-sm font-bold text-white shadow-soft'>GF</div>
         </div>
       </header>
 
-      <section className='rounded-5xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 p-6 text-white shadow-soft'>
-        <p className='text-sm text-slate-300'>Total Balance</p>
-        <h2 className='mt-2 text-4xl font-extrabold tracking-tight'>{money(totalBalance)}</h2>
-        <div className='mt-6 flex items-center justify-between rounded-3xl bg-white/10 p-4'>
-          <div>
-            <p className='text-xs text-slate-300'>Monthly Growth</p>
-            <p className='mt-1 flex items-center gap-1 text-sm font-semibold text-emerald-300'><TrendingUp size={15} /> +8.4%</p>
+      <section className='min-w-0 rounded-5xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 p-5 text-white shadow-soft'>
+        <p className='text-sm text-slate-300'>Saldo operacional</p>
+        <h2 className='mt-2 break-words text-[2.35rem] font-extrabold leading-tight tracking-tight'>{money(totalBalance)}</h2>
+        <div className='mt-5 grid grid-cols-2 gap-3 rounded-3xl bg-white/10 p-4'>
+          <div className='min-w-0'>
+            <p className='text-xs text-slate-300'>Reservas</p>
+            <p className='mt-1 flex items-center gap-1 break-words text-sm font-semibold text-emerald-300'><TrendingUp size={15} /> {money(reserves)}</p>
           </div>
-          <div className='text-right'>
-            <p className='text-xs text-slate-300'>vs last month</p>
-            <p className='mt-1 text-sm font-semibold'>+{money(income - expense)}</p>
+          <div className='min-w-0 text-right'>
+            <p className='text-xs text-slate-300'>Receitas - despesas</p>
+            <p className='mt-1 break-words text-sm font-semibold'>{money(income - expense)}</p>
           </div>
         </div>
       </section>
 
-      <section className='grid grid-cols-4 gap-3'>
+      <section className='grid grid-cols-4 gap-2.5'>
         {quickActions.map(({ label, icon: Icon }) => (
-          <button key={label} className='rounded-3xl bg-white p-3 text-center shadow-soft transition hover:-translate-y-0.5'>
+          <button key={label} type='button' className='rounded-3xl bg-white p-3 text-center shadow-soft transition active:scale-95'>
             <span className='mx-auto mb-2 grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-700'>
               <Icon size={18} />
             </span>
-            <span className='text-xs font-medium text-slate-600'>{label}</span>
+            <span className='text-[11px] font-semibold text-slate-600'>{label}</span>
           </button>
         ))}
       </section>
 
       <section className='rounded-4xl bg-white p-5 shadow-soft'>
-        <div className='mb-4 flex items-center justify-between'>
+        <div className='mb-4 flex items-center justify-between gap-3'>
           <div>
-            <p className='text-sm font-semibold text-slate-900'>Weekly activity</p>
-            <p className='text-xs text-slate-500'>Income vs Expense</p>
+            <p className='text-sm font-semibold text-slate-900'>Atividade recente</p>
+            <p className='text-xs text-slate-500'>Receitas x despesas</p>
           </div>
-          <div className='text-right text-xs'>
+          <div className='shrink-0 text-right text-xs'>
             <p className='font-semibold text-emerald-600'>+{money(income)}</p>
             <p className='font-semibold text-rose-500'>-{money(expense)}</p>
           </div>
         </div>
         <div className='h-36'>
-          <ResponsiveContainer width='100%' height='100%'>
-            <LineChart data={series}>
-              <XAxis dataKey='day' axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-              <Tooltip formatter={(value) => money(value)} />
-              <Line type='monotone' dataKey='balance' stroke='#4f46e5' strokeWidth={3} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
+          {series.length ? (
+            <ResponsiveContainer width='100%' height='100%'>
+              <LineChart data={series} margin={{ left: 4, right: 4, top: 6, bottom: 0 }}>
+                <XAxis dataKey='day' axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                <Tooltip formatter={(value) => money(value)} />
+                <Line type='monotone' dataKey='balance' stroke='#4f46e5' strokeWidth={3} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className='grid h-full place-items-center text-sm text-slate-400'>Sem dados no período.</div>
+          )}
         </div>
       </section>
 
       <section className='grid grid-cols-2 gap-3'>
-        <article className='rounded-4xl bg-white p-4 shadow-soft'>
+        <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
           <ArrowUpRight className='text-emerald-500' size={18} />
-          <p className='mt-3 text-xs text-slate-500'>Income</p>
-          <p className='mt-1 text-xl font-bold'>{money(income)}</p>
+          <p className='mt-3 text-xs text-slate-500'>Receitas</p>
+          <p className='mt-1 break-words text-xl font-bold'>{money(income)}</p>
         </article>
-        <article className='rounded-4xl bg-white p-4 shadow-soft'>
+        <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
           <TrendingDown className='text-rose-500' size={18} />
-          <p className='mt-3 text-xs text-slate-500'>Expense</p>
-          <p className='mt-1 text-xl font-bold'>{money(expense)}</p>
+          <p className='mt-3 text-xs text-slate-500'>Despesas</p>
+          <p className='mt-1 break-words text-xl font-bold'>{money(expense)}</p>
         </article>
       </section>
 
       <section className='rounded-4xl bg-white p-5 shadow-soft'>
-        <div className='mb-4 flex items-center justify-between'>
-          <h3 className='text-base font-semibold text-slate-900'>Recent Transactions</h3>
-          <button className='text-xs font-semibold text-indigo-600'>View all</button>
+        <div className='mb-4 flex items-center justify-between gap-3'>
+          <h3 className='text-base font-semibold text-slate-900'>Transações recentes</h3>
+          <span className='text-xs font-semibold text-indigo-600'>{transactions.length} itens</span>
         </div>
-        <ul className='space-y-3'>
-          {transactions.map((tx, index) => {
-            const Icon = txIcons[tx.category] || Wallet;
-            const positive = tx.amount > 0;
-            return (
-              <li key={index} className='flex items-center gap-3'>
-                <span className='grid h-11 w-11 place-items-center rounded-2xl bg-slate-100 text-slate-700'>
-                  <Icon size={16} />
-                </span>
-                <div className='min-w-0 flex-1'>
-                  <p className='truncate text-sm font-semibold text-slate-800'>{tx.description}</p>
-                  <p className='text-xs text-slate-500'>{tx.category} • {tx.date}</p>
-                </div>
-                <p className={`text-sm font-semibold ${positive ? 'text-emerald-600' : 'text-rose-500'}`}>
-                  {positive ? '+' : '-'}{money(Math.abs(tx.amount))}
-                </p>
-              </li>
-            );
-          })}
-        </ul>
+        {transactions.length ? (
+          <ul className='space-y-3'>
+            {transactions.map((tx, index) => {
+              const Icon = txIcons[tx.type] || Wallet;
+              const positive = tx.type === 'Receita' || (tx.type === 'Reserva' && tx.reserve === 'Entrada');
+              return (
+                <li key={`${tx.sheetRowNumber || index}-${tx.name || index}`} className='flex min-w-0 items-center gap-3'>
+                  <span className='grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-700'>
+                    <Icon size={16} />
+                  </span>
+                  <div className='min-w-0 flex-1'>
+                    <p className='truncate text-sm font-semibold text-slate-800'>{tx.name || 'Sem nome'}</p>
+                    <p className='truncate text-xs text-slate-500'>{tx.category || 'Sem categoria'} • {tx.displayDate || tx.date || 'Sem data'}</p>
+                  </div>
+                  <p className={`max-w-[7.5rem] shrink-0 break-words text-right text-sm font-semibold ${positive ? 'text-emerald-600' : 'text-rose-500'}`}>
+                    {positive ? '+' : '-'}{money(Math.abs(tx.amount || 0))}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <div className='empty-state shadow-none'>Nenhuma transação encontrada neste período.</div>
+        )}
       </section>
     </div>
   );
