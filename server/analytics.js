@@ -1,13 +1,16 @@
 import { buildInsights } from './insights.js';
 import { normalizeStringKey } from './normalize.js';
+import { logger } from './logger.js';
 
-export function filterTx(transactions, f = {}) {
-  return transactions.filter((t) => (!f.startDate || t.date >= f.startDate) && (!f.endDate || t.date <= f.endDate) && (!f.category || t.category === f.category) && (!f.subcategory || t.subcategory === f.subcategory) && (!f.account || t.account === f.account) && (!f.type || t.type === f.type) && (!f.status || t.status === f.status) && (!f.search || normalizeStringKey(t.name).includes(normalizeStringKey(f.search))));
+export function filterTx(transactions, f = {}, context = {}) {
+  const filtered = transactions.filter((t) => (!f.startDate || t.date >= f.startDate) && (!f.endDate || t.date <= f.endDate) && (!f.category || t.category === f.category) && (!f.subcategory || t.subcategory === f.subcategory) && (!f.account || t.account === f.account) && (!f.type || t.type === f.type) && (!f.status || t.status === f.status) && (!f.search || normalizeStringKey(t.name).includes(normalizeStringKey(f.search))));
+  logger.debug('transactions_filter_completed', { requestId: context.requestId, sourceCount: transactions.length, filteredCount: filtered.length, filters: { ...f, search: f.search ? "[SET]" : "" } });
+  return filtered;
 }
 
 const groupBy = (items, getter) => Object.entries(items.reduce((acc, item) => { const key = getter(item) || 'Sem preenchimento'; acc[key] = (acc[key] || 0) + item.amount; return acc; }, {})).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 
-export function buildDashboard(transactions) {
+export function buildDashboard(transactions, context = {}) {
   const receitas = transactions.filter((t) => normalizeStringKey(t.type) === 'receita').reduce((a, t) => a + t.amount, 0);
   const totalDespesas = transactions.filter((t) => normalizeStringKey(t.type) === 'despesa').reduce((a, t) => a + t.amount, 0);
   const reservasEntrada = transactions.filter((t) => normalizeStringKey(t.type) === 'reserva' && normalizeStringKey(t.reserve) === 'entrada').reduce((a, t) => a + t.amount, 0);
@@ -41,6 +44,7 @@ export function buildDashboard(transactions) {
   const totals = { receitas, despesas: totalDespesas, reservasEntrada, reservasSaida, saldoOperacional, saldoComReservas };
   const groups = { despesasPorCategoria, despesasPorSubcategoria, despesasPorConta };
 
+  logger.debug('dashboard_build_completed', { requestId: context.requestId, transactionCount: transactions.length, insightsCount: buildInsights(transactions, totals, groups).length });
   return {
     summaryCards: [
       { key: 'receitas', title: 'Receitas', value: receitas, tone: 'success', helper: 'Entradas no período' },

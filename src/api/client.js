@@ -1,7 +1,10 @@
 export async function api(path, opts = {}) {
   const r = await fetch(`/api${path}`, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...opts });
-  const d = await r.json();
-  if (!r.ok) throw new Error(d.error || 'Erro na API');
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const code = d.requestId ? ` Código: ${d.requestId}` : '';
+    throw new Error(`${d.error || 'Erro na API'}${code}`);
+  }
   return d;
 }
 export const withQuery = (path, params = {}) => {
