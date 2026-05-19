@@ -9,8 +9,8 @@
  * - action=summary
  */
 
-const SPREADSHEET_ID = 'COLE_AQUI_O_ID_DA_SUA_PLANILHA';
-const SECRET_TOKEN = 'TROQUE_POR_UM_TOKEN_SECRETO';
+const SPREADSHEET_ID = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID') || 'COLE_AQUI_O_ID_DA_SUA_PLANILHA';
+const SECRET_TOKEN = PropertiesService.getScriptProperties().getProperty('SECRET_TOKEN') || 'TROQUE_POR_UM_TOKEN_SECRETO';
 
 const TRANSACTIONS_SHEET = 'Transações';
 const SOURCES_SHEET = 'Fontes';
@@ -164,17 +164,13 @@ function getMetadata_() {
 
   return {
     ok: true,
-    types: normalizeList_(['Receita', 'Despesa', 'Reserva'].concat(uniqueFromTx('Tipo'))),
+    types: uniqueFromTx('Tipo'),
     categories: categories && categories.length ? categories : uniqueFromTx('Categoria'),
-    subcategories: normalizeList_(['Essencial', 'Extra'].concat(uniqueFromTx('Subcategoria'))),
+    subcategories: uniqueFromTx('Subcategoria'),
     accounts: accounts && accounts.length ? accounts : uniqueFromTx('Conta/Canal'),
-    paymentMethods: normalizeList_(
-      ['PIX', 'Pix', 'Crédito', 'Débito', 'Boleto', 'Transferência'].concat(uniqueFromTx('Forma'))
-    ),
-    statuses: normalizeList_(
-      ['Pago em dia', 'Recebido em dia', 'Em aberto', 'Atrasado'].concat(uniqueFromTx('Status'))
-    ),
-    reserves: normalizeList_(['Entrada', 'Saida'].concat(uniqueFromTx('Reserva'))),
+    paymentMethods: uniqueFromTx('Forma'),
+    statuses: uniqueFromTx('Status'),
+    reserves: uniqueFromTx('Reserva'),
   };
 }
 

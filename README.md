@@ -1,34 +1,28 @@
-# Gestão Financeira (Render + React + Express + Google Sheets)
+# Gestão Financeira
 
-Arquitetura: React/Vite (frontend) -> Express (Render) -> Apps Script -> Google Sheets.
+Stack: **React/Vite + Express + Apps Script + Google Sheets**.
 
-## Nota sobre o legado
-Existe uma versão antiga (vanilla JS + PWA) que chamava o Apps Script direto (JSONP + token no client). Ela foi movida para `legacy/pwa/` apenas como referência durante a refatoração.
+## Setup
+1. `npm install`
+2. Criar `.env` com:
+   - `APP_LOGIN`, `APP_PASSWORD`, `SESSION_SECRET`
+   - `APPS_SCRIPT_URL`, `APPS_SCRIPT_TOKEN`
+   - opcional `USE_MOCK_DATA=true` somente em desenvolvimento
+3. `npm run dev`
 
-## Estrutura da planilha referência
-- Abas: Resumo, Transações, Categorias, Dividas, meses, Fontes.
-- `Transações` colunas: Data, Nome, Tipo, Reserva, Conta/Canal, Categoria, Subcategoria, Forma, Valor, Status, Parcela, Obs.
-- `Resumo` foi usado para inferir regras: receitas e despesas por `Tipo`; reservas por `Tipo=Reserva` e `Reserva=Entrada/Saida`; saldo derivado.
-
-## .env
-Copie `.env.example` para `.env` e ajuste:
-
-- `APP_LOGIN` / `APP_PASSWORD`
-- (opcional) `APPS_SCRIPT_URL` / `APPS_SCRIPT_TOKEN`
-- `USE_MOCK_DATA=true` permite rodar a UI sem Apps Script configurado (dados mock)
-
-## Rodar
-- `npm install`
-- `npm run dev`
-- `npm run build`
-- `npm start`
-
-## Deploy Render
-Build: `npm install && npm run build`
-Start: `npm start`
+## Produção (Render)
+- Build: `npm install && npm run build`
+- Start: `npm start`
+- Em produção, `APPS_SCRIPT_URL` é obrigatório.
 
 ## Apps Script
-Atualize `Codigo.gs` com `SPREADSHEET_ID` e `SECRET_TOKEN`, publique Web App e use URL `/exec` em `APPS_SCRIPT_URL`.
+- Publicar `Codigo.gs` como Web App.
+- Ações suportadas: `health`, `metadata`, `transactions`, `add`, `config`, `summary`.
+- A aba **Transações** deve conter as colunas exatas:
+  `Data, Nome, Tipo, Reserva, Conta/Canal, Categoria, Subcategoria, Forma, Valor, Status, Parcela, Obs`.
 
-## Escopo inicial
-Inclui Home, Transações, Categorias, login com sessão e criação/listagem; sem edição/exclusão e sem telas de dívidas/abas mensais.
+## Regras desta versão
+- Sem banco de dados.
+- Frontend nunca acessa Apps Script direto.
+- Sem edição/exclusão de transações.
+- Sem polling automático.

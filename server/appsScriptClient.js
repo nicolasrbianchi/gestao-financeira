@@ -1,84 +1,52 @@
 import { config } from './config.js';
 
-const mockTransactions = () => ({
-  ok: true,
-  transactions: [
-    {
-      Data: new Date().toISOString().slice(0, 10),
-      Nome: 'Salário',
-      Tipo: 'Receita',
-      Reserva: '',
-      'Conta/Canal': 'Conta principal',
-      Categoria: 'Renda',
-      Subcategoria: '',
-      Forma: 'PIX',
-      Valor: 5000,
-      Status: 'Recebido em dia',
-      Parcela: '',
-      Obs: 'mock',
-      sheetRowNumber: 2,
-    },
-    {
-      Data: new Date().toISOString().slice(0, 10),
-      Nome: 'Mercado',
-      Tipo: 'Despesa',
-      Reserva: '',
-      'Conta/Canal': 'Cartão',
-      Categoria: 'Alimentação',
-      Subcategoria: 'Essencial',
-      Forma: 'Crédito',
-      Valor: 250,
-      Status: 'Pago em dia',
-      Parcela: '',
-      Obs: 'mock',
-      sheetRowNumber: 3,
-    },
-  ],
-});
+const shouldUseMock = !config.isProd && config.useMockData;
 
-async function call(action, params = {}) {
+const mockResponse = (action) => {
+  if (action === 'health') return { ok: true, mock: true, timestamp: new Date().toISOString() };
+  if (action === 'metadata') return { ok: true, types: [], reserves: [], accounts: [], categories: [], subcategories: [], paymentMethods: [], statuses: [] };
+  if (action === 'transactions') return { ok: true, transactions: [] };
+  if (action === 'add') return { ok: true, mock: true };
+  return { ok: true, mock: true };
+};
+
+async function callAppsScript(action, params = {}) {
+  if (shouldUseMock) return mockResponse(action);
+
   if (!config.appsScriptUrl) {
-    if (config.useMockData) {
-      if (action === 'transactions') return mockTransactions();
-      if (action === 'metadata') {
-        return {
-          ok: true,
-          types: ['Receita', 'Despesa', 'Reserva'],
-          categories: ['Renda', 'Alimentação', 'Saúde', 'Moradia'],
-          subcategories: ['Essencial', 'Opcional'],
-          accounts: ['Conta principal', 'Cartão'],
-          paymentMethods: ['PIX', 'Crédito', 'Débito'],
-          statuses: ['Recebido em dia', 'Pago em dia'],
-          reserves: ['Entrada', 'Saida'],
-        };
-      }
-      if (action === 'health') return { ok: true, mock: true, timestamp: new Date().toISOString() };
-      if (action === 'add') return { ok: true, mock: true };
-
-      return { ok: true, mock: true };
-    }
-
-    throw new Error('APPS_SCRIPT_URL não configurada');
+    throw new Error(config.isProd ? 'APPS_SCRIPT_URL ausente em produção.' : 'APPS_SCRIPT_URL não configurada.');
   }
 
   const url = new URL(config.appsScriptUrl);
   url.searchParams.set('action', action);
-  url.searchParams.set('token', config.appsScriptToken);
-
+  url.searchParams.set('token', config.appsScriptToken || '');
   Object.entries(params).forEach(([k, v]) => {
-    if (v !== undefined && v !== '') url.searchParams.set(k, v);
+    if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
   });
 
-  const r = await fetch(url);
-  if (!r.ok) throw new Error('Falha Apps Script');
+  let response;
+  try {
+    response = await fetch(url, { method: 'GET' });
+  } catch (error) {
+    console.error('[appsScriptClient] network error', { action, message: error.message });
+    throw new Error('Falha de rede ao chamar Apps Script.');
+  }
 
-  const data = await r.json();
-  if (data.ok === false) throw new Error(data.error || 'Erro Apps Script');
+  if (!response.ok) {
+    console.error('[appsScriptClient] http error', { action, status: response.status });
+    throw new Error(`Apps Script respondeu HTTP ${response.status}.`);
+  }
+
+  const data = await response.json();
+  if (data?.ok === false) {
+    console.error('[appsScriptClient] appscript error', { action, error: data.error || 'unknown' });
+    throw new Error(data.error || 'Erro retornado pelo Apps Script.');
+  }
 
   return data;
 }
 
-export const getTransactions = () => call('transactions');
-export const getMetadata = () => call('metadata');
-export const addTransaction = (payload) => call('add', payload);
-export const health = () => call('health');
+export const getTransactions = () => callAppsScript('transactions');
+export const getMetadata = () => callAppsScript('metadata');
+export const addTransaction = (payload) => callAppsScript('add', payload);
+export const health = () => callAppsScript('health');
