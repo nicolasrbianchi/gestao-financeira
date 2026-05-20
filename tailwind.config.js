@@ -7,11 +7,11 @@ export default {
         sans: ['Inter', 'ui-sans-serif', 'system-ui']
       },
       colors: {
-        surface: '#f6f7fb',
-        ink: '#0f172a'
+        surface: '#050816',
+        ink: '#e5e7eb'
       },
       boxShadow: {
-        soft: '0 12px 30px rgba(15, 23, 42, 0.08)'
+        soft: '0 18px 42px rgba(0, 0, 0, 0.28)'
       },
       borderRadius: {
         '4xl': '2rem',
