@@ -233,7 +233,15 @@ export function buildDashboard(transactions, context = {}) {
     // Recalcula running usando a sequência original como baseline.
     // Para dias sem movimento, o saldo se mantém.
     const runningByDate = Object.fromEntries(serieDiaria.map((day) => [day.date, day.runningSaldoDisponivel]));
-    let lastRunning = 0;
+
+    // Se o primeiro dia da janela não existir na série original, carregamos o último running
+    // anterior a ele para não cair para 0 indevidamente.
+    const startIso = padded[0]?.date;
+    const prevKnown = serieDiaria
+      .filter((day) => day.date && startIso && day.date < startIso)
+      .slice(-1)[0];
+
+    let lastRunning = prevKnown ? prevKnown.runningSaldoDisponivel : 0;
     for (const day of padded) {
       const known = runningByDate[day.date];
       if (known != null) lastRunning = known;
