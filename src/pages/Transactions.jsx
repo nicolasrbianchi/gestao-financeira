@@ -86,12 +86,17 @@ export default function Transactions({ data, loading, filters, setFilters, onOpe
                   </p>
                 </div>
 
-                <div className='mt-2 flex min-w-0 flex-wrap gap-1.5 text-[11px]'>
-                  {transaction.category && <span className='text-[11px] font-semibold text-slate-500'>Categoria: {transaction.category}</span>}
-                  {transaction.subcategory && <span className='badge'>{transaction.subcategory}</span>}
-                  {transaction.paymentMethod && <span className='badge'>{transaction.paymentMethod}</span>}
-                  {transaction.reserve && <span className='badge'>Reserva: {transaction.reserve}</span>}
-                  {transaction.installment && <span className='badge'>{transaction.installment}</span>}
+                <div className='mt-2 flex min-w-0 items-start justify-between gap-3 text-[11px]'>
+                  <div className='min-w-0 text-slate-500'>
+                    {transaction.category ? <span className='font-semibold'>Categoria:</span> : null}{' '}
+                    <span className='truncate'>{transaction.category || ''}</span>
+                  </div>
+                  <div className='flex min-w-0 flex-wrap justify-end gap-1.5'>
+                    {transaction.subcategory && <span className='badge'>{transaction.subcategory}</span>}
+                    {transaction.paymentMethod && <span className='badge'>{transaction.paymentMethod}</span>}
+                    {transaction.reserve && <span className='badge'>Reserva: {transaction.reserve}</span>}
+                    {transaction.installment && <span className='badge'>{transaction.installment}</span>}
+                  </div>
                 </div>
                 {transaction.notes && <p className='mt-2 truncate text-[11px] text-slate-400'>{transaction.notes}</p>}
               </article>
