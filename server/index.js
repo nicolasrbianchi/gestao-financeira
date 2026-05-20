@@ -1,5 +1,5 @@
 import express from 'express';
-import session from 'express-session';
+import cookieSession from 'cookie-session';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -16,11 +16,13 @@ if (config.isProd) app.set('trust proxy', 1);
 app.use(requestContext);
 app.use(express.json());
 app.use(
-  session({
-    secret: config.sessionSecret,
-    resave: false,
-    saveUninitialized: false,
-    cookie: { httpOnly: true, secure: config.isProd, sameSite: 'lax', maxAge: 7 * 24 * 60 * 60 * 1000 },
+  cookieSession({
+    name: 'gf_session',
+    keys: [config.sessionSecret],
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    httpOnly: true,
+    secure: config.isProd,
+    sameSite: 'lax',
   })
 );
 app.use(requestLogger);

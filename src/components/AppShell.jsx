@@ -54,6 +54,12 @@ export default function AppShell(props) {
 
   const reload = useCallback(() => setReloadKey((value) => value + 1), []);
 
+  // Recarrega dados da aba atual + metadata (usado no "Mais")
+  const reloadAll = useCallback(() => {
+    onReload?.();
+    reload();
+  }, [onReload, reload]);
+
   useEffect(() => {
     if (!route) {
       setLoading(false);
@@ -97,7 +103,7 @@ export default function AppShell(props) {
       return <Transactions data={data} loading={loading} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} />;
     }
     if (safeTab === 'categories') return <Categories data={data} loading={loading} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} />;
-    return <More api={api} metadata={metadata || {}} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} onReload={reload} onLogout={onLogout} />;
+    return <More api={api} metadata={metadata || {}} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} onReload={reloadAll} onLogout={onLogout} />;
   };
 
   return (

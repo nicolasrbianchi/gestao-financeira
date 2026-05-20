@@ -25,7 +25,12 @@ router.post('/auth/login', (req, res) => {
   logger.warn('auth_login_failed', { requestId: req.requestId, login: login ? '[SET]' : '[EMPTY]' });
   return res.status(401).json({ ok: false, error: 'Credenciais inválidas', requestId: req.requestId });
 });
-router.post('/auth/logout', (req, res) => req.session.destroy(() => { logger.info('auth_logout', { requestId: req.requestId }); res.json({ ok: true }); }));
+router.post('/auth/logout', (req, res) => {
+  // cookie-session: limpar sessão no cookie
+  req.session = null;
+  logger.info('auth_logout', { requestId: req.requestId });
+  res.json({ ok: true });
+});
 
 router.use(requireAuth);
 
