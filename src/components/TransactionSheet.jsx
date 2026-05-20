@@ -55,7 +55,9 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
         next.categoria = value === 'Saldo' ? TRANSFER_CATEGORY : value === 'Reserva' ? '' : next.categoria;
         next.subcategoria = ['Reserva', 'Saldo'].includes(value) ? '' : next.subcategoria;
         next.forma = ['Reserva', 'Saldo'].includes(value) ? '' : next.forma;
-        next.status = next.status || defaultStatus(value);
+        next.parcela = ['Reserva', 'Saldo'].includes(value) ? '' : next.parcela;
+        next.obs = ['Reserva', 'Saldo'].includes(value) ? '' : next.obs;
+        next.status = current.status || defaultStatus(value);
       }
       return next;
     });
@@ -69,15 +71,22 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
     </label>
   );
 
-  const select = (key, label, options, props = {}) => (
-    <label className='space-y-1 text-xs font-semibold text-slate-500'>
-      <span>{label}</span>
-      <select value={form[key]} onChange={(event) => update(key, event.target.value)} {...props}>
-        <option value=''>Selecione</option>
-        {options.map((option) => <option key={option} value={option}>{option}</option>)}
-      </select>
-    </label>
-  );
+  const selectOrInput = (key, label, options, props = {}) => {
+    const list = uniqueOptions(options);
+    return (
+      <label className='space-y-1 text-xs font-semibold text-slate-500'>
+        <span>{label}</span>
+        {list.length ? (
+          <select value={form[key]} onChange={(event) => update(key, event.target.value)} {...props}>
+            <option value=''>Selecione</option>
+            {list.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        ) : (
+          <input value={form[key]} onChange={(event) => update(key, event.target.value)} placeholder={label} {...props} />
+        )}
+      </label>
+    );
+  };
 
   const isIncomeOrExpense = ['Receita', 'Despesa'].includes(form.tipo);
   const isReserve = form.tipo === 'Reserva';
@@ -86,7 +95,8 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
   const types = uniqueOptions(metadata.types, fallback.types);
 
   const validate = () => {
-    if (!form.data || !form.tipo || !form.conta || !form.valor) return 'Preencha data, tipo, conta/canal e valor.';
+    if (!form.tipo) return 'Escolha o tipo do lançamento.';
+    if (!form.data || !form.conta || !form.valor) return 'Preencha data, conta/canal e valor.';
     if (!isBalance && !form.nome) return 'Preencha o nome da transação.';
     if (isReserve && !form.reserva) return 'Reserva exige Entrada ou Saida.';
     if (isIncomeOrExpense && (!form.categoria || !form.subcategoria || !form.forma)) return 'Receita e Despesa exigem categoria, subcategoria e forma.';
@@ -127,21 +137,20 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
     <div className='sheet' role='dialog' aria-modal='true' onMouseDown={(event) => { if (event.target === event.currentTarget) onClose?.(); }}>
       <form className='sheet-panel space-y-4' onSubmit={submit}>
         <div className='flex items-start justify-between gap-3'>
-          <div>
+          <div className='min-w-0'>
             <p className='text-xs font-semibold uppercase tracking-[0.18em] text-indigo-500'>Nova transação</p>
-            <h2 className='mt-1 text-xl font-bold text-slate-900'>{form.tipo ? `Lançar ${form.tipo}` : 'Adicionar lançamento'}</h2>
+            <h2 className='mt-1 truncate text-xl font-bold text-slate-900'>{form.tipo ? `Lançar ${form.tipo}` : 'Adicionar lançamento'}</h2>
           </div>
-          <button type='button' onClick={onClose} className='rounded-2xl bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-500'>Fechar</button>
+          <button type='button' onClick={onClose} className='shrink-0 rounded-2xl bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-500'>Fechar</button>
         </div>
 
-        <div className='grid grid-cols-4 gap-2'>
+        <div className='grid grid-cols-2 gap-2'>
           {types.map((type) => {
             const Icon = typeIcons[type] || Wallet;
             const active = form.tipo === type;
             return (
-              <button key={type} type='button' onClick={() => update('tipo', type)} className={`rounded-3xl border px-2 py-3 text-center text-[11px] font-bold transition active:scale-95 ${active ? 'border-indigo-400/60 bg-indigo-500/20 text-indigo-100' : 'border-slate-500/20 bg-slate-50 text-slate-500'}`}>
-                <Icon className='mx-auto mb-1' size={16} />
-                {type}
+              <button key={type} type='button' onClick={() => update('tipo', type)} className={`min-h-[58px] rounded-3xl border px-3 py-2 text-left text-xs font-bold transition active:scale-95 ${active ? 'border-indigo-400/60 bg-indigo-500/20 text-indigo-100' : 'border-slate-500/20 bg-slate-50 text-slate-500'}`}>
+                <span className='flex items-center gap-2'><Icon size={16} /> {type}</span>
               </button>
             );
           })}
@@ -154,10 +163,10 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
 
         <div className='rounded-4xl bg-slate-50 p-3'>
           <div className='mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-400'>
-            <Landmark size={14} /> Origem
+            <Landmark size={14} /> Dados principais
           </div>
           <div className='grid grid-cols-1 gap-3'>
-            {select('conta', 'Conta/Canal', uniqueOptions(metadata.accounts), { required: true })}
+            {selectOrInput('conta', 'Conta/Canal', metadata.accounts, { required: true })}
             {!isBalance && input('nome', 'Nome', { placeholder: isReserve ? 'Ex.: Reserva emergência' : 'Ex.: Mercado, Salário', required: true })}
             {isBalance && (
               <label className='space-y-1 text-xs font-semibold text-slate-500'>
@@ -165,25 +174,20 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
                 <input value={TRANSFER_CATEGORY} disabled />
               </label>
             )}
+            {isReserve && selectOrInput('reserva', 'Entrada ou Saida', uniqueOptions(metadata.reserves, fallback.reserves), { required: true })}
           </div>
         </div>
-
-        {isReserve && (
-          <div className='rounded-4xl bg-slate-50 p-3'>
-            {select('reserva', 'Movimento da reserva', uniqueOptions(metadata.reserves, fallback.reserves), { required: true })}
-          </div>
-        )}
 
         {isIncomeOrExpense && (
           <div className='rounded-4xl bg-slate-50 p-3'>
             <p className='mb-3 text-xs font-bold uppercase tracking-[0.14em] text-slate-400'>Classificação</p>
             <div className='grid grid-cols-1 gap-3'>
-              {select('categoria', 'Categoria', uniqueOptions(metadata.categories, fallback.categories), { required: true })}
+              {selectOrInput('categoria', 'Categoria', uniqueOptions(metadata.categories, fallback.categories), { required: true })}
               <div className='grid grid-cols-2 gap-3'>
-                {select('subcategoria', 'Subcategoria', uniqueOptions(metadata.subcategories, fallback.subcategories), { required: true })}
-                {select('forma', 'Forma', uniqueOptions(paymentMethods, fallback.paymentMethods), { required: true })}
+                {selectOrInput('subcategoria', 'Subcategoria', uniqueOptions(metadata.subcategories, fallback.subcategories), { required: true })}
+                {selectOrInput('forma', 'Forma', uniqueOptions(paymentMethods, fallback.paymentMethods), { required: true })}
               </div>
-              {select('status', 'Status opcional', uniqueOptions(metadata.statuses, fallback.statuses), {})}
+              {selectOrInput('status', 'Status opcional', uniqueOptions(metadata.statuses, fallback.statuses), {})}
             </div>
           </div>
         )}
@@ -200,7 +204,7 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
 
         {error && <p className='rounded-2xl bg-rose-50 p-3 text-sm text-rose-600'>{error}</p>}
 
-        <button type='submit' disabled={saving} className='sticky bottom-0 w-full rounded-3xl bg-slate-950 px-4 py-4 text-sm font-bold text-white shadow-soft'>
+        <button type='submit' disabled={saving} className='w-full rounded-3xl bg-slate-950 px-4 py-4 text-sm font-bold text-white shadow-soft'>
           {saving ? 'Salvando…' : 'Salvar transação'}
         </button>
       </form>

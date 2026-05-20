@@ -13,6 +13,7 @@ const toneByType = {
 export default function Transactions({ data, loading, filters, setFilters, onOpenFilters }) {
   const transactions = data?.transactions || [];
   const summary = data?.summary || { totalAmount: 0, count: transactions.length };
+  const period = filterChip(filters) || 'Todos os registros';
 
   if (loading && !data) return <div className='loading-state'>Carregando transações…</div>;
 
@@ -21,11 +22,20 @@ export default function Transactions({ data, loading, filters, setFilters, onOpe
       <header className='px-1'>
         <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Lançamentos</p>
         <h1 className='text-2xl font-bold text-slate-900'>Transações</h1>
-        <p className='mt-1 text-sm text-slate-500'>{filterChip(filters) || 'Todos os registros'}</p>
       </header>
 
-      <section className='rounded-4xl bg-white p-3 shadow-soft'>
-        <div className='flex items-center gap-2'>
+      <section className='rounded-4xl bg-white p-4 shadow-soft'>
+        <div className='flex items-start justify-between gap-3'>
+          <div className='min-w-0'>
+            <p className='truncate text-xs font-semibold text-slate-500'>{period}</p>
+            <p className='mt-1 break-words text-2xl font-extrabold text-slate-900'>{money(summary.totalAmount || 0)}</p>
+          </div>
+          <button type='button' onClick={onOpenFilters} className='grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-950 text-white' aria-label='Filtrar transações'>
+            <Filter size={18} />
+          </button>
+        </div>
+
+        <div className='mt-4 flex items-center gap-2'>
           <label className='relative flex-1'>
             <Search className='pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400' size={16} />
             <input
@@ -35,21 +45,13 @@ export default function Transactions({ data, loading, filters, setFilters, onOpe
               onChange={(event) => setFilters({ ...filters, search: event.target.value })}
             />
           </label>
-          <button type='button' onClick={onOpenFilters} className='grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-950 text-white'>
-            <Filter size={18} />
-          </button>
+          <div className='grid h-12 min-w-14 place-items-center rounded-2xl bg-slate-50 px-3 text-center'>
+            <div>
+              <p className='text-sm font-extrabold text-slate-900'>{summary.count ?? transactions.length}</p>
+              <p className='-mt-0.5 text-[10px] font-semibold text-slate-500'>itens</p>
+            </div>
+          </div>
         </div>
-      </section>
-
-      <section className='grid grid-cols-2 gap-3'>
-        <article className='min-w-0 rounded-4xl bg-white p-3 shadow-soft'>
-          <p className='text-xs text-slate-500'>Total filtrado</p>
-          <p className='mt-1 break-words text-lg font-bold'>{money(summary.totalAmount || 0)}</p>
-        </article>
-        <article className='min-w-0 rounded-4xl bg-white p-3 shadow-soft'>
-          <p className='text-xs text-slate-500'>Itens</p>
-          <p className='mt-1 text-lg font-bold'>{summary.count ?? transactions.length}</p>
-        </article>
       </section>
 
       {loading && data && <div className='rounded-3xl bg-indigo-50 p-3 text-center text-xs font-semibold text-indigo-600'>Atualizando…</div>}
