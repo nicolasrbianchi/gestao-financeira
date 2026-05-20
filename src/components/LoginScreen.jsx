@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../api/client';
+import niccoMark from '../assets/nicco-mark.jpg';
 
 export default function LoginScreen({ onOk }) {
   const [login, setL] = useState('');
@@ -21,9 +22,22 @@ export default function LoginScreen({ onOk }) {
           }
         }}
       >
-        <div className='space-y-1'>
+        <div className='space-y-3'>
+          <div className='mx-auto grid w-fit place-items-center'>
+            <img
+              src={niccoMark}
+              alt='Nicco Finance'
+              className='brand-mark'
+              loading='eager'
+              decoding='async'
+            />
+          </div>
+
+          <div className='space-y-1 text-center'>
           <h2>Nicco Finance</h2>
           <p className='muted'>Precisão financeira</p>
+        </div>
+
         </div>
 
         <div className='space-y-3'>
