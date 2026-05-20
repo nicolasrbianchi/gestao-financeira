@@ -132,7 +132,7 @@ export default function Ai({ api }) {
             onChange={(e) => setInput(e.target.value)}
             rows={2}
             placeholder='Pergunta pro Nicco IA…'
-            className='min-h-[48px] flex-1 resize-none rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-soft outline-none focus:border-indigo-300'
+            className='min-h-[48px] flex-1 resize-none rounded-3xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 shadow-soft outline-none focus:border-indigo-300'
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();

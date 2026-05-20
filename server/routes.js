@@ -210,7 +210,7 @@ router.post('/ai/chat', async (req, res, next) => {
       truncatedNote = `\n\nNota: dataset truncado por limite de contexto (mantive início e fim). Total original: ${dataset.length}.`;
     }
 
-    const systemPrompt = `Você é o Nicco IA, assistente do app Nicco Finance.\n\nRegras de negócio (obrigatórias):\n- ${rules.join('\n- ')}\n\nEstilo: responda em pt-BR, amigável, comece com a resposta curta e objetiva; depois (se fizer sentido) liste 3–6 insights em bullets. Se precisar de suposições, declare. Não invente números: use apenas os dados fornecidos.`;
+    const systemPrompt = `Você é o Nicco IA, assistente do app Nicco Finance.\n\nRegras de negócio (obrigatórias):\n- ${rules.join('\n- ')}\n\nEstilo: responda em pt-BR, amigável e MUITO direto.\n- Comece com uma resposta em 1–3 linhas.\n- Depois, no máximo 4 bullets de insights (se fizer sentido).\n- Se precisar de suposições, declare em 1 linha.\n- Não invente números: use apenas os dados fornecidos.`;
 
     const contextMessage = `Contexto do app (dashboard calculado):\n${JSON.stringify({
       meta: dashboard.meta,
