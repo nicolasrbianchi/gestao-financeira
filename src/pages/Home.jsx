@@ -38,7 +38,7 @@ function LoadingSkeleton() {
   );
 }
 
-export default function Home({ data, loading, filters, setFilters, onGoTransactions }) {
+export default function Home({ data, loading, onGoTransactions }) {
   if (loading && !data) return <LoadingSkeleton />;
 
   const summaryCards = data?.summaryCards || [];
@@ -72,8 +72,11 @@ export default function Home({ data, loading, filters, setFilters, onGoTransacti
     <div className='space-y-5'>
       <header className='flex items-center justify-between gap-3 px-1 pt-1'>
         <div className='min-w-0'>
-          <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Resumo financeiro</p>
-          <h1 className='truncate text-2xl font-bold text-slate-900'>Minha carteira</h1>
+          <div className='flex items-center gap-2'>
+            <img src='/favicon.jpg' alt='Nicco Finance' className='h-7 w-7 rounded-xl ring-1 ring-white/10' />
+            <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Nicco Finance</p>
+          </div>
+          <h1 className='truncate text-2xl font-bold text-slate-900'>Dashboard</h1>
         </div>
       </header>
 
