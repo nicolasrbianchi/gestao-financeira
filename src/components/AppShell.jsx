@@ -7,7 +7,7 @@ import Transactions from '../pages/Transactions';
 import Categories from '../pages/Categories';
 import More from '../pages/More';
 import Ai from '../pages/Ai';
-import { Filter, Settings2 } from 'lucide-react';
+import { Filter, Settings } from 'lucide-react';
 
 const ROUTES = {
   home: '/dashboard',
@@ -137,7 +137,7 @@ export default function AppShell(props) {
           className='icon-btn'
           aria-label='Configurações'
         >
-          <Settings2 size={18} />
+          <Settings size={18} />
         </button>
       </div>
       <main className='min-w-0'>{renderPage()}</main>

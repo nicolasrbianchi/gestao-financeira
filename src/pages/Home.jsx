@@ -16,10 +16,11 @@ function ActivityTooltip({ active, payload }) {
   return (
     <div className='rounded-2xl border border-white/10 bg-[rgba(10,10,16,0.96)] px-3 py-2 shadow-soft'>
       <div className='space-y-1'>
-      <p className='text-xs font-semibold text-slate-200'>{d.label || d.day || ''}</p>
-      <p className='text-xs text-slate-300'>Receita: <span className='font-semibold text-emerald-200'>+{money(d.income || 0)}</span></p>
-      <p className='text-xs text-slate-300'>Despesa: <span className='font-semibold text-rose-200'>-{money(d.expense || 0)}</span></p>
-      <p className='text-xs text-slate-300'>Balanço: <span className='font-semibold text-[#f2d58b]'>{money(d.balance || 0)}</span></p>
+        <p className='text-xs font-semibold text-slate-200'>{d.label || d.day || ''}</p>
+        <p className='text-xs text-slate-300'>Saldo: <span className='font-semibold text-slate-100'>{money(d.prevBalance || 0)}</span></p>
+        <p className='text-xs text-slate-300'>Receita: <span className='font-semibold text-emerald-200'>+{money(d.income || 0)}</span></p>
+        <p className='text-xs text-slate-300'>Despesa: <span className='font-semibold text-rose-200'>-{money(d.expense || 0)}</span></p>
+        <p className='text-xs text-slate-300'>Balanço: <span className='font-semibold text-[#f2d58b]'>{money(d.balance || 0)}</span></p>
       </div>
     </div>
   );
@@ -62,7 +63,10 @@ export default function Home({ data, loading, filters, setFilters, onGoTransacti
         item.runningSaldoDisponivel ??
         ((item.receitas || 0) + (item.saldo || 0) + (item.reservasSaida || 0) - (item.despesas || 0) - (item.reservasEntrada || 0))
     };
-  });
+  }).map((point, index, arr) => ({
+    ...point,
+    prevBalance: index === 0 ? point.balance - (point.income || 0) + (point.expense || 0) : arr[index - 1].balance,
+  }));
   const transactions = recentTransactions.slice(0, 5);
   const goalPercent = meta.usedPercent == null ? null : Math.round(meta.usedPercent * 100);
 
@@ -166,7 +170,7 @@ export default function Home({ data, loading, filters, setFilters, onGoTransacti
         <div className='mb-4 flex items-center justify-between gap-3'>
           <div>
             <p className='text-sm font-semibold text-slate-900'>Atividade recente</p>
-            <p className='text-xs text-slate-500'>Receitas vs despesas diárias (últimos 8 dias). Passe o mouse para ver o balanço.</p>
+            <p className='text-xs text-slate-500'>Receita vs despesa (últimos 8 dias).</p>
           </div>
           <div className='shrink-0 text-right text-xs'>
             <p className='font-semibold text-emerald-600'>+{money(income)}</p>

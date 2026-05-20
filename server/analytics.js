@@ -205,6 +205,51 @@ export function buildDashboard(transactions, context = {}) {
     return { ...day, delta, runningSaldoDisponivel: running };
   });
 
+  // Preenche dias sem transação para manter uma janela contínua no gráfico (ex: últimos 8 dias).
+  const pad2 = (v) => String(v).padStart(2, '0');
+  const toIso = (d) => `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+  const toUtcDate = (iso) => {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(String(iso))) return null;
+    const d = new Date(`${iso}T12:00:00Z`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+  const addDays = (d, n) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + n, 12));
+
+  const chartDays = Number(context?.chartDays || 8);
+  const endIso = context?.filters?.endDate || serieDiariaRaw[serieDiariaRaw.length - 1]?.date || null;
+  const end = toUtcDate(endIso);
+  if (end && chartDays > 0) {
+    const byDate = Object.fromEntries(serieDiaria.map((day) => [day.date, day]));
+    const padded = [];
+    for (let i = chartDays - 1; i >= 0; i--) {
+      const cursor = addDays(end, -i);
+      const iso = toIso(cursor);
+      const existing = byDate[iso];
+      padded.push(
+        existing || { date: iso, receitas: 0, despesas: 0, reservasEntrada: 0, reservasSaida: 0, saldo: 0 }
+      );
+    }
+
+    // Recalcula running usando a sequência original como baseline.
+    // Para dias sem movimento, o saldo se mantém.
+    const runningByDate = Object.fromEntries(serieDiaria.map((day) => [day.date, day.runningSaldoDisponivel]));
+    let lastRunning = 0;
+    for (const day of padded) {
+      const known = runningByDate[day.date];
+      if (known != null) lastRunning = known;
+      day.runningSaldoDisponivel = lastRunning;
+    }
+
+    // Troca a série do chart por uma série contínua (mantém `serieDiaria` completo para uso futuro).
+    // Usada pela Home.
+    // eslint-disable-next-line no-param-reassign
+    serieDiaria.splice(0, serieDiaria.length, ...padded.map((d) => ({
+      ...d,
+      delta: (d.receitas || 0) + (d.saldo || 0) + (d.reservasSaida || 0) - (d.despesas || 0) - (d.reservasEntrada || 0),
+      runningSaldoDisponivel: d.runningSaldoDisponivel,
+    })));
+  }
+
   const recentTransactions = [...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.sheetRowNumber - a.sheetRowNumber).slice(0, 10);
   const topTransactions = [...realExpenseTransactions].sort((a, b) => b.amount - a.amount).slice(0, 10);
 
