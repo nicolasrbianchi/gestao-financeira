@@ -1,4 +1,6 @@
-# Gestão Financeira
+# Nicco Finance
+
+Tagline: **Precisão financeira**
 
 Stack: **React/Vite + Express + Apps Script + Google Sheets**.
 
