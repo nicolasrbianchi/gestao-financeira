@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 import { money } from '../utils/format';
-import { defaultFilters, filterChip } from '../utils/filters';
+import { mtdFilters, filterChip } from '../utils/filters';
 
 const txIcons = {
   Receita: Wallet,
@@ -79,7 +79,7 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
           <CalendarDays size={16} className='shrink-0 text-indigo-500' />
           <p className='truncate text-xs font-semibold text-slate-500'>{filterChip(filters) || 'Período atual'}</p>
         </div>
-        <button type='button' onClick={() => setFilters?.(defaultFilters())} className='shrink-0 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600'>MTD</button>
+        <button type='button' onClick={() => setFilters?.(mtdFilters())} className='shrink-0 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600'>MTD</button>
       </section>
 
       <section className='min-w-0 rounded-5xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 p-5 text-white shadow-soft'>

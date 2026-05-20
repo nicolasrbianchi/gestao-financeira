@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CalendarDays, Database, Filter, LogOut, RefreshCcw, Server, ShieldCheck, SlidersHorizontal, Tags } from 'lucide-react';
-import { defaultFilters, filterChip } from '../utils/filters';
+import { mtdFilters, filterChip } from '../utils/filters';
 
 function Row({ icon: Icon, title, description, action, children }) {
   return (
@@ -48,11 +48,11 @@ export default function More({ api, metadata = {}, filters, setFilters, onOpenFi
       <Row
         icon={SlidersHorizontal}
         title='Filtros globais'
-        description={filterChip(filters) || 'MTD padrão ativo'}
+        description={filterChip(filters) || 'Até hoje'}
         action={(
           <div className='grid grid-cols-2 gap-3'>
             <button type='button' onClick={onOpenFilters} className='flex items-center justify-center gap-2 rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'><Filter size={16} /> Ajustar</button>
-            <button type='button' onClick={() => setFilters?.(defaultFilters())} className='flex items-center justify-center gap-2 rounded-3xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600'><CalendarDays size={16} /> MTD</button>
+            <button type='button' onClick={() => setFilters?.(mtdFilters())} className='flex items-center justify-center gap-2 rounded-3xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600'><CalendarDays size={16} /> MTD</button>
           </div>
         )}
       />
@@ -89,7 +89,7 @@ export default function More({ api, metadata = {}, filters, setFilters, onOpenFi
 
       <Row icon={ShieldCheck} title='Regras ativas' description='Sem banco próprio · Apps Script protegido no backend · sessão HTTP-only.'>
         <div className='mt-3 flex flex-wrap gap-2'>
-          <span className='badge'>MTD padrão</span>
+          <span className='badge'>Saldo até hoje</span>
           <span className='badge'>Meta geral</span>
           <span className='badge'>Transferência especial</span>
         </div>
