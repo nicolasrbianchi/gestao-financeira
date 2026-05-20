@@ -4,7 +4,7 @@ import { ArrowDownRight, Landmark, Layers3, Tags } from 'lucide-react';
 import { money } from '../utils/format';
 
 // Paleta premium (sem roxo neon). Primeiro tom = champagne do app.
-const COLORS = ['#f3e6cc', '#cdbb93', '#22c55e', '#fb7185', '#06b6d4', '#f59e0b', '#a3a3a3', '#e7dcc6'];
+const COLORS = ['#f2d58b', '#d6b25e', '#22c55e', '#fb7185', '#06b6d4', '#f59e0b', '#a3a3a3', '#efe2c9'];
 
 function totalOf(items = []) {
   return items.reduce((sum, item) => sum + Math.abs(item.value || 0), 0);

@@ -7,14 +7,14 @@ const toneByType = {
   Receita: 'text-emerald-400 bg-emerald-500/10 border-emerald-400/20',
   Despesa: 'text-rose-400 bg-rose-500/10 border-rose-400/20',
   Reserva: 'text-amber-300 bg-amber-500/10 border-amber-300/20',
-  Saldo: 'text-[#e7dcc6] bg-[rgba(205,187,147,0.12)] border-[rgba(205,187,147,0.22)]'
+  Saldo: 'text-[#f2d58b] bg-[rgba(214,178,94,0.12)] border-[rgba(214,178,94,0.22)]'
 };
 
 const amountColorByType = {
   Receita: 'text-emerald-400',
   Despesa: 'text-rose-400',
   Reserva: 'text-amber-300',
-  Saldo: 'text-[#e7dcc6]'
+  Saldo: 'text-[#f2d58b]'
 };
 
 export default function Transactions({ data, loading, filters, setFilters, onOpenFilters }) {

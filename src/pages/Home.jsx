@@ -116,7 +116,7 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
               <LineChart data={series} margin={{ left: 4, right: 4, top: 6, bottom: 0 }}>
                 <XAxis dataKey='day' axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
                 <Tooltip formatter={(value) => money(value)} />
-                <Line type='monotone' dataKey='balance' stroke='#faeed6' strokeWidth={3} dot={false} />
+                <Line type='monotone' dataKey='balance' stroke='#f2d58b' strokeWidth={3} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
