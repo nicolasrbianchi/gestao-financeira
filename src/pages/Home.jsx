@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   ArrowUpRight,
+  CalendarDays,
   PiggyBank,
   TrendingDown,
   Wallet
