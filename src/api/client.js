@@ -1,5 +1,10 @@
 export async function api(path, opts = {}) {
-  const r = await fetch(`/api${path}`, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...opts });
+  const r = await fetch(`/api${path}`, {
+    cache: 'no-store',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+  });
   const d = await r.json().catch(() => ({}));
   if (!r.ok) {
     const code = d.requestId ? ` Código: ${d.requestId}` : '';

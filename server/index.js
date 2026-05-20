@@ -13,6 +13,10 @@ const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 if (config.isProd) app.set('trust proxy', 1);
 
+// Evita respostas 304 (ETag) nos endpoints JSON, que quebram o client (fetch espera body JSON).
+// Static assets continuam com cache normal via express.static.
+app.set('etag', false);
+
 app.use(requestContext);
 app.use(express.json());
 app.use(
