@@ -77,7 +77,10 @@ export default function Transactions({ data, loading, filters, setFilters, onOpe
                       <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone}`}>{transaction.type || 'Sem tipo'}</span>
                       <p className='truncate text-sm font-bold text-slate-900'>{transaction.name || 'Sem nome'}</p>
                     </div>
-                    <p className='mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500'><CalendarDays size={12} /> {transaction.displayDate || transaction.date || 'Sem data'} · {transaction.account || 'Sem conta'}</p>
+                    <p className='mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500'>
+                      <CalendarDays size={12} /> {transaction.displayDate || transaction.date || 'Sem data'} · {transaction.account || 'Sem conta'}
+                      {transaction.category ? ` · ${transaction.category}` : ''}
+                    </p>
                   </div>
                   <p className={`max-w-[8rem] shrink-0 break-words text-right text-sm font-extrabold ${amountTone}`}>
                     {isIncome ? '+' : '-'}{money(Math.abs(transaction.amount || 0))}
@@ -85,7 +88,6 @@ export default function Transactions({ data, loading, filters, setFilters, onOpe
                 </div>
 
                 <div className='mt-2 flex min-w-0 flex-wrap gap-1.5 text-[11px]'>
-                  {transaction.category && <span className='badge'>{transaction.category}</span>}
                   {transaction.subcategory && <span className='badge'>{transaction.subcategory}</span>}
                   {transaction.paymentMethod && <span className='badge'>{transaction.paymentMethod}</span>}
                   {transaction.reserve && <span className='badge'>Reserva: {transaction.reserve}</span>}

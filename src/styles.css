@@ -279,18 +279,7 @@ section.bg-gradient-to-br {
     inset 0 1px 0 rgba(255, 217, 142, 0.10);
 }
 
-/* highlight sutil no topo do hero para dar vida/precisão */
-section.bg-gradient-to-br::after {
-  content: '';
-  position: absolute;
-  left: 18px;
-  right: 18px;
-  top: 12px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 217, 142, 0.38), transparent);
-  opacity: 0.9;
-  pointer-events: none;
-}
+/* (removido) highlight no topo do hero: ficou poluindo o bloco principal */
 
 .recharts-default-tooltip {
   border: 1px solid rgba(255, 255, 255, 0.09) !important;

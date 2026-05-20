@@ -6,12 +6,23 @@ import {
   PiggyBank,
   Settings2,
   TrendingDown,
-  TrendingUp,
   Wallet
 } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 import { money } from '../utils/format';
 import { mtdFilters, filterChip } from '../utils/filters';
+
+function ActivityTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0]?.payload || {};
+  return (
+    <div className='space-y-1'>
+      <p className='text-xs font-semibold text-slate-200'>{d.label || d.day || ''}</p>
+      <p className='text-xs text-slate-300'>Despesa: <span className='font-semibold text-rose-200'>-{money(d.expense || 0)}</span></p>
+      <p className='text-xs text-slate-300'>Saldo após: <span className='font-semibold text-slate-100'>{money(d.balance || 0)}</span></p>
+    </div>
+  );
+}
 
 function cardValue(cards = [], key) {
   return cards.find((card) => card.key === key)?.value ?? 0;
@@ -39,15 +50,19 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
   const reserves = cardValue(summaryCards, 'reservas');
   const income = cardValue(summaryCards, 'receitas');
   const expense = Math.abs(cardValue(summaryCards, 'despesas'));
-  const series = (charts.dailySeries || []).slice(-7).map((item) => ({
-    day: item.date?.slice(5) || '',
-    balance:
-      item.runningSaldoDisponivel ??
-      ((item.receitas || 0) + (item.saldo || 0) + (item.reservasSaida || 0) - (item.despesas || 0) - (item.reservasEntrada || 0))
-  }));
+  const series = (charts.dailySeries || []).slice(-10).map((item) => {
+    const label = item.date ? `${item.date.slice(8, 10)}/${item.date.slice(5, 7)}` : '';
+    return {
+      day: label,
+      label,
+      expense: item.despesas || 0,
+      balance:
+        item.runningSaldoDisponivel ??
+        ((item.receitas || 0) + (item.saldo || 0) + (item.reservasSaida || 0) - (item.despesas || 0) - (item.reservasEntrada || 0))
+    };
+  });
   const transactions = recentTransactions.slice(0, 5);
   const goalPercent = meta.usedPercent == null ? null : Math.round(meta.usedPercent * 100);
-  const goalRemaining = meta.value ? meta.remaining || 0 : null;
 
   return (
     <div className='space-y-5'>
@@ -85,59 +100,52 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
       </section>
 
       <section className='min-w-0 rounded-5xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 p-5 text-white shadow-soft'>
-        <p className='text-sm text-slate-300'>Saldo disponível</p>
+        <p className='text-sm text-slate-300'>Saldo Total</p>
         <h2 className='mt-2 text-[2.35rem] font-extrabold leading-tight tracking-tight tabular-nums'>{money(totalBalance)}</h2>
-        <div className='mt-5 grid grid-cols-2 gap-3 rounded-3xl bg-white/10 p-4'>
+        <div className='mt-5 grid grid-cols-3 gap-3 rounded-3xl bg-white/10 p-4'>
           <div className='min-w-0'>
-            <p className='text-xs text-slate-300'>Despesas vs meta</p>
-            <p className='mt-1 flex items-center gap-1 text-sm font-semibold text-rose-200 tabular-nums'><TrendingDown size={15} /> {money(expense)}</p>
+            <p className='text-xs text-slate-300'>Receita</p>
+            <p className='mt-1 flex items-center gap-1 text-sm font-semibold text-emerald-200 tabular-nums'>
+              <ArrowUpRight size={15} /> {money(income)}
+            </p>
+          </div>
+          <div className='min-w-0'>
+            <p className='text-xs text-slate-300'>Despesa</p>
+            <p className='mt-1 flex items-center gap-1 text-sm font-semibold text-rose-200 tabular-nums'>
+              <TrendingDown size={15} /> {money(expense)}
+            </p>
           </div>
           <div className='min-w-0 text-right'>
-            <p className='text-xs text-slate-300'>{meta.value ? `Meta ${meta.month || ''}` : 'Meta do mês'}</p>
-            <p className={`mt-1 text-sm font-semibold tabular-nums ${goalRemaining != null && goalRemaining < 0 ? 'text-rose-200' : 'text-emerald-200'}`}>
-              {meta.value ? `${goalPercent}% · ${money(goalRemaining)}` : 'Sem meta'}
+            <p className='text-xs text-slate-300'>Reserva</p>
+            <p className='mt-1 flex items-center justify-end gap-1 text-sm font-semibold text-amber-200 tabular-nums'>
+              <PiggyBank size={15} /> {money(reserves)}
             </p>
           </div>
         </div>
       </section>
 
-      <section className='grid grid-cols-3 gap-3'>
-        <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
-          <ArrowUpRight className='text-emerald-500' size={18} />
-          <p className='mt-3 text-xs text-slate-500'>Receitas</p>
-          <p className='mt-1 text-lg font-bold tabular-nums'>{money(income)}</p>
-        </article>
-        <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
-          <TrendingDown className='text-rose-500' size={18} />
-          <p className='mt-3 text-xs text-slate-500'>Despesas</p>
-          <p className='mt-1 text-lg font-bold tabular-nums'>{money(expense)}</p>
-        </article>
-        <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
-          <PiggyBank className='text-indigo-500' size={18} />
-          <p className='mt-3 text-xs text-slate-500'>Reserva</p>
-          <p className='mt-1 text-lg font-bold tabular-nums'>{money(reserves)}</p>
-        </article>
-      </section>
-
       {accountBreakdown.length > 0 && (
         <section className='rounded-4xl bg-white p-5 shadow-soft'>
           <div className='mb-4'>
-            <h3 className='text-base font-semibold text-slate-900'>Por conta/canal</h3>
-            <p className='text-xs text-slate-500'>Transferências não contam como receita/despesa, mas afetam o saldo.</p>
+            <h3 className='text-base font-semibold text-slate-900'>Contas Bancarias</h3>
+            <p className='text-xs text-slate-500'>Saldo detalhado das contas utilizadas.</p>
           </div>
           <div className='space-y-3'>
             {accountBreakdown.map((account) => (
               <article key={account.account} className='rounded-3xl bg-slate-50 p-4'>
-                <div className='flex items-start justify-between gap-3'>
+                <div className='flex items-start justify-between gap-4'>
                   <div className='min-w-0'>
-                    <p className='truncate text-sm font-bold text-slate-800'>{account.account}</p>
+                    <p className='truncate text-sm font-extrabold text-slate-900'>{account.account}</p>
                     <p className='mt-1 text-xs text-slate-500'>Reserva: {money(account.reservaAtual || 0)}</p>
                   </div>
-                  <p className='max-w-[8rem] break-words text-right text-sm font-extrabold text-slate-900'>{money(account.saldoDisponivel || 0)}</p>
+                  <div className='text-right'>
+                    <p className='text-[11px] font-semibold text-slate-500'>Disponível</p>
+                    <p className='max-w-[9rem] break-words text-right text-base font-extrabold text-slate-900'>{money(account.saldoDisponivel || 0)}</p>
+                  </div>
                 </div>
                 <div className='mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-500'>
-                  <span>Entrou: {money((account.receitas || 0) + (account.transferenciasEntrada || 0))}</span>
-                  <span>Saiu: {money((account.despesas || 0) + (account.transferenciasSaida || 0))}</span>
+                  <span>Entradas: {money((account.receitas || 0) + (account.transferenciasEntrada || 0))}</span>
+                  <span>Saídas: {money((account.despesas || 0) + (account.transferenciasSaida || 0))}</span>
                 </div>
               </article>
             ))}
@@ -178,7 +186,7 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
             <ResponsiveContainer width='100%' height='100%'>
               <LineChart data={series} margin={{ left: 4, right: 4, top: 6, bottom: 0 }}>
                 <XAxis dataKey='day' axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                <Tooltip formatter={(value) => money(value)} />
+                <Tooltip content={<ActivityTooltip />} />
                 <Line type='monotone' dataKey='balance' stroke='#f2d58b' strokeWidth={3} dot={false} />
               </LineChart>
             </ResponsiveContainer>
@@ -222,6 +230,7 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
                       </div>
                       <p className='mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500'>
                         <CalendarDays size={12} /> {transaction.displayDate || transaction.date || 'Sem data'} · {transaction.account || 'Sem conta'}
+                        {transaction.category ? ` · ${transaction.category}` : ''}
                       </p>
                     </div>
                     <p className={`max-w-[8rem] shrink-0 break-words text-right text-sm font-extrabold ${amountTone}`}>
@@ -230,7 +239,6 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
                   </div>
 
                   <div className='mt-2 flex min-w-0 flex-wrap gap-1.5 text-[11px]'>
-                    {transaction.category && <span className='badge'>{transaction.category}</span>}
                     {transaction.subcategory && <span className='badge'>{transaction.subcategory}</span>}
                     {transaction.paymentMethod && <span className='badge'>{transaction.paymentMethod}</span>}
                     {transaction.reserve && <span className='badge'>Reserva: {transaction.reserve}</span>}
