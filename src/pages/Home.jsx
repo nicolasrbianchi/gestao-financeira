@@ -181,7 +181,15 @@ export default function Home({ data, loading, filters, setFilters, onGoTransacti
           {series.length ? (
             <ResponsiveContainer width='100%' height='100%'>
               <LineChart data={series} margin={{ left: 4, right: 4, top: 6, bottom: 0 }}>
-                <XAxis dataKey='day' axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                <XAxis
+                  dataKey='day'
+                  axisLine={false}
+                  tickLine={false}
+                  interval={0}
+                  minTickGap={0}
+                  tickMargin={8}
+                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                />
                 <Tooltip content={<ActivityTooltip />} />
                 <Line type='monotone' dataKey='income' stroke='#34d399' strokeWidth={2.5} dot={false} />
                 <Line type='monotone' dataKey='expense' stroke='#fb7185' strokeWidth={2.5} dot={false} />
