@@ -66,7 +66,7 @@ export default function Transactions({ data, loading, filters, setFilters, onOpe
       {transactions.length ? (
         <section className='space-y-2.5'>
           {transactions.map((transaction, index) => {
-            const isIncome = transaction.type === 'Receita' || transaction.type === 'Saldo' || (transaction.type === 'Reserva' && transaction.reserve === 'Saida');
+            const isIncome = transaction.type === 'Receita' || transaction.type === 'Saldo' || (transaction.type === 'Reserva' && transaction.reserve === 'Entrada');
             const tone = toneByType[transaction.type] || 'text-slate-300 bg-slate-500/10 border-slate-300/20';
             const amountTone = amountColorByType[transaction.type] || (isIncome ? 'pos' : 'neg');
             return (

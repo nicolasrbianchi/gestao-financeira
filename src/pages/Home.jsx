@@ -1,14 +1,12 @@
 import React from 'react';
 import {
   ArrowUpRight,
-  CalendarDays,
   PiggyBank,
   TrendingDown,
   Wallet
 } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 import { money } from '../utils/format';
-import { mtdFilters, filterChip } from '../utils/filters';
 
 function ActivityTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
@@ -79,13 +77,7 @@ export default function Home({ data, loading, filters, setFilters, onGoTransacti
         </div>
       </header>
 
-      <section className='flex items-center justify-between gap-3 rounded-3xl bg-white/70 px-4 py-3 shadow-soft'>
-        <div className='flex min-w-0 items-center gap-2'>
-          <CalendarDays size={16} className='shrink-0 text-indigo-500' />
-          <p className='truncate text-xs font-semibold text-slate-500'>{filterChip(filters) || 'Período atual'}</p>
-        </div>
-        <button type='button' onClick={() => setFilters?.(mtdFilters())} className='shrink-0 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600'>MTD</button>
-      </section>
+      {/* Filtro de data removido da visualização do Dashboard (continua aplicando por baixo). */}
 
       <section className='min-w-0 rounded-5xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 p-5 text-white shadow-soft'>
         <p className='text-sm text-slate-300'>Saldo Total</p>
@@ -188,7 +180,8 @@ export default function Home({ data, loading, filters, setFilters, onGoTransacti
                   interval={0}
                   minTickGap={0}
                   tickMargin={8}
-                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  padding={{ left: 10, right: 10 }}
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
                 />
                 <Tooltip content={<ActivityTooltip />} />
                 <Line type='monotone' dataKey='income' stroke='#34d399' strokeWidth={2.5} dot={false} />
@@ -209,7 +202,7 @@ export default function Home({ data, loading, filters, setFilters, onGoTransacti
         {transactions.length ? (
           <section className='space-y-2.5'>
             {transactions.map((transaction, index) => {
-              const isIncome = transaction.type === 'Receita' || transaction.type === 'Saldo' || (transaction.type === 'Reserva' && transaction.reserve === 'Saida');
+              const isIncome = transaction.type === 'Receita' || transaction.type === 'Saldo' || (transaction.type === 'Reserva' && transaction.reserve === 'Entrada');
               const toneByType = {
                 Receita: 'text-emerald-400 bg-emerald-500/10 border-emerald-400/20',
                 Despesa: 'text-rose-400 bg-rose-500/10 border-rose-400/20',
