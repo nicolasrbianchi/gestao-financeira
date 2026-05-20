@@ -164,7 +164,7 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
         <section className='rounded-4xl bg-white p-5 shadow-soft'>
           <div className='mb-4'>
             <h3 className='text-base font-semibold text-slate-900'>Por conta/canal</h3>
-            <p className='text-xs text-slate-500'>Transferências contam só nesta visão.</p>
+            <p className='text-xs text-slate-500'>Transferências não contam como receita/despesa, mas afetam o saldo.</p>
           </div>
           <div className='space-y-3'>
             {accountBreakdown.map((account) => (

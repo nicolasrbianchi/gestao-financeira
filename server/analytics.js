@@ -122,7 +122,11 @@ export function buildDashboard(transactions, context = {}) {
   const reservasEntrada = sum(transactions.filter(isReserveIn));
   const reservasSaida = sum(transactions.filter(isReserveOut));
   const reservaAtual = reservasEntrada - reservasSaida;
-  const saldoDisponivel = receitas + saldoInicial + reservasSaida - totalDespesas - reservasEntrada;
+
+  // Regra: transferências entre contas NÃO contam como receita/despesa real,
+  // mas afetam o caixa disponível (movimentação entre canais).
+  // Então no saldo disponível global elas entram como: +transferIn - transferOut.
+  const saldoDisponivel = receitas + saldoInicial + transferenciasEntrada + reservasSaida - totalDespesas - transferenciasSaida - reservasEntrada;
   const meta = buildGoal(totalDespesas, context.filters, context.monthlyGoals);
 
   const totalPorTipo = groupBy(transactions, (t) => t.type);
@@ -166,7 +170,7 @@ export function buildDashboard(transactions, context = {}) {
   logger.debug('dashboard_build_completed', { requestId: context.requestId, transactionCount: transactions.length, goalMonth: meta.month, goalValue: meta.value, accountCount: accountBreakdown.length, insightsCount: buildInsights(transactions, totals, groups).length });
   return {
     summaryCards: [
-      { key: 'saldoDisponivel', title: 'Saldo disponível', value: saldoDisponivel, tone: saldoDisponivel >= 0 ? 'success' : 'danger', helper: 'Receitas + saldo - despesas - reservas' },
+      { key: 'saldoDisponivel', title: 'Saldo disponível', value: saldoDisponivel, tone: saldoDisponivel >= 0 ? 'success' : 'danger', helper: 'Receitas + saldo ± transferências ± reservas - despesas' },
       { key: 'receitas', title: 'Receitas reais', value: receitas, tone: 'success', helper: 'Sem transferências entre contas' },
       { key: 'despesas', title: 'Despesas reais', value: totalDespesas, tone: 'danger', helper: 'Usadas na meta do mês' },
       { key: 'reservas', title: 'Reservas', value: reservaAtual, tone: 'info', helper: 'Entradas - saídas de reserva' },
