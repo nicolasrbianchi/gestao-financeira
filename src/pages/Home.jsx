@@ -2,9 +2,7 @@ import React from 'react';
 import {
   ArrowUpRight,
   CalendarDays,
-  Filter,
   PiggyBank,
-  Settings2,
   TrendingDown,
   Wallet
 } from 'lucide-react';
@@ -16,11 +14,13 @@ function ActivityTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const d = payload[0]?.payload || {};
   return (
-    <div className='space-y-1'>
+    <div className='rounded-2xl border border-white/10 bg-[rgba(10,10,16,0.96)] px-3 py-2 shadow-soft'>
+      <div className='space-y-1'>
       <p className='text-xs font-semibold text-slate-200'>{d.label || d.day || ''}</p>
       <p className='text-xs text-slate-300'>Receita: <span className='font-semibold text-emerald-200'>+{money(d.income || 0)}</span></p>
       <p className='text-xs text-slate-300'>Despesa: <span className='font-semibold text-rose-200'>-{money(d.expense || 0)}</span></p>
-      <p className='text-xs text-slate-300'>Saldo após: <span className='font-semibold text-slate-100'>{money(d.balance || 0)}</span></p>
+      <p className='text-xs text-slate-300'>Balanço: <span className='font-semibold text-[#f2d58b]'>{money(d.balance || 0)}</span></p>
+      </div>
     </div>
   );
 }
@@ -39,7 +39,7 @@ function LoadingSkeleton() {
   );
 }
 
-export default function Home({ data, loading, filters, setFilters, onOpenFilters, onOpenMore, onGoTransactions }) {
+export default function Home({ data, loading, filters, setFilters, onGoTransactions }) {
   if (loading && !data) return <LoadingSkeleton />;
 
   const summaryCards = data?.summaryCards || [];
@@ -51,7 +51,7 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
   const reserves = cardValue(summaryCards, 'reservas');
   const income = cardValue(summaryCards, 'receitas');
   const expense = Math.abs(cardValue(summaryCards, 'despesas'));
-  const series = (charts.dailySeries || []).slice(-10).map((item) => {
+  const series = (charts.dailySeries || []).slice(-8).map((item) => {
     const label = item.date ? `${item.date.slice(8, 10)}/${item.date.slice(5, 7)}` : '';
     return {
       day: label,
@@ -72,24 +72,6 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
         <div className='min-w-0'>
           <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Resumo financeiro</p>
           <h1 className='truncate text-2xl font-bold text-slate-900'>Minha carteira</h1>
-        </div>
-        <div className='flex shrink-0 items-center gap-2'>
-          <button
-            type='button'
-            onClick={onOpenFilters}
-            className='grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-600 shadow-soft transition active:scale-95'
-            aria-label='Abrir filtros'
-          >
-            <Filter size={18} />
-          </button>
-          <button
-            type='button'
-            onClick={onOpenMore}
-            className='grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-600 shadow-soft transition active:scale-95'
-            aria-label='Configurações'
-          >
-            <Settings2 size={18} />
-          </button>
         </div>
       </header>
 
@@ -134,18 +116,27 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
           </div>
           <div className='grid gap-3'>
             {accountBreakdown.map((account) => (
-              <article key={account.account} className='rounded-4xl bg-white p-4 shadow-soft ring-1 ring-slate-100'>
+              <article key={account.account} className='rounded-4xl bg-white p-4 shadow-soft ring-1 ring-white/10'>
                 <div className='flex items-start justify-between gap-4'>
                   <div className='min-w-0'>
-                    <p className='truncate text-sm font-extrabold text-slate-900'>{account.account}</p>
-                    <p className='mt-1 text-[11px] font-semibold text-slate-500'>Saldo</p>
-                    <p className='mt-1 text-xl font-extrabold tracking-tight tabular-nums text-slate-950'>{money(account.saldoDisponivel || 0)}</p>
+                    <p className='truncate text-sm font-extrabold text-slate-100'>{account.account}</p>
+                    <p className='mt-1 text-[11px] font-semibold text-slate-400'>Saldo</p>
+                    <p className='mt-1 text-xl font-extrabold tracking-tight tabular-nums text-[#f2d58b]'>{money(account.saldoDisponivel || 0)}</p>
                   </div>
 
-                  <div className='min-w-[10.25rem] text-right text-[11px] text-slate-500'>
-                    <p><span className='font-semibold text-slate-600'>Entradas:</span> {money((account.receitas || 0) + (account.transferenciasEntrada || 0))}</p>
-                    <p className='mt-1'><span className='font-semibold text-slate-600'>Saídas:</span> {money((account.despesas || 0) + (account.transferenciasSaida || 0))}</p>
-                    <p className='mt-1'><span className='font-semibold text-slate-600'>Reserva:</span> {money(account.reservaAtual || 0)}</p>
+                  <div className='min-w-[10.25rem] text-right text-[11px] text-slate-400'>
+                    <p>
+                      <span className='font-semibold text-slate-300'>Entradas:</span>{' '}
+                      <span className='font-semibold text-emerald-200'>{money((account.receitas || 0) + (account.transferenciasEntrada || 0))}</span>
+                    </p>
+                    <p className='mt-1'>
+                      <span className='font-semibold text-slate-300'>Saídas:</span>{' '}
+                      <span className='font-semibold text-rose-200'>{money((account.despesas || 0) + (account.transferenciasSaida || 0))}</span>
+                    </p>
+                    <p className='mt-1'>
+                      <span className='font-semibold text-slate-300'>Reserva:</span>{' '}
+                      <span className='font-semibold text-[#f2d58b]'>{money(account.reservaAtual || 0)}</span>
+                    </p>
                   </div>
                 </div>
               </article>
@@ -175,7 +166,7 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
         <div className='mb-4 flex items-center justify-between gap-3'>
           <div>
             <p className='text-sm font-semibold text-slate-900'>Atividade recente</p>
-            <p className='text-xs text-slate-500'>Saldo disponível ao longo do período (sem transferências)</p>
+            <p className='text-xs text-slate-500'>Receitas vs despesas diárias (últimos 8 dias). Passe o mouse para ver o balanço.</p>
           </div>
           <div className='shrink-0 text-right text-xs'>
             <p className='font-semibold text-emerald-600'>+{money(income)}</p>

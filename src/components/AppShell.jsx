@@ -7,6 +7,7 @@ import Transactions from '../pages/Transactions';
 import Categories from '../pages/Categories';
 import More from '../pages/More';
 import Ai from '../pages/Ai';
+import { Filter, Settings2 } from 'lucide-react';
 
 const ROUTES = {
   home: '/dashboard',
@@ -107,8 +108,6 @@ export default function AppShell(props) {
           loading={loading}
           filters={filters}
           setFilters={setFilters}
-          onOpenFilters={() => setShowFilters(true)}
-          onOpenMore={() => onTab('more')}
           onGoTransactions={() => onTab('transactions')}
         />
       );
@@ -123,6 +122,24 @@ export default function AppShell(props) {
 
   return (
     <div className='app-frame'>
+      <div className='top-actions'>
+        <button
+          type='button'
+          onClick={() => setShowFilters(true)}
+          className='icon-btn'
+          aria-label='Abrir filtros'
+        >
+          <Filter size={18} />
+        </button>
+        <button
+          type='button'
+          onClick={() => onTab('more')}
+          className='icon-btn'
+          aria-label='Configurações'
+        >
+          <Settings2 size={18} />
+        </button>
+      </div>
       <main className='min-w-0'>{renderPage()}</main>
 
       <BottomNav tab={safeTab} onTab={onTab} onAdd={() => setShowTransactionSheet(true)} />
