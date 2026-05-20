@@ -176,15 +176,34 @@ export default function Ai({ api }) {
 
   return (
     <div className='flex min-h-[calc(100dvh-12.5rem)] flex-col gap-4'>
-      <header className='flex items-end justify-between gap-3 px-1'>
-        <div className='min-w-0'>
-          <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Assistente</p>
-          <h1 className='truncate text-2xl font-bold text-slate-100'>Nicco IA</h1>
-          <p className='mt-1 text-sm text-slate-400'>Pergunta qualquer coisa sobre seus números e transações.</p>
+      <header className='px-1'>
+        <div className='flex items-center justify-between gap-3'>
+          <div className='flex min-w-0 items-center gap-3'>
+            <img
+              src='/favicon.jpg'
+              alt='Nicco Finance'
+              className='h-10 w-10 shrink-0 rounded-2xl ring-1 ring-white/10'
+            />
+            <div className='min-w-0'>
+              <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Assistente</p>
+              <h1 className='truncate text-2xl font-bold text-slate-100'>Nicco IA</h1>
+            </div>
+          </div>
+
+          <button
+            type='button'
+            onClick={startNew}
+            className='shrink-0 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-slate-100 shadow-soft transition active:opacity-90'
+            aria-label='Nova conversa'
+          >
+            <span className='inline-flex items-center gap-2'>
+              <Trash2 size={16} />
+              Nova
+            </span>
+          </button>
         </div>
-        <button type='button' onClick={startNew} className='icon-btn' aria-label='Nova conversa'>
-          <Trash2 size={18} />
-        </button>
+
+        <p className='mt-2 text-sm text-slate-400'>Pergunta qualquer coisa sobre seus números e transações.</p>
       </header>
 
       {/* ChatGPT-ish: conversa ocupa a página; composer fixo no fundo da viewport (acima do bottom-nav). */}
