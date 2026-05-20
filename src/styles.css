@@ -133,6 +133,26 @@ option {
       linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.06));
     padding-bottom: calc(7.75rem + env(safe-area-inset-bottom));
   }
+  .settings-fab {
+    position: absolute;
+    top: calc(0.75rem + env(safe-area-inset-top));
+    right: 1rem;
+    z-index: 30;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.82);
+    color: rgba(71, 85, 105, 0.95);
+    box-shadow:
+      0 26px 82px rgba(0, 0, 0, 0.72),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition: transform 140ms ease, background 140ms ease;
+  }
+  .settings-fab:active { transform: scale(0.96); }
   .app-frame::before { content: ''; position: fixed; inset: 0; z-index: -1; background: radial-gradient(circle at 50% 6%, rgba(205, 187, 147, 0.055), transparent 38%); pointer-events: none; }
   .card {
     @apply relative my-3 min-w-0 rounded-4xl p-4;

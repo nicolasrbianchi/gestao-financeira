@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   ArrowUpRight,
-  Bell,
   CalendarDays,
   CreditCard,
   Filter,
@@ -64,14 +63,6 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
           <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Resumo financeiro</p>
           <h1 className='truncate text-2xl font-bold text-slate-900'>Minha carteira</h1>
         </div>
-        <div className='flex shrink-0 items-center gap-2'>
-          <button type='button' onClick={onOpenFilters} className='grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-600 shadow-soft transition active:scale-95' aria-label='Abrir filtros'>
-            <Filter size={18} />
-          </button>
-          <button type='button' className='grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-600 shadow-soft transition active:scale-95'>
-            <Bell size={18} />
-          </button>
-        </div>
       </header>
 
       <section className='flex items-center justify-between gap-3 rounded-3xl bg-white/70 px-4 py-3 shadow-soft'>
@@ -79,7 +70,12 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
           <CalendarDays size={16} className='shrink-0 text-indigo-500' />
           <p className='truncate text-xs font-semibold text-slate-500'>{filterChip(filters) || 'Período atual'}</p>
         </div>
-        <button type='button' onClick={() => setFilters?.(mtdFilters())} className='shrink-0 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600'>MTD</button>
+        <div className='flex shrink-0 items-center gap-2'>
+          <button type='button' onClick={onOpenFilters} className='grid h-10 w-10 place-items-center rounded-2xl bg-white text-slate-600 shadow-soft transition active:scale-95' aria-label='Abrir filtros'>
+            <Filter size={17} />
+          </button>
+          <button type='button' onClick={() => setFilters?.(mtdFilters())} className='shrink-0 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600'>MTD</button>
+        </div>
       </section>
 
       <section className='min-w-0 rounded-5xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 p-5 text-white shadow-soft'>
@@ -96,6 +92,67 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
               {meta.value ? `${goalPercent}% · ${money(goalRemaining)}` : 'Sem meta'}
             </p>
           </div>
+        </div>
+      </section>
+
+      <section className='grid grid-cols-3 gap-3'>
+        <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
+          <ArrowUpRight className='text-emerald-500' size={18} />
+          <p className='mt-3 text-xs text-slate-500'>Receitas</p>
+          <p className='mt-1 text-lg font-bold tabular-nums'>{money(income)}</p>
+        </article>
+        <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
+          <TrendingDown className='text-rose-500' size={18} />
+          <p className='mt-3 text-xs text-slate-500'>Despesas</p>
+          <p className='mt-1 text-lg font-bold tabular-nums'>{money(expense)}</p>
+        </article>
+        <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
+          <PiggyBank className='text-indigo-500' size={18} />
+          <p className='mt-3 text-xs text-slate-500'>Reserva</p>
+          <p className='mt-1 text-lg font-bold tabular-nums'>{money(reserves)}</p>
+        </article>
+      </section>
+
+      {accountBreakdown.length > 0 && (
+        <section className='rounded-4xl bg-white p-5 shadow-soft'>
+          <div className='mb-4'>
+            <h3 className='text-base font-semibold text-slate-900'>Por conta/canal</h3>
+            <p className='text-xs text-slate-500'>Transferências não contam como receita/despesa, mas afetam o saldo.</p>
+          </div>
+          <div className='space-y-3'>
+            {accountBreakdown.map((account) => (
+              <article key={account.account} className='rounded-3xl bg-slate-50 p-4'>
+                <div className='flex items-start justify-between gap-3'>
+                  <div className='min-w-0'>
+                    <p className='truncate text-sm font-bold text-slate-800'>{account.account}</p>
+                    <p className='mt-1 text-xs text-slate-500'>Reserva: {money(account.reservaAtual || 0)}</p>
+                  </div>
+                  <p className='max-w-[8rem] break-words text-right text-sm font-extrabold text-slate-900'>{money(account.saldoDisponivel || 0)}</p>
+                </div>
+                <div className='mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-500'>
+                  <span>Entrou: {money((account.receitas || 0) + (account.transferenciasEntrada || 0))}</span>
+                  <span>Saiu: {money((account.despesas || 0) + (account.transferenciasSaida || 0))}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className='rounded-4xl bg-white p-5 shadow-soft'>
+        <div className='flex items-center justify-between gap-3'>
+          <div>
+            <h3 className='text-base font-semibold text-slate-900'>Meta do mês</h3>
+            <p className='text-xs text-slate-500'>{meta.month || 'Período atual'} · {meta.status || 'Sem status'}</p>
+          </div>
+          <p className={`shrink-0 text-right text-sm font-bold ${(meta.remaining ?? 0) < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
+            {meta.value ? money(meta.remaining || 0) : '—'}
+          </p>
+        </div>
+        <div className='progress mt-4'><span className={goalPercent > 100 ? '!bg-rose-500' : goalPercent >= 80 ? '!bg-amber-500' : ''} style={{ width: `${Math.min(goalPercent || 0, 100)}%` }} /></div>
+        <div className='mt-3 flex justify-between text-xs text-slate-500'>
+          <span>Gasto: {money(meta.spent || expense)}</span>
+          <span>Meta: {meta.value ? money(meta.value) : 'não definida'}</span>
         </div>
       </section>
 
@@ -124,67 +181,6 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
           )}
         </div>
       </section>
-
-      <section className='grid grid-cols-3 gap-3'>
-        <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
-          <ArrowUpRight className='text-emerald-500' size={18} />
-          <p className='mt-3 text-xs text-slate-500'>Receitas</p>
-          <p className='mt-1 text-lg font-bold tabular-nums'>{money(income)}</p>
-        </article>
-        <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
-          <TrendingDown className='text-rose-500' size={18} />
-          <p className='mt-3 text-xs text-slate-500'>Despesas</p>
-          <p className='mt-1 text-lg font-bold tabular-nums'>{money(expense)}</p>
-        </article>
-        <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
-          <PiggyBank className='text-indigo-500' size={18} />
-          <p className='mt-3 text-xs text-slate-500'>Reserva</p>
-          <p className='mt-1 text-lg font-bold tabular-nums'>{money(reserves)}</p>
-        </article>
-      </section>
-
-      <section className='rounded-4xl bg-white p-5 shadow-soft'>
-        <div className='flex items-center justify-between gap-3'>
-          <div>
-            <h3 className='text-base font-semibold text-slate-900'>Meta do mês</h3>
-            <p className='text-xs text-slate-500'>{meta.month || 'Período atual'} · {meta.status || 'Sem status'}</p>
-          </div>
-          <p className={`shrink-0 text-right text-sm font-bold ${(meta.remaining ?? 0) < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
-            {meta.value ? money(meta.remaining || 0) : '—'}
-          </p>
-        </div>
-        <div className='progress mt-4'><span className={goalPercent > 100 ? '!bg-rose-500' : goalPercent >= 80 ? '!bg-amber-500' : ''} style={{ width: `${Math.min(goalPercent || 0, 100)}%` }} /></div>
-        <div className='mt-3 flex justify-between text-xs text-slate-500'>
-          <span>Gasto: {money(meta.spent || expense)}</span>
-          <span>Meta: {meta.value ? money(meta.value) : 'não definida'}</span>
-        </div>
-      </section>
-
-      {accountBreakdown.length > 0 && (
-        <section className='rounded-4xl bg-white p-5 shadow-soft'>
-          <div className='mb-4'>
-            <h3 className='text-base font-semibold text-slate-900'>Por conta/canal</h3>
-            <p className='text-xs text-slate-500'>Transferências não contam como receita/despesa, mas afetam o saldo.</p>
-          </div>
-          <div className='space-y-3'>
-            {accountBreakdown.map((account) => (
-              <article key={account.account} className='rounded-3xl bg-slate-50 p-4'>
-                <div className='flex items-start justify-between gap-3'>
-                  <div className='min-w-0'>
-                    <p className='truncate text-sm font-bold text-slate-800'>{account.account}</p>
-                    <p className='mt-1 text-xs text-slate-500'>Reserva: {money(account.reservaAtual || 0)}</p>
-                  </div>
-                  <p className='max-w-[8rem] break-words text-right text-sm font-extrabold text-slate-900'>{money(account.saldoDisponivel || 0)}</p>
-                </div>
-                <div className='mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-500'>
-                  <span>Entrou: {money((account.receitas || 0) + (account.transferenciasEntrada || 0))}</span>
-                  <span>Saiu: {money((account.despesas || 0) + (account.transferenciasSaida || 0))}</span>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
 
       <section className='rounded-4xl bg-white p-5 shadow-soft'>
         <div className='mb-4 flex items-center justify-between gap-3'>

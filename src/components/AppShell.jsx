@@ -6,11 +6,14 @@ import Home from '../pages/Home';
 import Transactions from '../pages/Transactions';
 import Categories from '../pages/Categories';
 import More from '../pages/More';
+import Ai from '../pages/Ai';
+import { Settings2 } from 'lucide-react';
 
 const ROUTES = {
   home: '/dashboard',
   transactions: '/transactions',
   categories: '/categories',
+  ai: null,
   more: null
 };
 
@@ -103,11 +106,22 @@ export default function AppShell(props) {
       return <Transactions data={data} loading={loading} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} />;
     }
     if (safeTab === 'categories') return <Categories data={data} loading={loading} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} />;
+    if (safeTab === 'ai') return <Ai />;
     return <More api={api} metadata={metadata || {}} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} onReload={reloadAll} onLogout={onLogout} />;
   };
 
   return (
     <div className='app-frame'>
+      {safeTab !== 'more' && (
+        <button
+          type='button'
+          className='settings-fab'
+          aria-label='Configurações'
+          onClick={() => onTab('more')}
+        >
+          <Settings2 size={18} />
+        </button>
+      )}
       <main className='min-w-0'>{renderPage()}</main>
 
       <BottomNav tab={safeTab} onTab={onTab} onAdd={() => setShowTransactionSheet(true)} />

@@ -1,11 +1,11 @@
 import React from 'react';
-import { BarChart3, Home, ListChecks, MoreHorizontal, Plus } from 'lucide-react';
+import { BarChart3, LayoutDashboard, ListChecks, Plus, Sparkles } from 'lucide-react';
 
 const tabs = [
-  { key: 'home', label: 'Home', icon: Home },
+  { key: 'home', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'transactions', label: 'Transações', icon: ListChecks },
   { key: 'categories', label: 'Categorias', icon: BarChart3 },
-  { key: 'more', label: 'Mais', icon: MoreHorizontal }
+  { key: 'ai', label: 'Nicco IA', icon: Sparkles }
 ];
 
 export default function BottomNav({ tab, onTab, onAdd }) {
