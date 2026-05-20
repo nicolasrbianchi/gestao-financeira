@@ -54,6 +54,29 @@ router.get('/health', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 router.get('/metadata', async (req, res, next) => { try { const d = await client.getMetadata({ requestId: req.requestId }); logger.info('metadata_loaded', { requestId: req.requestId, categories: d.categories?.length || 0 }); res.json(d); } catch (e) { next(e); } });
+
+// Bootstrap: reduz roundtrips no 1º carregamento (dashboard + metadata em uma chamada)
+router.get('/bootstrap', async (req, res, next) => {
+  try {
+    const [normalized, metadata] = await Promise.all([
+      loadNormalizedTx(req),
+      client.getMetadata({ requestId: req.requestId }).catch((error) => {
+        logger.warn('bootstrap_metadata_failed', { requestId: req.requestId, error: error.message });
+        return {};
+      }),
+    ]);
+
+    const tx = filterTx(normalized, req.query, { requestId: req.requestId });
+    const txToDate = filterTx(normalized, buildToDateQuery(req.query), { requestId: req.requestId });
+    const dashboard = buildDashboard(tx, { requestId: req.requestId, filters: req.query, monthlyGoals: metadata.monthlyGoals, toDateTransactions: txToDate, chartDays: 8 });
+
+    logger.info('bootstrap_requested', { requestId: req.requestId, txCount: tx.length, txCountToDate: txToDate.length });
+    res.json({ ok: true, metadata, dashboard });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/dashboard', async (req, res, next) => {
   try {
     const [normalized, metadata] = await Promise.all([
@@ -68,7 +91,7 @@ router.get('/dashboard', async (req, res, next) => {
     const txToDate = filterTx(normalized, buildToDateQuery(req.query), { requestId: req.requestId });
 
     logger.info('dashboard_requested', { requestId: req.requestId, count: tx.length, countToDate: txToDate.length });
-    res.json({ ok: true, ...(buildDashboard(tx, { requestId: req.requestId, filters: req.query, monthlyGoals: metadata.monthlyGoals, toDateTransactions: txToDate })) });
+    res.json({ ok: true, ...(buildDashboard(tx, { requestId: req.requestId, filters: req.query, monthlyGoals: metadata.monthlyGoals, toDateTransactions: txToDate, chartDays: 8 })) });
   } catch (e) {
     next(e);
   }
@@ -94,7 +117,7 @@ router.get('/categories', async (req, res, next) => {
 
     const tx = filterTx(normalized, req.query, { requestId: req.requestId });
     const txToDate = filterTx(normalized, buildToDateQuery(req.query), { requestId: req.requestId });
-    const dashboard = buildDashboard(tx, { requestId: req.requestId, filters: req.query, monthlyGoals: metadata.monthlyGoals, toDateTransactions: txToDate });
+    const dashboard = buildDashboard(tx, { requestId: req.requestId, filters: req.query, monthlyGoals: metadata.monthlyGoals, toDateTransactions: txToDate, chartDays: 8 });
     logger.info('categories_loaded', { requestId: req.requestId, count: dashboard.totalPorCategoria.length, countToDate: txToDate.length });
     res.json({ ok: true, meta: dashboard.meta, accountBreakdown: dashboard.accountBreakdown, byCategory: dashboard.totalPorCategoria, bySubcategory: dashboard.totalPorSubcategoria, byAccount: dashboard.totalPorConta, expensesByCategory: dashboard.despesasPorCategoria, expensesBySubcategory: dashboard.despesasPorSubcategoria, expensesByAccount: dashboard.despesasPorConta });
   } catch (e) {

@@ -40,7 +40,7 @@ function ErrorState({ error, onRetry }) {
 }
 
 export default function AppShell(props) {
-  const { tab, onTab, filters, setFilters, metadata, api, withQuery, onLogout, onToast, onReload } = props;
+  const { tab, onTab, filters, setFilters, metadata, initialDashboard, api, withQuery, onLogout, onToast, onReload } = props;
   const [showFilters, setShowFilters] = useState(false);
   const [showTransactionSheet, setShowTransactionSheet] = useState(false);
   const [data, setData] = useState(null);
@@ -71,13 +71,38 @@ export default function AppShell(props) {
       return undefined;
     }
 
+    // Bootstrap: evita 1 roundtrip no primeiro render da Home.
+    if (safeTab === 'home' && initialDashboard && !data && reloadKey === 0) {
+      setData(initialDashboard);
+    }
+
     let mounted = true;
     setLoading(true);
     setError(null);
 
+    const cacheKey = `gf_cache:v1:${route}:${JSON.stringify(filters || {})}`;
+    try {
+      const cachedRaw = localStorage.getItem(cacheKey);
+      if (cachedRaw) {
+        const cached = JSON.parse(cachedRaw);
+        if (cached?.data && cached?.at && Date.now() - cached.at < 2 * 60 * 1000) {
+          setData(cached.data);
+        }
+      }
+    } catch {
+      // ignore cache issues
+    }
+
     api(withQuery(route, filters))
       .then((response) => {
-        if (mounted) setData(response || {});
+        if (!mounted) return;
+        const nextData = response || {};
+        setData(nextData);
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({ at: Date.now(), data: nextData }));
+        } catch {
+          // ignore storage quota
+        }
       })
       .catch((err) => {
         if (mounted) setError(err);

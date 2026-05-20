@@ -8,6 +8,7 @@ let lastAppsScriptCall = null;
 // - Útil porque o Apps Script é o gargalo e as telas fazem leituras repetidas.
 // - TTL curto para não ficar "desatualizado" por muito tempo.
 const CACHE_TTL_MS = Number(process.env.APPS_SCRIPT_CACHE_TTL_MS || 45_000);
+const STALE_ALLOW_MS = Number(process.env.APPS_SCRIPT_CACHE_STALE_ALLOW_MS || 5 * 60_000);
 const cache = {
   transactions: { value: null, at: 0, inFlight: null },
   metadata: { value: null, at: 0, inFlight: null },
@@ -18,11 +19,38 @@ function isFresh(entry) {
   return entry.value && Date.now() - entry.at < CACHE_TTL_MS;
 }
 
+function isStaleButUsable(entry) {
+  if (!STALE_ALLOW_MS) return false;
+  return entry.value && Date.now() - entry.at < STALE_ALLOW_MS;
+}
+
 async function cachedCall(cacheKey, loader, context = {}) {
   const entry = cache[cacheKey];
   const force = context?.force === true || context?.noCache === true;
   if (!force && isFresh(entry)) {
     logger.debug('apps_script_cache_hit', { requestId: context.requestId, cacheKey, ageMs: Date.now() - entry.at });
+    return entry.value;
+  }
+
+  // stale-while-revalidate: se temos cache "usável" (mesmo vencido), devolve na hora
+  // e dispara refresh em background.
+  if (!force && isStaleButUsable(entry) && !entry.inFlight) {
+    logger.debug('apps_script_cache_stale_hit', { requestId: context.requestId, cacheKey, ageMs: Date.now() - entry.at });
+    entry.inFlight = (async () => {
+      try {
+        const value = await loader();
+        entry.value = value;
+        entry.at = Date.now();
+        return value;
+      } catch (error) {
+        // Mantém valor stale se refresh falhar.
+        logger.warn('apps_script_cache_refresh_failed', { requestId: context.requestId, cacheKey, error: error?.message || String(error) });
+        return entry.value;
+      } finally {
+        entry.inFlight = null;
+      }
+    })();
+
     return entry.value;
   }
 
