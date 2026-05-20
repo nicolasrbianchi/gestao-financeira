@@ -141,7 +141,7 @@ export default function AppShell(props) {
       return <Transactions data={data} loading={loading} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} />;
     }
     if (safeTab === 'categories') return <Categories data={data} loading={loading} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} />;
-    if (safeTab === 'ai') return <Ai />;
+    if (safeTab === 'ai') return <Ai api={api} />;
     return <More api={api} metadata={metadata || {}} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} onReload={reloadAll} onLogout={onLogout} />;
   };
 

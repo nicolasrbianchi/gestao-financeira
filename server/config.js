@@ -9,6 +9,7 @@ export const config = {
   appLogin: process.env.APP_LOGIN || '',
   appPassword: process.env.APP_PASSWORD || '',
   sessionSecret: process.env.SESSION_SECRET || 'change-me',
+  openAiKey: process.env.OPENAI_KEY || process.env.OPENAI_API_KEY || '',
   useMockData: String(process.env.USE_MOCK_DATA || '').toLowerCase() === 'true',
   isProd: process.env.NODE_ENV === 'production',
 };

@@ -5,6 +5,7 @@ import { normalizeTransactions, parseMoneyBR } from './normalize.js';
 import { filterTx, buildDashboard } from './analytics.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
+import { openAiText } from './openaiClient.js';
 import pkg from '../package.json' with { type: 'json' };
 
 export const router = express.Router();
@@ -140,6 +141,110 @@ router.post('/transactions', async (req, res, next) => {
     logger.info('transaction_created', { requestId: req.requestId, tipo: p.tipo, status: p.status || '' });
     res.json({ ok: true, data: result });
   } catch (e) { next(e); }
+});
+
+router.post('/ai/chat', async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const userMessage = String(body.message || '').trim();
+    const history = Array.isArray(body.history) ? body.history : [];
+    if (!userMessage) return res.status(400).json({ ok: false, error: 'Mensagem vazia.', requestId: req.requestId });
+
+    const normalized = await loadNormalizedTx(req);
+    const toDate = filterTx(normalized, { startDate: '', endDate: '', search: '' }, { requestId: req.requestId });
+
+    // Prompt fixo + regras de negócio
+    const rules = [
+      'Transferência entre contas NÃO é receita/despesa real. Ela só movimenta saldo entre contas/canais.',
+      'Reserva: Entrada = + (aumenta a reserva), Saída = - (reduz a reserva).',
+      'Tipo=Saldo funciona como SNAPSHOT por conta/canal: o último Saldo da conta define o saldo inicial e o restante é calculado a partir dele.',
+      'Valores das transações são positivos; o sinal é inferido pelo tipo (Receita +, Despesa -, Reserva depende Entrada/Saída).',
+    ];
+
+    // Dataset enxuto (mas com todos os registros) — para reduzir tokens.
+    const dataset = toDate
+      .slice()
+      .sort((a, b) => a.date.localeCompare(b.date) || (a.sheetRowNumber || 0) - (b.sheetRowNumber || 0))
+      .map((t) => ({
+        date: t.date,
+        name: t.name,
+        type: t.type,
+        reserve: t.reserve,
+        account: t.account,
+        category: t.category,
+        subcategory: t.subcategory,
+        paymentMethod: t.paymentMethod,
+        amount: t.amount,
+        status: t.status,
+        installment: t.installment,
+        notes: t.notes,
+        sheetRowNumber: t.sheetRowNumber,
+      }));
+
+    // Também manda um snapshot do dashboard (ajuda o modelo a responder rápido e com números macro).
+    const metadata = await client.getMetadata({ requestId: req.requestId }).catch(() => ({}));
+    const dashboard = buildDashboard(toDate, {
+      requestId: req.requestId,
+      filters: {},
+      monthlyGoals: metadata.monthlyGoals,
+      toDateTransactions: toDate,
+      chartDays: 8,
+    });
+
+    const maxChars = Number(process.env.AI_MAX_DATASET_CHARS || 180_000);
+    let datasetJson = JSON.stringify({ transactionCount: dataset.length, transactions: dataset });
+    let truncatedNote = '';
+    if (datasetJson.length > maxChars) {
+      // Corte conservador por caracteres (evita explodir contexto). Mantém o começo e o fim.
+      const headCount = Math.max(50, Math.floor(dataset.length * 0.35));
+      const tailCount = Math.max(50, Math.floor(dataset.length * 0.35));
+      const head = dataset.slice(0, headCount);
+      const tail = dataset.slice(-tailCount);
+      datasetJson = JSON.stringify({
+        transactionCount: dataset.length,
+        truncated: true,
+        kept: { head: headCount, tail: tailCount },
+        transactions_head: head,
+        transactions_tail: tail,
+      });
+      truncatedNote = `\n\nNota: dataset truncado por limite de contexto (mantive início e fim). Total original: ${dataset.length}.`;
+    }
+
+    const systemPrompt = `Você é o Nicco IA, assistente do app Nicco Finance.\n\nRegras de negócio (obrigatórias):\n- ${rules.join('\n- ')}\n\nEstilo: responda em pt-BR, amigável, comece com a resposta curta e objetiva; depois (se fizer sentido) liste 3–6 insights em bullets. Se precisar de suposições, declare. Não invente números: use apenas os dados fornecidos.`;
+
+    const contextMessage = `Contexto do app (dashboard calculado):\n${JSON.stringify({
+      meta: dashboard.meta,
+      summaryCards: dashboard.summaryCards,
+      accountBreakdown: dashboard.accountBreakdown,
+      totalsByType: dashboard.totalPorTipo?.slice?.(0, 20),
+    })}\n\nDataset de transações (toDate):\n${datasetJson}${truncatedNote}`;
+
+    const sanitizedHistory = history
+      .filter((m) => m && typeof m.role === 'string' && typeof m.content === 'string')
+      .slice(-10)
+      .map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content).slice(0, 4000) }));
+
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: contextMessage },
+      ...sanitizedHistory,
+      { role: 'user', content: userMessage },
+    ];
+
+    const startedAt = Date.now();
+    const result = await openAiText({
+      apiKey: config.openAiKey,
+      requestId: req.requestId,
+      model: 'gpt-5.4',
+      messages,
+      maxOutputTokens: Number(process.env.AI_MAX_OUTPUT_TOKENS || 900),
+    });
+
+    logger.info('ai_chat_completed', { requestId: req.requestId, durationMs: Date.now() - startedAt, transactionCount: dataset.length, truncated: !!truncatedNote });
+    res.json({ ok: true, answer: result.text, meta: { transactionCount: dataset.length, truncated: !!truncatedNote, requestId: req.requestId } });
+  } catch (e) {
+    next(e);
+  }
 });
 
 if (process.env.ENABLE_DIAGNOSTICS === 'true') {
