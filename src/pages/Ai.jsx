@@ -94,6 +94,23 @@ function RichText({ text }) {
   );
 }
 
+function ChatBubble({ role, children }) {
+  const isUser = role === 'user';
+  return (
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+      <div
+        className={
+          isUser
+            ? 'max-w-[92%] rounded-4xl bg-white/5 px-4 py-3 text-sm text-slate-200 ring-1 ring-white/10'
+            : 'max-w-[92%] rounded-4xl bg-[rgba(10,10,16,0.85)] px-4 py-3 text-sm text-slate-100 ring-1 ring-white/10'
+        }
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function Ai({ api }) {
   const [session, setSession] = useState(() => loadSession() || newSession());
   const [input, setInput] = useState('');
@@ -170,60 +187,66 @@ export default function Ai({ api }) {
         </button>
       </header>
 
-      {/* Chat: área principal + barra de input fixa dentro da página */}
-      <section className='flex min-h-0 flex-1 flex-col overflow-hidden rounded-4xl border border-white/10 bg-[rgba(10,10,16,0.70)] shadow-soft'>
-        <div ref={listRef} className='min-h-0 flex-1 space-y-4 overflow-auto px-4 py-4'>
+      {/* ChatGPT-ish: conversa ocupa a página; composer fixo no fundo da viewport (acima do bottom-nav). */}
+      <section className='relative min-h-0 flex-1'>
+        <div
+          ref={listRef}
+          className='min-h-0 space-y-3 overflow-auto pr-1'
+          style={{
+            // Espaço pro composer + safe-area + bottom-nav.
+            paddingBottom: 'calc(7.5rem + env(safe-area-inset-bottom))',
+          }}
+        >
           {messages.length === 0 ? (
-            <div className='rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300'>
+            <div className='rounded-4xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300'>
               Me pergunta tipo: “quanto gastei por categoria?”, “qual conta mais saiu dinheiro?”, “o que tá pesando esse mês?”.
             </div>
           ) : (
             messages.map((m, idx) => (
-              <div key={`${m.at || idx}-${idx}`} className='space-y-1.5'>
-                <p className='text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500'>
-                  {m.role === 'user' ? 'Você' : 'Nicco IA'}
-                </p>
-                <div className='rounded-3xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200'>
-                  <RichText text={m.content} />
-                </div>
-              </div>
+              <ChatBubble key={`${m.at || idx}-${idx}`} role={m.role}>
+                <RichText text={m.content} />
+              </ChatBubble>
             ))
           )}
 
           {loading && (
-            <div className='space-y-1.5'>
-              <p className='text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500'>Nicco IA</p>
-              <div className='rounded-3xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-400'>Pensando…</div>
-            </div>
+            <ChatBubble role='assistant'>
+              <span className='text-slate-400'>Pensando…</span>
+            </ChatBubble>
           )}
         </div>
 
-        <div className='border-t border-white/10 bg-[rgba(6,6,10,0.82)] px-4 py-3'>
-          <div className='flex items-end gap-2'>
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              rows={2}
-              placeholder='Pergunta pro Nicco IA…'
-              className='min-h-[52px] flex-1 resize-none rounded-3xl border border-white/10 bg-white/5 px-4 py-3 text-base text-slate-100 shadow-soft outline-none placeholder:text-slate-500 focus:border-white/20'
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-            />
-            <button
-              type='button'
-              onClick={send}
-              disabled={!canSend}
-              className='grid h-12 w-12 place-items-center rounded-full bg-[rgba(231,220,198,0.92)] text-black shadow-soft transition disabled:opacity-40'
-              aria-label='Enviar'
-            >
-              <Send size={18} />
-            </button>
+        <div
+          className='pointer-events-none fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[430px]'
+          style={{ paddingBottom: 'calc(6.9rem + env(safe-area-inset-bottom))' }}
+        >
+          <div className='pointer-events-auto mx-4 rounded-4xl border border-white/10 bg-[rgba(6,6,10,0.88)] p-3 shadow-soft backdrop-blur'>
+            <div className='flex items-end gap-2'>
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                rows={1}
+                placeholder='Pergunta pro Nicco IA…'
+                className='min-h-[52px] max-h-40 flex-1 resize-none rounded-3xl border border-white/10 bg-white/5 px-4 py-3 text-base text-slate-100 shadow-soft outline-none placeholder:text-slate-500 focus:border-white/20'
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    send();
+                  }
+                }}
+              />
+              <button
+                type='button'
+                onClick={send}
+                disabled={!canSend}
+                className='grid h-12 w-12 place-items-center rounded-full bg-[rgba(231,220,198,0.92)] text-black shadow-soft transition disabled:opacity-40'
+                aria-label='Enviar'
+              >
+                <Send size={18} />
+              </button>
+            </div>
+            <p className='mt-2 px-1 text-[11px] text-slate-500'>Enter envia · Shift+Enter quebra linha</p>
           </div>
-          <p className='mt-2 text-[11px] text-slate-500'>Enter envia · Shift+Enter quebra linha</p>
         </div>
       </section>
     </div>
