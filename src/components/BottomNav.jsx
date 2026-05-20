@@ -10,7 +10,7 @@ const tabs = [
 
 export default function BottomNav({ tab, onTab, onAdd }) {
   const itemClass = (active) =>
-    `flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-semibold transition ${active ? 'bg-indigo-50 text-indigo-600' : 'text-slate-400 active:bg-slate-50'}`;
+    `flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-semibold transition ${active ? 'bg-indigo-50 text-indigo-600 ring-1 ring-white/10 shadow-soft' : 'text-slate-400 active:bg-slate-50'}`;
 
   return (
     <nav className='bottom-nav' aria-label='Navegação principal'>

@@ -84,15 +84,15 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
 
       <section className='min-w-0 rounded-5xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 p-5 text-white shadow-soft'>
         <p className='text-sm text-slate-300'>Saldo disponível</p>
-        <h2 className='mt-2 break-words text-[2.35rem] font-extrabold leading-tight tracking-tight'>{money(totalBalance)}</h2>
+        <h2 className='mt-2 text-[2.35rem] font-extrabold leading-tight tracking-tight tabular-nums'>{money(totalBalance)}</h2>
         <div className='mt-5 grid grid-cols-2 gap-3 rounded-3xl bg-white/10 p-4'>
           <div className='min-w-0'>
             <p className='text-xs text-slate-300'>Despesas vs meta</p>
-            <p className='mt-1 flex items-center gap-1 break-words text-sm font-semibold text-rose-200'><TrendingDown size={15} /> {money(expense)}</p>
+            <p className='mt-1 flex items-center gap-1 text-sm font-semibold text-rose-200 tabular-nums'><TrendingDown size={15} /> {money(expense)}</p>
           </div>
           <div className='min-w-0 text-right'>
             <p className='text-xs text-slate-300'>{meta.value ? `Meta ${meta.month || ''}` : 'Meta do mês'}</p>
-            <p className={`mt-1 break-words text-sm font-semibold ${goalRemaining != null && goalRemaining < 0 ? 'text-rose-200' : 'text-emerald-200'}`}>
+            <p className={`mt-1 text-sm font-semibold tabular-nums ${goalRemaining != null && goalRemaining < 0 ? 'text-rose-200' : 'text-emerald-200'}`}>
               {meta.value ? `${goalPercent}% · ${money(goalRemaining)}` : 'Sem meta'}
             </p>
           </div>
@@ -116,7 +116,7 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
               <LineChart data={series} margin={{ left: 4, right: 4, top: 6, bottom: 0 }}>
                 <XAxis dataKey='day' axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
                 <Tooltip formatter={(value) => money(value)} />
-                <Line type='monotone' dataKey='balance' stroke='#e7dcc6' strokeWidth={3} dot={false} />
+                <Line type='monotone' dataKey='balance' stroke='#f3e6cc' strokeWidth={3} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
@@ -129,17 +129,17 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
         <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
           <ArrowUpRight className='text-emerald-500' size={18} />
           <p className='mt-3 text-xs text-slate-500'>Receitas</p>
-          <p className='mt-1 break-words text-lg font-bold'>{money(income)}</p>
+          <p className='mt-1 text-lg font-bold tabular-nums'>{money(income)}</p>
         </article>
         <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
           <TrendingDown className='text-rose-500' size={18} />
           <p className='mt-3 text-xs text-slate-500'>Despesas</p>
-          <p className='mt-1 break-words text-lg font-bold'>{money(expense)}</p>
+          <p className='mt-1 text-lg font-bold tabular-nums'>{money(expense)}</p>
         </article>
         <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
           <PiggyBank className='text-indigo-500' size={18} />
           <p className='mt-3 text-xs text-slate-500'>Reserva</p>
-          <p className='mt-1 break-words text-lg font-bold'>{money(reserves)}</p>
+          <p className='mt-1 text-lg font-bold tabular-nums'>{money(reserves)}</p>
         </article>
       </section>
 
