@@ -2,9 +2,8 @@ import React from 'react';
 import {
   ArrowUpRight,
   CalendarDays,
-  CreditCard,
   Filter,
-  PiggyBank,
+  Settings2,
   TrendingDown,
   TrendingUp,
   Wallet
@@ -12,13 +11,6 @@ import {
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 import { money } from '../utils/format';
 import { mtdFilters, filterChip } from '../utils/filters';
-
-const txIcons = {
-  Receita: Wallet,
-  Despesa: CreditCard,
-  Reserva: PiggyBank,
-  Saldo: Wallet
-};
 
 function cardValue(cards = [], key) {
   return cards.find((card) => card.key === key)?.value ?? 0;
@@ -34,7 +26,7 @@ function LoadingSkeleton() {
   );
 }
 
-export default function Home({ data, loading, filters, setFilters, onOpenFilters }) {
+export default function Home({ data, loading, filters, setFilters, onOpenFilters, onOpenMore, onGoTransactions }) {
   if (loading && !data) return <LoadingSkeleton />;
 
   const summaryCards = data?.summaryCards || [];
@@ -63,6 +55,24 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
           <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Resumo financeiro</p>
           <h1 className='truncate text-2xl font-bold text-slate-900'>Minha carteira</h1>
         </div>
+        <div className='flex shrink-0 items-center gap-2'>
+          <button
+            type='button'
+            onClick={onOpenFilters}
+            className='grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-600 shadow-soft transition active:scale-95'
+            aria-label='Abrir filtros'
+          >
+            <Filter size={18} />
+          </button>
+          <button
+            type='button'
+            onClick={onOpenMore}
+            className='grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-600 shadow-soft transition active:scale-95'
+            aria-label='Configurações'
+          >
+            <Settings2 size={18} />
+          </button>
+        </div>
       </header>
 
       <section className='flex items-center justify-between gap-3 rounded-3xl bg-white/70 px-4 py-3 shadow-soft'>
@@ -70,12 +80,7 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
           <CalendarDays size={16} className='shrink-0 text-indigo-500' />
           <p className='truncate text-xs font-semibold text-slate-500'>{filterChip(filters) || 'Período atual'}</p>
         </div>
-        <div className='flex shrink-0 items-center gap-2'>
-          <button type='button' onClick={onOpenFilters} className='grid h-10 w-10 place-items-center rounded-2xl bg-white text-slate-600 shadow-soft transition active:scale-95' aria-label='Abrir filtros'>
-            <Filter size={17} />
-          </button>
-          <button type='button' onClick={() => setFilters?.(mtdFilters())} className='shrink-0 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600'>MTD</button>
-        </div>
+        <button type='button' onClick={() => setFilters?.(mtdFilters())} className='shrink-0 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600'>MTD</button>
       </section>
 
       <section className='min-w-0 rounded-5xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 p-5 text-white shadow-soft'>
@@ -185,29 +190,56 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
       <section className='rounded-4xl bg-white p-5 shadow-soft'>
         <div className='mb-4 flex items-center justify-between gap-3'>
           <h3 className='text-base font-semibold text-slate-900'>Transações recentes</h3>
-          <span className='text-xs font-semibold text-indigo-600'>{transactions.length} itens</span>
+          <button type='button' onClick={onGoTransactions} className='text-xs font-semibold text-indigo-600'>Ver mais</button>
         </div>
         {transactions.length ? (
-          <ul className='space-y-3'>
-            {transactions.map((tx, index) => {
-              const Icon = txIcons[tx.type] || Wallet;
-              const positive = tx.type === 'Receita' || tx.type === 'Saldo' || (tx.type === 'Reserva' && tx.reserve === 'Saida');
+          <section className='space-y-2.5'>
+            {transactions.map((transaction, index) => {
+              const isIncome = transaction.type === 'Receita' || transaction.type === 'Saldo' || (transaction.type === 'Reserva' && transaction.reserve === 'Saida');
+              const toneByType = {
+                Receita: 'text-emerald-400 bg-emerald-500/10 border-emerald-400/20',
+                Despesa: 'text-rose-400 bg-rose-500/10 border-rose-400/20',
+                Reserva: 'text-amber-300 bg-amber-500/10 border-amber-300/20',
+                Saldo: 'text-[#f2d58b] bg-[rgba(214,178,94,0.12)] border-[rgba(214,178,94,0.22)]'
+              };
+              const amountColorByType = {
+                Receita: 'text-emerald-400',
+                Despesa: 'text-rose-400',
+                Reserva: 'text-amber-300',
+                Saldo: 'text-[#f2d58b]'
+              };
+              const tone = toneByType[transaction.type] || 'text-slate-300 bg-slate-500/10 border-slate-300/20';
+              const amountTone = amountColorByType[transaction.type] || (isIncome ? 'pos' : 'neg');
+
               return (
-                <li key={`${tx.sheetRowNumber || index}-${tx.name || index}`} className='flex min-w-0 items-center gap-3'>
-                  <span className='grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-700'>
-                    <Icon size={16} />
-                  </span>
-                  <div className='min-w-0 flex-1'>
-                    <p className='truncate text-sm font-semibold text-slate-800'>{tx.name || 'Sem nome'}</p>
-                    <p className='truncate text-xs text-slate-500'>{tx.account || 'Sem conta'} · {tx.category || 'Sem categoria'}</p>
+                <article key={`${transaction.sheetRowNumber || index}-${transaction.name || index}`} className='rounded-3xl bg-white p-3 shadow-soft'>
+                  <div className='flex min-w-0 items-start justify-between gap-3'>
+                    <div className='min-w-0 flex-1'>
+                      <div className='flex items-center gap-2'>
+                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone}`}>{transaction.type || 'Sem tipo'}</span>
+                        <p className='truncate text-sm font-bold text-slate-900'>{transaction.name || 'Sem nome'}</p>
+                      </div>
+                      <p className='mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500'>
+                        <CalendarDays size={12} /> {transaction.displayDate || transaction.date || 'Sem data'} · {transaction.account || 'Sem conta'}
+                      </p>
+                    </div>
+                    <p className={`max-w-[8rem] shrink-0 break-words text-right text-sm font-extrabold ${amountTone}`}>
+                      {isIncome ? '+' : '-'}{money(Math.abs(transaction.amount || 0))}
+                    </p>
                   </div>
-                  <p className={`max-w-[7.5rem] shrink-0 break-words text-right text-sm font-semibold ${positive ? 'text-emerald-600' : 'text-rose-500'}`}>
-                    {positive ? '+' : '-'}{money(Math.abs(tx.amount || 0))}
-                  </p>
-                </li>
+
+                  <div className='mt-2 flex min-w-0 flex-wrap gap-1.5 text-[11px]'>
+                    {transaction.category && <span className='badge'>{transaction.category}</span>}
+                    {transaction.subcategory && <span className='badge'>{transaction.subcategory}</span>}
+                    {transaction.paymentMethod && <span className='badge'>{transaction.paymentMethod}</span>}
+                    {transaction.reserve && <span className='badge'>Reserva: {transaction.reserve}</span>}
+                    {transaction.installment && <span className='badge'>{transaction.installment}</span>}
+                  </div>
+                  {transaction.notes && <p className='mt-2 truncate text-[11px] text-slate-400'>{transaction.notes}</p>}
+                </article>
               );
             })}
-          </ul>
+          </section>
         ) : (
           <div className='empty-state shadow-none'>Nenhuma transação encontrada neste período.</div>
         )}
