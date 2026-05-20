@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   CalendarDays,
   Filter,
+  PiggyBank,
   Settings2,
   TrendingDown,
   TrendingUp,
