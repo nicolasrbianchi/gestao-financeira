@@ -79,7 +79,6 @@ export default function Transactions({ data, loading, filters, setFilters, onOpe
                     </div>
                     <p className='mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500'>
                       <CalendarDays size={12} /> {transaction.displayDate || transaction.date || 'Sem data'} · {transaction.account || 'Sem conta'}
-                      {transaction.category ? ` · ${transaction.category}` : ''}
                     </p>
                   </div>
                   <p className={`max-w-[8rem] shrink-0 break-words text-right text-sm font-extrabold ${amountTone}`}>
@@ -88,6 +87,7 @@ export default function Transactions({ data, loading, filters, setFilters, onOpe
                 </div>
 
                 <div className='mt-2 flex min-w-0 flex-wrap gap-1.5 text-[11px]'>
+                  {transaction.category && <span className='text-[11px] font-semibold text-slate-500'>Categoria: {transaction.category}</span>}
                   {transaction.subcategory && <span className='badge'>{transaction.subcategory}</span>}
                   {transaction.paymentMethod && <span className='badge'>{transaction.paymentMethod}</span>}
                   {transaction.reserve && <span className='badge'>Reserva: {transaction.reserve}</span>}

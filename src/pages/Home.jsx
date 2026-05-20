@@ -103,23 +103,23 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
         <p className='text-sm text-slate-300'>Saldo Total</p>
         <h2 className='mt-2 text-[2.35rem] font-extrabold leading-tight tracking-tight tabular-nums'>{money(totalBalance)}</h2>
         <div className='mt-5 grid grid-cols-3 gap-3 rounded-3xl bg-white/10 p-4'>
-          <div className='min-w-0'>
-            <p className='text-xs text-slate-300'>Receita</p>
-            <p className='mt-1 flex items-center gap-1 text-sm font-semibold text-emerald-200 tabular-nums'>
-              <ArrowUpRight size={15} /> {money(income)}
+          <div className='min-w-0 text-center'>
+            <p className='flex items-center justify-center gap-1 text-xs font-semibold text-slate-300'>
+              <ArrowUpRight size={14} /> Receita
             </p>
+            <p className='mt-1 text-sm font-semibold text-emerald-200 tabular-nums'>{money(income)}</p>
           </div>
-          <div className='min-w-0'>
-            <p className='text-xs text-slate-300'>Despesa</p>
-            <p className='mt-1 flex items-center gap-1 text-sm font-semibold text-rose-200 tabular-nums'>
-              <TrendingDown size={15} /> {money(expense)}
+          <div className='min-w-0 text-center'>
+            <p className='flex items-center justify-center gap-1 text-xs font-semibold text-slate-300'>
+              <TrendingDown size={14} /> Despesa
             </p>
+            <p className='mt-1 text-sm font-semibold text-rose-200 tabular-nums'>{money(expense)}</p>
           </div>
-          <div className='min-w-0 text-right'>
-            <p className='text-xs text-slate-300'>Reserva</p>
-            <p className='mt-1 flex items-center justify-end gap-1 text-sm font-semibold text-amber-200 tabular-nums'>
-              <PiggyBank size={15} /> {money(reserves)}
+          <div className='min-w-0 text-center'>
+            <p className='flex items-center justify-center gap-1 text-xs font-semibold text-slate-300'>
+              <PiggyBank size={14} /> Reserva
             </p>
+            <p className='mt-1 text-sm font-semibold text-amber-200 tabular-nums'>{money(reserves)}</p>
           </div>
         </div>
       </section>
@@ -130,22 +130,23 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
             <h3 className='text-base font-semibold text-slate-900'>Contas Bancarias</h3>
             <p className='text-xs text-slate-500'>Saldo detalhado das contas utilizadas.</p>
           </div>
-          <div className='space-y-3'>
+          <div className='grid gap-3'>
             {accountBreakdown.map((account) => (
-              <article key={account.account} className='rounded-3xl bg-slate-50 p-4'>
+              <article key={account.account} className='rounded-4xl bg-white p-4 shadow-soft ring-1 ring-slate-100'>
                 <div className='flex items-start justify-between gap-4'>
                   <div className='min-w-0'>
                     <p className='truncate text-sm font-extrabold text-slate-900'>{account.account}</p>
-                    <p className='mt-1 text-xs text-slate-500'>Reserva: {money(account.reservaAtual || 0)}</p>
+                    <p className='mt-1 text-[11px] font-semibold text-slate-500'>Disponível</p>
+                    <p className='mt-1 text-xl font-extrabold tracking-tight tabular-nums text-slate-950'>{money(account.saldoDisponivel || 0)}</p>
                   </div>
-                  <div className='text-right'>
-                    <p className='text-[11px] font-semibold text-slate-500'>Disponível</p>
-                    <p className='max-w-[9rem] break-words text-right text-base font-extrabold text-slate-900'>{money(account.saldoDisponivel || 0)}</p>
+                  <div className='min-w-[9.5rem] text-right'>
+                    <p className='text-[11px] font-semibold text-slate-500'>Reserva</p>
+                    <p className='mt-1 text-sm font-bold tabular-nums text-slate-900'>{money(account.reservaAtual || 0)}</p>
+                    <div className='mt-3 space-y-1 text-[11px] text-slate-500'>
+                      <p>Entradas: {money((account.receitas || 0) + (account.transferenciasEntrada || 0))}</p>
+                      <p>Saídas: {money((account.despesas || 0) + (account.transferenciasSaida || 0))}</p>
+                    </div>
                   </div>
-                </div>
-                <div className='mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-500'>
-                  <span>Entradas: {money((account.receitas || 0) + (account.transferenciasEntrada || 0))}</span>
-                  <span>Saídas: {money((account.despesas || 0) + (account.transferenciasSaida || 0))}</span>
                 </div>
               </article>
             ))}
@@ -230,7 +231,6 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
                       </div>
                       <p className='mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500'>
                         <CalendarDays size={12} /> {transaction.displayDate || transaction.date || 'Sem data'} · {transaction.account || 'Sem conta'}
-                        {transaction.category ? ` · ${transaction.category}` : ''}
                       </p>
                     </div>
                     <p className={`max-w-[8rem] shrink-0 break-words text-right text-sm font-extrabold ${amountTone}`}>
@@ -239,6 +239,7 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
                   </div>
 
                   <div className='mt-2 flex min-w-0 flex-wrap gap-1.5 text-[11px]'>
+                    {transaction.category && <span className='text-[11px] font-semibold text-slate-500'>Categoria: {transaction.category}</span>}
                     {transaction.subcategory && <span className='badge'>{transaction.subcategory}</span>}
                     {transaction.paymentMethod && <span className='badge'>{transaction.paymentMethod}</span>}
                     {transaction.reserve && <span className='badge'>Reserva: {transaction.reserve}</span>}
