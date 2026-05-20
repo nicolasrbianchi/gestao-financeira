@@ -99,6 +99,13 @@ export async function getMetadata(ctx = {}) {
   return cachedCall('metadata', () => callAppsScript('metadata', {}, ctx), ctx);
 }
 
-export const addTransaction = (payload, ctx) => callAppsScript('add', payload, { ...(ctx || {}), force: true });
+export async function addTransaction(payload, ctx) {
+  const result = await callAppsScript('add', payload, { ...(ctx || {}), force: true });
+  // Escrita: garante que o próximo GET não fique preso no cache.
+  cache.transactions.value = null;
+  cache.transactions.at = 0;
+  cache.metadata.value = cache.metadata.value; // no-op (documenta intenção)
+  return result;
+}
 export const health = (ctx) => callAppsScript('health', {}, { ...(ctx || {}), force: true });
 export const getLastAppsScriptCall = () => lastAppsScriptCall;
