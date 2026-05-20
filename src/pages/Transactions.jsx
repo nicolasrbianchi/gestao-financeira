@@ -6,8 +6,15 @@ import { filterChip } from '../utils/filters';
 const toneByType = {
   Receita: 'text-emerald-400 bg-emerald-500/10 border-emerald-400/20',
   Despesa: 'text-rose-400 bg-rose-500/10 border-rose-400/20',
-  Reserva: 'text-indigo-300 bg-indigo-500/10 border-indigo-300/20',
-  Saldo: 'text-sky-300 bg-sky-500/10 border-sky-300/20'
+  Reserva: 'text-amber-300 bg-amber-500/10 border-amber-300/20',
+  Saldo: 'text-violet-300 bg-violet-500/10 border-violet-300/20'
+};
+
+const amountColorByType = {
+  Receita: 'text-emerald-400',
+  Despesa: 'text-rose-400',
+  Reserva: 'text-amber-300',
+  Saldo: 'text-violet-300'
 };
 
 export default function Transactions({ data, loading, filters, setFilters, onOpenFilters }) {
@@ -61,6 +68,7 @@ export default function Transactions({ data, loading, filters, setFilters, onOpe
           {transactions.map((transaction, index) => {
             const isIncome = transaction.type === 'Receita' || transaction.type === 'Saldo' || (transaction.type === 'Reserva' && transaction.reserve === 'Saida');
             const tone = toneByType[transaction.type] || 'text-slate-300 bg-slate-500/10 border-slate-300/20';
+            const amountTone = amountColorByType[transaction.type] || (isIncome ? 'pos' : 'neg');
             return (
               <article key={`${transaction.sheetRowNumber || index}-${transaction.name || index}`} className='rounded-3xl bg-white p-3 shadow-soft'>
                 <div className='flex min-w-0 items-start justify-between gap-3'>
@@ -71,7 +79,7 @@ export default function Transactions({ data, loading, filters, setFilters, onOpe
                     </div>
                     <p className='mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500'><CalendarDays size={12} /> {transaction.displayDate || transaction.date || 'Sem data'} · {transaction.account || 'Sem conta'}</p>
                   </div>
-                  <p className={`max-w-[8rem] shrink-0 break-words text-right text-sm font-extrabold ${isIncome ? 'pos' : 'neg'}`}>
+                  <p className={`max-w-[8rem] shrink-0 break-words text-right text-sm font-extrabold ${amountTone}`}>
                     {isIncome ? '+' : '-'}{money(Math.abs(transaction.amount || 0))}
                   </p>
                 </div>
