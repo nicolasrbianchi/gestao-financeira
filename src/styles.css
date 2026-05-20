@@ -26,9 +26,7 @@
   --accent-2: #e7dcc6;
   --accent-3: rgba(205, 187, 147, 0.14);
   --accent-pop: #f3e6cc;
-  /* Acento frio (data-viz / seleção). Usar pouco, para dar vida sem virar "banco". */
-  --accent-cool: #86aee6;
-  --accent-cool-2: #b7cff2;
+  /* (sem acento frio — mantemos a marca no eixo obsidian + champagne) */
   --danger: #fb7185;
   --success: #34d399;
 
@@ -157,8 +155,7 @@ option {
     pointer-events: none;
     box-shadow:
       0 0 0 1px rgba(0, 0, 0, 0.65) inset,
-      0 0 0 1px rgba(255, 255, 255, 0.085),
-      0 0 0 1px rgba(134, 174, 230, 0.06);
+      0 0 0 1px rgba(255, 255, 255, 0.10);
     opacity: 0.95;
   }
   /* filete sutil no topo do card (separação no "preto absoluto") */
@@ -201,7 +198,11 @@ option {
 .bg-white,
 .bg-white\/95,
 .bg-white\/70 {
-  background-color: rgba(6, 6, 10, 0.86) !important;
+  background-color: rgba(6, 6, 10, 0.88) !important;
+  background-image:
+    radial-gradient(140% 120% at 12% 0%, rgba(255, 255, 255, 0.06), transparent 52%),
+    linear-gradient(180deg, rgba(16, 16, 24, 0.92), rgba(4, 4, 10, 0.92)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .bg-slate-50,
@@ -209,7 +210,11 @@ option {
 .bg-indigo-50,
 .bg-rose-50,
 .active\:bg-slate-50:active {
-  background-color: rgba(6, 6, 10, 0.86) !important;
+  background-color: rgba(6, 6, 10, 0.88) !important;
+  background-image:
+    radial-gradient(140% 120% at 12% 0%, rgba(255, 255, 255, 0.05), transparent 56%),
+    linear-gradient(180deg, rgba(16, 16, 24, 0.90), rgba(4, 4, 10, 0.92)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .bg-slate-950 {
@@ -235,8 +240,8 @@ option {
 
 .text-indigo-600,
 .text-indigo-500 {
-  /* Acento frio para ícones/seleção (evitar roxo, dar vida). */
-  color: rgba(183, 207, 242, 0.92) !important;
+  /* Acento champagne (marca). */
+  color: rgba(243, 230, 204, 0.92) !important;
 }
 
 .text-rose-600,
@@ -250,7 +255,9 @@ option {
 }
 
 .shadow-soft {
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28) !important;
+  box-shadow:
+    0 26px 82px rgba(0, 0, 0, 0.72),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
 
 .rounded-5xl.bg-gradient-to-br,
