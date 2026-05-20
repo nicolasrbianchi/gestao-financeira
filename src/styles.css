@@ -21,11 +21,11 @@
   --muted: rgba(226, 232, 240, 0.62);
   --muted-strong: rgba(226, 232, 240, 0.76);
 
-  /* Accent: champagne (luxo discreto, sem "amarelar") */
-  --accent: #cdbb93;
-  --accent-2: #e7dcc6;
-  --accent-3: rgba(205, 187, 147, 0.14);
-  --accent-pop: #f3e6cc;
+  /* Accent: champagne (um pouco mais vivo, ainda luxo discreto) */
+  --accent: #d2bf90;
+  --accent-2: #efe2c9;
+  --accent-3: rgba(210, 191, 144, 0.16);
+  --accent-pop: #faeed6;
   /* (sem acento frio — mantemos a marca no eixo obsidian + champagne) */
   --danger: #fb7185;
   --success: #34d399;
@@ -47,8 +47,8 @@ body,
 body {
   @apply font-sans antialiased;
   background:
-    radial-gradient(circle at 14% 6%, rgba(205, 187, 147, 0.07), transparent 36%),
-    radial-gradient(circle at 78% 18%, rgba(231, 220, 198, 0.045), transparent 44%),
+    radial-gradient(circle at 14% 6%, rgba(210, 191, 144, 0.085), transparent 36%),
+    radial-gradient(circle at 78% 18%, rgba(239, 226, 201, 0.05), transparent 44%),
     linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 50%, var(--bg-0) 100%);
   color: var(--text);
 }
@@ -202,7 +202,10 @@ option {
   background-image:
     radial-gradient(140% 120% at 12% 0%, rgba(255, 255, 255, 0.06), transparent 52%),
     linear-gradient(180deg, rgba(16, 16, 24, 0.92), rgba(4, 4, 10, 0.92)) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 28px 96px rgba(0, 0, 0, 0.78),
+    0 0 0 1px rgba(250, 238, 214, 0.07) inset;
 }
 
 .bg-slate-50,
@@ -214,7 +217,10 @@ option {
   background-image:
     radial-gradient(140% 120% at 12% 0%, rgba(255, 255, 255, 0.05), transparent 56%),
     linear-gradient(180deg, rgba(16, 16, 24, 0.90), rgba(4, 4, 10, 0.92)) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 22px 72px rgba(0, 0, 0, 0.68),
+    0 0 0 1px rgba(250, 238, 214, 0.055) inset;
 }
 
 .bg-slate-950 {
@@ -241,7 +247,7 @@ option {
 .text-indigo-600,
 .text-indigo-500 {
   /* Acento champagne (marca). */
-  color: rgba(243, 230, 204, 0.92) !important;
+  color: rgba(250, 238, 214, 0.96) !important;
 }
 
 .text-rose-600,
@@ -262,11 +268,28 @@ option {
 
 .rounded-5xl.bg-gradient-to-br,
 section.bg-gradient-to-br {
+  position: relative;
   background:
-    radial-gradient(circle at 22% 14%, rgba(231, 220, 198, 0.07), transparent 36%),
-    radial-gradient(circle at 78% 32%, rgba(255, 255, 255, 0.04), transparent 42%),
+    radial-gradient(circle at 22% 14%, rgba(239, 226, 201, 0.09), transparent 38%),
+    radial-gradient(circle at 78% 32%, rgba(255, 255, 255, 0.045), transparent 44%),
     linear-gradient(135deg, rgba(4, 4, 8, 0.96) 0%, rgba(2, 2, 6, 0.98) 100%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  box-shadow:
+    0 34px 120px rgba(0, 0, 0, 0.82),
+    inset 0 1px 0 rgba(250, 238, 214, 0.08);
+}
+
+/* highlight sutil no topo do hero para dar vida/precisão */
+section.bg-gradient-to-br::after {
+  content: '';
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 12px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(250, 238, 214, 0.30), transparent);
+  opacity: 0.9;
+  pointer-events: none;
 }
 
 .recharts-default-tooltip {
