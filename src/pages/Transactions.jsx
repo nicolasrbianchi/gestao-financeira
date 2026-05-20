@@ -50,7 +50,7 @@ export default function Transactions({ data, loading, filters, setFilters, onOpe
       {transactions.length ? (
         <section className='space-y-3'>
           {transactions.map((transaction, index) => {
-            const isIncome = transaction.type === 'Receita' || (transaction.type === 'Reserva' && transaction.reserve === 'Entrada');
+            const isIncome = transaction.type === 'Receita' || transaction.type === 'Saldo' || (transaction.type === 'Reserva' && transaction.reserve === 'Saida');
             return (
               <article key={`${transaction.sheetRowNumber || index}-${transaction.name || index}`} className='card'>
                 <div className='flex min-w-0 items-start justify-between gap-3'>

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 
+const TRANSFER_CATEGORY = 'Transferencia entre contas';
+
 const emptyTransaction = {
   data: new Date().toISOString().slice(0, 10),
   nome: '',
@@ -16,14 +18,23 @@ const emptyTransaction = {
 };
 
 const fallback = {
-  types: ['Receita', 'Despesa', 'Reserva'],
-  statuses: ['Pago', 'Pendente'],
-  reserves: ['Entrada', 'Saída']
+  types: ['Receita', 'Despesa', 'Reserva', 'Saldo'],
+  statuses: ['Pendente', 'Pago em dia', 'Pago em atraso', 'Recebido em dia', 'Recebido em atraso'],
+  reserves: ['Entrada', 'Saida'],
+  subcategories: ['Essencial', 'Extra'],
+  paymentMethods: ['Débito', 'Crédito', 'Pix', 'Boleto', 'Depósito'],
+  categories: [TRANSFER_CATEGORY]
 };
 
 function uniqueOptions(values = [], fallbackValues = []) {
   const merged = [...values, ...fallbackValues].filter(Boolean);
   return [...new Set(merged)];
+}
+
+function defaultStatus(type) {
+  if (type === 'Receita' || type === 'Saldo') return 'Recebido em dia';
+  if (type === 'Despesa' || type === 'Reserva') return 'Pago em dia';
+  return '';
 }
 
 export default function TransactionSheet({ open, onClose, metadata = {}, api, onSaved, onToast }) {
@@ -34,7 +45,17 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
   if (!open) return null;
 
   const update = (key, value) => {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => {
+      const next = { ...current, [key]: value };
+      if (key === 'tipo') {
+        next.reserva = value === 'Reserva' ? next.reserva : '';
+        next.categoria = value === 'Saldo' ? TRANSFER_CATEGORY : value === 'Reserva' ? '' : next.categoria;
+        next.subcategoria = ['Reserva', 'Saldo'].includes(value) ? '' : next.subcategoria;
+        next.forma = ['Reserva', 'Saldo'].includes(value) ? '' : next.forma;
+        next.status = next.status || defaultStatus(value);
+      }
+      return next;
+    });
     setError('');
   };
 
@@ -55,21 +76,38 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
     </label>
   );
 
+  const isIncomeOrExpense = ['Receita', 'Despesa'].includes(form.tipo);
+  const isReserve = form.tipo === 'Reserva';
+  const isBalance = form.tipo === 'Saldo';
+  const paymentMethods = metadata.paymentMethods || metadata.forms || [];
+
+  const validate = () => {
+    if (!form.data || !form.tipo || !form.conta || !form.valor) return 'Preencha data, tipo, conta/canal e valor.';
+    if (!isBalance && !form.nome) return 'Preencha o nome da transação.';
+    if (isReserve && !form.reserva) return 'Reserva exige Entrada ou Saida.';
+    if (isIncomeOrExpense && (!form.categoria || !form.subcategoria || !form.forma)) return 'Receita e Despesa exigem categoria, subcategoria e forma.';
+    if (isBalance && !form.categoria) return 'Saldo exige categoria.';
+    return '';
+  };
+
   const submit = async (event) => {
     event.preventDefault();
 
-    if (!form.data || !form.nome || !form.tipo || !form.status || !form.valor) {
-      setError('Preencha data, nome, tipo, status e valor.');
-      return;
-    }
-    if (form.tipo === 'Reserva' && !form.reserva) {
-      setError('Tipo Reserva exige o campo Reserva.');
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     try {
       setSaving(true);
-      await api('/transactions', { method: 'POST', body: JSON.stringify(form) });
+      const payload = {
+        ...form,
+        nome: form.nome || (isBalance ? `Saldo ${form.conta}` : form.nome),
+        status: form.status || defaultStatus(form.tipo),
+        categoria: isBalance ? TRANSFER_CATEGORY : form.categoria,
+      };
+      await api('/transactions', { method: 'POST', body: JSON.stringify(payload) });
       setForm(emptyTransaction);
       onSaved?.();
     } catch (err) {
@@ -94,18 +132,25 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
 
         <div className='grid grid-cols-1 gap-3'>
           {input('data', 'Data', { type: 'date', required: true })}
-          {input('nome', 'Nome', { placeholder: 'Ex.: Mercado, Salário, Aluguel', required: true })}
           {select('tipo', 'Tipo', uniqueOptions(metadata.types, fallback.types), { required: true })}
-          {form.tipo === 'Reserva' && select('reserva', 'Reserva', uniqueOptions(metadata.reserves, fallback.reserves), { required: true })}
           {input('valor', 'Valor', { inputMode: 'decimal', placeholder: '0,00', required: true })}
-          {select('status', 'Status', uniqueOptions(metadata.statuses, fallback.statuses), { required: true })}
-          {select('conta', 'Conta/Canal', uniqueOptions(metadata.accounts), {})}
-          {select('categoria', 'Categoria', uniqueOptions(metadata.categories), {})}
-          {select('subcategoria', 'Subcategoria', uniqueOptions(metadata.subcategories), {})}
-          {select('forma', 'Forma', uniqueOptions(metadata.forms), {})}
-          {form.tipo !== 'Reserva' && select('reserva', 'Reserva opcional', uniqueOptions(metadata.reserves, fallback.reserves), {})}
-          {input('parcela', 'Parcela', { placeholder: 'Ex.: 1/3' })}
-          {input('obs', 'Observações', { placeholder: 'Detalhe opcional' })}
+          {select('conta', 'Conta/Canal', uniqueOptions(metadata.accounts), { required: true })}
+
+          {!isBalance && input('nome', 'Nome', { placeholder: 'Ex.: Mercado, Salário, Reserva', required: true })}
+          {isBalance && (
+            <label className='space-y-1 text-xs font-semibold text-slate-500'>
+              <span>Categoria</span>
+              <input value={TRANSFER_CATEGORY} disabled />
+            </label>
+          )}
+          {isReserve && select('reserva', 'Entrada ou Saida', uniqueOptions(metadata.reserves, fallback.reserves), { required: true })}
+          {isIncomeOrExpense && select('categoria', 'Categoria', uniqueOptions(metadata.categories, fallback.categories), { required: true })}
+          {isIncomeOrExpense && select('subcategoria', 'Subcategoria', uniqueOptions(metadata.subcategories, fallback.subcategories), { required: true })}
+          {isIncomeOrExpense && select('forma', 'Forma', uniqueOptions(paymentMethods, fallback.paymentMethods), { required: true })}
+
+          {isIncomeOrExpense && select('status', 'Status opcional', uniqueOptions(metadata.statuses, fallback.statuses), {})}
+          {isIncomeOrExpense && input('parcela', 'Parcela opcional', { placeholder: 'Ex.: 1/3' })}
+          {isIncomeOrExpense && input('obs', 'Observações opcionais', { placeholder: 'Detalhe opcional' })}
         </div>
 
         {error && <p className='rounded-2xl bg-rose-50 p-3 text-sm text-rose-600'>{error}</p>}

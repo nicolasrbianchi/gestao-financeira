@@ -43,7 +43,7 @@ router.get('/health', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 router.get('/metadata', async (req, res, next) => { try { const d = await client.getMetadata({ requestId: req.requestId }); logger.info('metadata_loaded', { requestId: req.requestId, categories: d.categories?.length || 0 }); res.json(d); } catch (e) { next(e); } });
-router.get('/dashboard', async (req, res, next) => { try { const tx = await loadTx(req.query, req); logger.info('dashboard_requested', { requestId: req.requestId, count: tx.length }); res.json({ ok: true, ...(buildDashboard(tx, { requestId: req.requestId })) }); } catch (e) { next(e); } });
+router.get('/dashboard', async (req, res, next) => { try { const [tx, metadata] = await Promise.all([loadTx(req.query, req), client.getMetadata({ requestId: req.requestId }).catch((error) => { logger.warn('dashboard_metadata_failed', { requestId: req.requestId, error: error.message }); return {}; })]); logger.info('dashboard_requested', { requestId: req.requestId, count: tx.length }); res.json({ ok: true, ...(buildDashboard(tx, { requestId: req.requestId, filters: req.query, monthlyGoals: metadata.monthlyGoals })) }); } catch (e) { next(e); } });
 router.get('/transactions', async (req, res, next) => {
   try {
     const transactions = (await loadTx(req.query, req)).sort((a, b) => b.date.localeCompare(a.date) || b.sheetRowNumber - a.sheetRowNumber);
@@ -52,17 +52,21 @@ router.get('/transactions', async (req, res, next) => {
     res.json({ ok: true, summary, transactions });
   } catch (e) { next(e); }
 });
-router.get('/categories', async (req, res, next) => { try { const dashboard = buildDashboard(await loadTx(req.query, req), { requestId: req.requestId }); logger.info('categories_loaded', { requestId: req.requestId, count: dashboard.totalPorCategoria.length }); res.json({ ok: true, byCategory: dashboard.totalPorCategoria, bySubcategory: dashboard.totalPorSubcategoria, byAccount: dashboard.totalPorConta, expensesByCategory: dashboard.despesasPorCategoria, expensesBySubcategory: dashboard.despesasPorSubcategoria, expensesByAccount: dashboard.despesasPorConta }); } catch (e) { next(e); } });
+router.get('/categories', async (req, res, next) => { try { const dashboard = buildDashboard(await loadTx(req.query, req), { requestId: req.requestId, filters: req.query }); logger.info('categories_loaded', { requestId: req.requestId, count: dashboard.totalPorCategoria.length }); res.json({ ok: true, byCategory: dashboard.totalPorCategoria, bySubcategory: dashboard.totalPorSubcategoria, byAccount: dashboard.totalPorConta, expensesByCategory: dashboard.despesasPorCategoria, expensesBySubcategory: dashboard.despesasPorSubcategoria, expensesByAccount: dashboard.despesasPorConta }); } catch (e) { next(e); } });
 
 router.post('/transactions', async (req, res, next) => {
   try {
     const p = req.body || {};
-    if (!p.data || !p.nome || !p.tipo || !p.status) return res.status(400).json({ ok: false, error: 'Campos obrigatórios ausentes.', requestId: req.requestId });
+    if (!p.data || !p.tipo || !p.conta) return res.status(400).json({ ok: false, error: 'Preencha data, tipo e conta/canal.', requestId: req.requestId });
+    if (p.tipo !== 'Saldo' && !p.nome) return res.status(400).json({ ok: false, error: 'Preencha o nome da transação.', requestId: req.requestId });
     if (p.tipo === 'Reserva' && !p.reserva) return res.status(400).json({ ok: false, error: 'Reserva obrigatória para tipo Reserva.', requestId: req.requestId });
+    if (['Receita', 'Despesa'].includes(p.tipo) && (!p.categoria || !p.subcategoria || !p.forma)) return res.status(400).json({ ok: false, error: 'Receita e Despesa exigem categoria, subcategoria e forma.', requestId: req.requestId });
+    if (p.tipo === 'Saldo' && !p.categoria) return res.status(400).json({ ok: false, error: 'Saldo exige categoria.', requestId: req.requestId });
     const amount = parseMoneyBR(p.valor);
     if (!amount || amount <= 0) { logger.warn('transaction_validation_failed', { requestId: req.requestId, reason: 'invalid_amount' }); return res.status(400).json({ ok: false, error: 'Valor inválido.', requestId: req.requestId }); }
-    const result = await client.addTransaction({ ...p, valor: amount }, { requestId: req.requestId });
-    logger.info('transaction_created', { requestId: req.requestId, tipo: p.tipo, status: p.status });
+    const payload = { ...p, nome: p.nome || `Saldo ${p.conta}`, valor: amount };
+    const result = await client.addTransaction(payload, { requestId: req.requestId });
+    logger.info('transaction_created', { requestId: req.requestId, tipo: p.tipo, status: p.status || '' });
     res.json({ ok: true, data: result });
   } catch (e) { next(e); }
 });

@@ -6,7 +6,7 @@ let lastAppsScriptCall = null;
 
 const mockResponse = (action) => {
   if (action === 'health') return { ok: true, mock: true, timestamp: new Date().toISOString() };
-  if (action === 'metadata') return { ok: true, types: [], reserves: [], accounts: [], categories: [], subcategories: [], paymentMethods: [], statuses: [] };
+  if (action === 'metadata') return { ok: true, types: ['Receita', 'Despesa', 'Reserva', 'Saldo'], reserves: ['Entrada', 'Saida'], accounts: [], categories: ['Transferencia entre contas'], subcategories: ['Essencial', 'Extra'], paymentMethods: ['Débito', 'Crédito', 'Pix', 'Boleto', 'Depósito'], statuses: [], monthlyGoals: {} };
   if (action === 'transactions') return { ok: true, transactions: [] };
   if (action === 'add') return { ok: true, mock: true };
   return { ok: true, mock: true };

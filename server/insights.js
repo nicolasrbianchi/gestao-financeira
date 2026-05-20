@@ -2,7 +2,7 @@ import { normalizeStringKey } from './normalize.js';
 
 export function buildInsights(transactions, totals, groups) {
   const insights = [];
-  const expenseTx = transactions.filter((t) => normalizeStringKey(t.type) === 'despesa');
+  const expenseTx = transactions.filter((t) => normalizeStringKey(t.type) === 'despesa' && normalizeStringKey(t.category) !== 'transferencia entre contas');
   const maxCategory = (groups.despesasPorCategoria || [])[0];
   if (maxCategory) insights.push({ id: 'top-category', title: 'Maior categoria de despesa', description: `${maxCategory.name} lidera os gastos no período.`, type: 'info', value: maxCategory.value });
 

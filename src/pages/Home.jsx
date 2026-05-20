@@ -48,15 +48,18 @@ export default function Home({ data, loading }) {
   const summaryCards = data?.summaryCards || [];
   const charts = data?.charts || {};
   const recentTransactions = data?.recentTransactions || [];
-  const totalBalance = cardValue(summaryCards, 'saldoOperacional');
+  const meta = data?.meta || {};
+  const accountBreakdown = data?.accountBreakdown || [];
+  const totalBalance = cardValue(summaryCards, 'saldoDisponivel');
   const reserves = cardValue(summaryCards, 'reservas');
   const income = cardValue(summaryCards, 'receitas');
   const expense = Math.abs(cardValue(summaryCards, 'despesas'));
   const series = (charts.dailySeries || []).slice(-7).map((item) => ({
     day: item.date?.slice(5) || '',
-    balance: (item.receitas || 0) - (item.despesas || 0)
+    balance: (item.receitas || 0) + (item.saldo || 0) + (item.reservasSaida || 0) - (item.despesas || 0) - (item.reservasEntrada || 0)
   }));
   const transactions = recentTransactions.slice(0, 5);
+  const goalPercent = meta.usedPercent == null ? null : Math.round(meta.usedPercent * 100);
 
   return (
     <div className='space-y-5'>
@@ -74,7 +77,7 @@ export default function Home({ data, loading }) {
       </header>
 
       <section className='min-w-0 rounded-5xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 p-5 text-white shadow-soft'>
-        <p className='text-sm text-slate-300'>Saldo operacional</p>
+        <p className='text-sm text-slate-300'>Saldo disponível</p>
         <h2 className='mt-2 break-words text-[2.35rem] font-extrabold leading-tight tracking-tight'>{money(totalBalance)}</h2>
         <div className='mt-5 grid grid-cols-2 gap-3 rounded-3xl bg-white/10 p-4'>
           <div className='min-w-0'>
@@ -82,8 +85,8 @@ export default function Home({ data, loading }) {
             <p className='mt-1 flex items-center gap-1 break-words text-sm font-semibold text-emerald-300'><TrendingUp size={15} /> {money(reserves)}</p>
           </div>
           <div className='min-w-0 text-right'>
-            <p className='text-xs text-slate-300'>Receitas - despesas</p>
-            <p className='mt-1 break-words text-sm font-semibold'>{money(income - expense)}</p>
+            <p className='text-xs text-slate-300'>Meta do mês</p>
+            <p className='mt-1 break-words text-sm font-semibold'>{meta.value ? `${goalPercent}% usado` : 'Sem meta'}</p>
           </div>
         </div>
       </section>
@@ -103,7 +106,7 @@ export default function Home({ data, loading }) {
         <div className='mb-4 flex items-center justify-between gap-3'>
           <div>
             <p className='text-sm font-semibold text-slate-900'>Atividade recente</p>
-            <p className='text-xs text-slate-500'>Receitas x despesas</p>
+            <p className='text-xs text-slate-500'>Saldo diário sem transferências</p>
           </div>
           <div className='shrink-0 text-right text-xs'>
             <p className='font-semibold text-emerald-600'>+{money(income)}</p>
@@ -128,15 +131,58 @@ export default function Home({ data, loading }) {
       <section className='grid grid-cols-2 gap-3'>
         <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
           <ArrowUpRight className='text-emerald-500' size={18} />
-          <p className='mt-3 text-xs text-slate-500'>Receitas</p>
+          <p className='mt-3 text-xs text-slate-500'>Receitas reais</p>
           <p className='mt-1 break-words text-xl font-bold'>{money(income)}</p>
         </article>
         <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
           <TrendingDown className='text-rose-500' size={18} />
-          <p className='mt-3 text-xs text-slate-500'>Despesas</p>
+          <p className='mt-3 text-xs text-slate-500'>Despesas reais</p>
           <p className='mt-1 break-words text-xl font-bold'>{money(expense)}</p>
         </article>
       </section>
+
+      <section className='rounded-4xl bg-white p-5 shadow-soft'>
+        <div className='flex items-center justify-between gap-3'>
+          <div>
+            <h3 className='text-base font-semibold text-slate-900'>Meta do mês</h3>
+            <p className='text-xs text-slate-500'>{meta.month || 'Período atual'} · {meta.status || 'Sem status'}</p>
+          </div>
+          <p className={`shrink-0 text-right text-sm font-bold ${(meta.remaining ?? 0) < 0 ? 'text-rose-500' : 'text-emerald-600'}`}>
+            {meta.value ? money(meta.remaining || 0) : '—'}
+          </p>
+        </div>
+        <div className='progress mt-4'><span className={goalPercent > 100 ? '!bg-rose-500' : goalPercent >= 80 ? '!bg-amber-500' : ''} style={{ width: `${Math.min(goalPercent || 0, 100)}%` }} /></div>
+        <div className='mt-3 flex justify-between text-xs text-slate-500'>
+          <span>Gasto: {money(meta.spent || expense)}</span>
+          <span>Meta: {meta.value ? money(meta.value) : 'não definida'}</span>
+        </div>
+      </section>
+
+      {accountBreakdown.length > 0 && (
+        <section className='rounded-4xl bg-white p-5 shadow-soft'>
+          <div className='mb-4'>
+            <h3 className='text-base font-semibold text-slate-900'>Por conta/canal</h3>
+            <p className='text-xs text-slate-500'>Transferências contam só nesta visão.</p>
+          </div>
+          <div className='space-y-3'>
+            {accountBreakdown.map((account) => (
+              <article key={account.account} className='rounded-3xl bg-slate-50 p-4'>
+                <div className='flex items-start justify-between gap-3'>
+                  <div className='min-w-0'>
+                    <p className='truncate text-sm font-bold text-slate-800'>{account.account}</p>
+                    <p className='mt-1 text-xs text-slate-500'>Reserva: {money(account.reservaAtual || 0)}</p>
+                  </div>
+                  <p className='max-w-[8rem] break-words text-right text-sm font-extrabold text-slate-900'>{money(account.saldoDisponivel || 0)}</p>
+                </div>
+                <div className='mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-500'>
+                  <span>Entrou: {money((account.receitas || 0) + (account.transferenciasEntrada || 0))}</span>
+                  <span>Saiu: {money((account.despesas || 0) + (account.transferenciasSaida || 0))}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className='rounded-4xl bg-white p-5 shadow-soft'>
         <div className='mb-4 flex items-center justify-between gap-3'>
@@ -147,7 +193,7 @@ export default function Home({ data, loading }) {
           <ul className='space-y-3'>
             {transactions.map((tx, index) => {
               const Icon = txIcons[tx.type] || Wallet;
-              const positive = tx.type === 'Receita' || (tx.type === 'Reserva' && tx.reserve === 'Entrada');
+              const positive = tx.type === 'Receita' || tx.type === 'Saldo' || (tx.type === 'Reserva' && tx.reserve === 'Saida');
               return (
                 <li key={`${tx.sheetRowNumber || index}-${tx.name || index}`} className='flex min-w-0 items-center gap-3'>
                   <span className='grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-700'>

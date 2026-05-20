@@ -14,6 +14,7 @@ const SECRET_TOKEN = PropertiesService.getScriptProperties().getProperty('SECRET
 
 const TRANSACTIONS_SHEET = 'Transações';
 const SOURCES_SHEET = 'Fontes';
+const CATEGORIES_SHEET = 'Categorias';
 
 const TRANSACTION_HEADERS = [
   'Data',
@@ -152,6 +153,42 @@ function getTransactions_() {
   return { ok: true, transactions };
 }
 
+function mergeLists_() {
+  return normalizeList_(Array.prototype.concat.apply([], arguments));
+}
+
+function monthKey_(value) {
+  if (!value) return '';
+  const date = value instanceof Date ? value : normalizeDate_(value);
+  if (!date || Number.isNaN(date.getTime())) return '';
+  return Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM');
+}
+
+function getMonthlyGoals_() {
+  const sh = ss_().getSheetByName(CATEGORIES_SHEET);
+  if (!sh) return {};
+
+  const lastRow = sh.getLastRow();
+  const lastCol = sh.getLastColumn();
+  if (lastRow < 2 || lastCol < 2) return {};
+
+  const labels = sh.getRange(1, 1, lastRow, 1).getDisplayValues().flat();
+  const goalRowIndex = labels.findIndex((value) => String(value || '').trim() === '.') + 1;
+  if (!goalRowIndex) return {};
+
+  const monthValues = sh.getRange(1, 2, 1, lastCol - 1).getValues()[0];
+  const goalValues = sh.getRange(goalRowIndex, 2, 1, lastCol - 1).getValues()[0];
+  const goals = {};
+
+  for (let i = 0; i < monthValues.length; i++) {
+    const key = monthKey_(monthValues[i]);
+    const value = parseMoney_(goalValues[i]);
+    if (key && value) goals[key] = value;
+  }
+
+  return goals;
+}
+
 function getMetadata_() {
   const tx = getTransactions_().transactions || [];
 
@@ -164,13 +201,14 @@ function getMetadata_() {
 
   return {
     ok: true,
-    types: uniqueFromTx('Tipo'),
-    categories: categories && categories.length ? categories : uniqueFromTx('Categoria'),
-    subcategories: uniqueFromTx('Subcategoria'),
-    accounts: accounts && accounts.length ? accounts : uniqueFromTx('Conta/Canal'),
-    paymentMethods: uniqueFromTx('Forma'),
+    types: mergeLists_(uniqueFromTx('Tipo'), ['Receita', 'Despesa', 'Reserva', 'Saldo']),
+    categories: mergeLists_(categories, uniqueFromTx('Categoria'), ['Transferencia entre contas']),
+    subcategories: mergeLists_(uniqueFromTx('Subcategoria'), ['Essencial', 'Extra']),
+    accounts: mergeLists_(accounts, uniqueFromTx('Conta/Canal')),
+    paymentMethods: mergeLists_(uniqueFromTx('Forma'), ['Débito', 'Crédito', 'Pix', 'Boleto', 'Depósito']),
     statuses: uniqueFromTx('Status'),
-    reserves: uniqueFromTx('Reserva'),
+    reserves: mergeLists_(uniqueFromTx('Reserva'), ['Entrada', 'Saida']),
+    monthlyGoals: getMonthlyGoals_(),
   };
 }
 
@@ -224,7 +262,6 @@ function addTransaction_(p) {
   const header = ensureTransactionHeader_();
 
   const data = p.data || p.date;
-  const nome = String(p.nome || p.name || '').trim();
   const tipo = p.tipo || p.type;
   const reserva = p.reserva || p.reserve || '';
   const conta = p.conta || p.account || '';
@@ -235,9 +272,14 @@ function addTransaction_(p) {
   const parcela = p.parcela || p.installment || '';
   const obs = p.obs || p.notes || '';
   const valor = parseMoney_(p.valor !== undefined ? p.valor : p.amount);
+  const nome = String(p.nome || p.name || (tipo === 'Saldo' && conta ? 'Saldo ' + conta : '')).trim();
 
-  if (!nome) throw new Error('Nome obrigatório.');
   if (!tipo) throw new Error('Tipo obrigatório.');
+  if (!conta) throw new Error('Conta/Canal obrigatório.');
+  if (tipo !== 'Saldo' && !nome) throw new Error('Nome obrigatório.');
+  if (tipo === 'Reserva' && !reserva) throw new Error('Reserva obrigatória para tipo Reserva.');
+  if ((tipo === 'Receita' || tipo === 'Despesa') && (!categoria || !subcategoria || !forma)) throw new Error('Receita e Despesa exigem categoria, subcategoria e forma.');
+  if (tipo === 'Saldo' && !categoria) throw new Error('Saldo exige categoria.');
   if (!valor || valor <= 0) throw new Error('Valor obrigatório.');
 
   const rowObj = {
