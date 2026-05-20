@@ -34,24 +34,17 @@ router.post('/auth/logout', (req, res) => {
 
 router.use(requireAuth);
 
-const loadTx = async (query, req) => {
+const loadNormalizedTx = async (req) => {
   const raw = await client.getTransactions({ requestId: req.requestId });
-  const tx = normalizeTransactions(raw.transactions || [], { requestId: req.requestId });
-  return filterTx(tx, query, { requestId: req.requestId });
+  return normalizeTransactions(raw.transactions || [], { requestId: req.requestId });
 };
 
 // Para saldo "real" (carteira), queremos considerar todo o histórico até o endDate,
 // mas mantendo filtros não-temporais (conta/tipo/status/etc.) quando informados.
-const loadTxToDate = async (query, req) => {
-  const raw = await client.getTransactions({ requestId: req.requestId });
-  const tx = normalizeTransactions(raw.transactions || [], { requestId: req.requestId });
-
-  const toDateQuery = {
-    ...query,
-    startDate: '',
-  };
-  return filterTx(tx, toDateQuery, { requestId: req.requestId });
-};
+const buildToDateQuery = (query = {}) => ({
+  ...query,
+  startDate: '',
+});
 
 router.get('/health', async (req, res, next) => {
   try {
@@ -63,14 +56,16 @@ router.get('/health', async (req, res, next) => {
 router.get('/metadata', async (req, res, next) => { try { const d = await client.getMetadata({ requestId: req.requestId }); logger.info('metadata_loaded', { requestId: req.requestId, categories: d.categories?.length || 0 }); res.json(d); } catch (e) { next(e); } });
 router.get('/dashboard', async (req, res, next) => {
   try {
-    const [tx, txToDate, metadata] = await Promise.all([
-      loadTx(req.query, req),
-      loadTxToDate(req.query, req),
+    const [normalized, metadata] = await Promise.all([
+      loadNormalizedTx(req),
       client.getMetadata({ requestId: req.requestId }).catch((error) => {
         logger.warn('dashboard_metadata_failed', { requestId: req.requestId, error: error.message });
         return {};
       }),
     ]);
+
+    const tx = filterTx(normalized, req.query, { requestId: req.requestId });
+    const txToDate = filterTx(normalized, buildToDateQuery(req.query), { requestId: req.requestId });
 
     logger.info('dashboard_requested', { requestId: req.requestId, count: tx.length, countToDate: txToDate.length });
     res.json({ ok: true, ...(buildDashboard(tx, { requestId: req.requestId, filters: req.query, monthlyGoals: metadata.monthlyGoals, toDateTransactions: txToDate })) });
@@ -80,7 +75,8 @@ router.get('/dashboard', async (req, res, next) => {
 });
 router.get('/transactions', async (req, res, next) => {
   try {
-    const transactions = (await loadTx(req.query, req)).sort((a, b) => b.date.localeCompare(a.date) || b.sheetRowNumber - a.sheetRowNumber);
+    const normalized = await loadNormalizedTx(req);
+    const transactions = filterTx(normalized, req.query, { requestId: req.requestId }).sort((a, b) => b.date.localeCompare(a.date) || b.sheetRowNumber - a.sheetRowNumber);
     const summary = { count: transactions.length, totalAmount: transactions.reduce((a, t) => a + t.amount, 0) };
     logger.info('transactions_listed', { requestId: req.requestId, count: summary.count });
     res.json({ ok: true, summary, transactions });
@@ -88,14 +84,16 @@ router.get('/transactions', async (req, res, next) => {
 });
 router.get('/categories', async (req, res, next) => {
   try {
-    const [tx, txToDate, metadata] = await Promise.all([
-      loadTx(req.query, req),
-      loadTxToDate(req.query, req),
+    const [normalized, metadata] = await Promise.all([
+      loadNormalizedTx(req),
       client.getMetadata({ requestId: req.requestId }).catch((error) => {
         logger.warn('categories_metadata_failed', { requestId: req.requestId, error: error.message });
         return {};
       }),
     ]);
+
+    const tx = filterTx(normalized, req.query, { requestId: req.requestId });
+    const txToDate = filterTx(normalized, buildToDateQuery(req.query), { requestId: req.requestId });
     const dashboard = buildDashboard(tx, { requestId: req.requestId, filters: req.query, monthlyGoals: metadata.monthlyGoals, toDateTransactions: txToDate });
     logger.info('categories_loaded', { requestId: req.requestId, count: dashboard.totalPorCategoria.length, countToDate: txToDate.length });
     res.json({ ok: true, meta: dashboard.meta, accountBreakdown: dashboard.accountBreakdown, byCategory: dashboard.totalPorCategoria, bySubcategory: dashboard.totalPorSubcategoria, byAccount: dashboard.totalPorConta, expensesByCategory: dashboard.despesasPorCategoria, expensesBySubcategory: dashboard.despesasPorSubcategoria, expensesByAccount: dashboard.despesasPorConta });

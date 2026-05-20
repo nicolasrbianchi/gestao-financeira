@@ -4,6 +4,47 @@ import { logger } from './logger.js';
 const shouldUseMock = !config.isProd && config.useMockData;
 let lastAppsScriptCall = null;
 
+// Cache in-memory (zero-cost) para reduzir latência do Apps Script.
+// - Útil porque o Apps Script é o gargalo e as telas fazem leituras repetidas.
+// - TTL curto para não ficar "desatualizado" por muito tempo.
+const CACHE_TTL_MS = Number(process.env.APPS_SCRIPT_CACHE_TTL_MS || 45_000);
+const cache = {
+  transactions: { value: null, at: 0, inFlight: null },
+  metadata: { value: null, at: 0, inFlight: null },
+};
+
+function isFresh(entry) {
+  if (!CACHE_TTL_MS) return false;
+  return entry.value && Date.now() - entry.at < CACHE_TTL_MS;
+}
+
+async function cachedCall(cacheKey, loader, context = {}) {
+  const entry = cache[cacheKey];
+  const force = context?.force === true || context?.noCache === true;
+  if (!force && isFresh(entry)) {
+    logger.debug('apps_script_cache_hit', { requestId: context.requestId, cacheKey, ageMs: Date.now() - entry.at });
+    return entry.value;
+  }
+
+  if (!force && entry.inFlight) {
+    logger.debug('apps_script_cache_join', { requestId: context.requestId, cacheKey });
+    return entry.inFlight;
+  }
+
+  entry.inFlight = (async () => {
+    try {
+      const value = await loader();
+      entry.value = value;
+      entry.at = Date.now();
+      return value;
+    } finally {
+      entry.inFlight = null;
+    }
+  })();
+
+  return entry.inFlight;
+}
+
 const mockResponse = (action) => {
   if (action === 'health') return { ok: true, mock: true, timestamp: new Date().toISOString() };
   if (action === 'metadata') return { ok: true, types: ['Receita', 'Despesa', 'Reserva', 'Saldo'], reserves: ['Entrada', 'Saida'], accounts: [], categories: ['Transferencia entre contas'], subcategories: ['Essencial', 'Extra'], paymentMethods: ['Débito', 'Crédito', 'Pix', 'Boleto', 'Depósito'], statuses: [], monthlyGoals: {} };
@@ -50,8 +91,14 @@ export async function callAppsScript(action, params = {}, context = {}) {
   }
 }
 
-export const getTransactions = (ctx) => callAppsScript('transactions', {}, ctx);
-export const getMetadata = (ctx) => callAppsScript('metadata', {}, ctx);
-export const addTransaction = (payload, ctx) => callAppsScript('add', payload, ctx);
-export const health = (ctx) => callAppsScript('health', {}, ctx);
+export async function getTransactions(ctx = {}) {
+  return cachedCall('transactions', () => callAppsScript('transactions', {}, ctx), ctx);
+}
+
+export async function getMetadata(ctx = {}) {
+  return cachedCall('metadata', () => callAppsScript('metadata', {}, ctx), ctx);
+}
+
+export const addTransaction = (payload, ctx) => callAppsScript('add', payload, { ...(ctx || {}), force: true });
+export const health = (ctx) => callAppsScript('health', {}, { ...(ctx || {}), force: true });
 export const getLastAppsScriptCall = () => lastAppsScriptCall;
