@@ -3,7 +3,8 @@ import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis
 import { ArrowDownRight, Landmark, Layers3, Tags } from 'lucide-react';
 import { money } from '../utils/format';
 
-const COLORS = ['#8b5cf6', '#ec4899', '#f97316', '#22c55e', '#06b6d4', '#f43f5e', '#a3e635', '#facc15'];
+// Paleta premium (sem roxo neon). Primeiro tom = champagne do app.
+const COLORS = ['#e7dcc6', '#94a3b8', '#22c55e', '#fb7185', '#06b6d4', '#f59e0b', '#a3a3a3', '#f2d58b'];
 
 function totalOf(items = []) {
   return items.reduce((sum, item) => sum + Math.abs(item.value || 0), 0);

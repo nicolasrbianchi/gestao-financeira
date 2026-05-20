@@ -24,7 +24,7 @@ export default function BottomNav({ tab, onTab, onAdd }) {
       <button
         type='button'
         onClick={onAdd}
-        className='mx-auto grid h-14 w-14 -translate-y-4 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-[0_12px_28px_rgba(79,70,229,0.35)] transition active:scale-95'
+        className='mx-auto grid h-14 w-14 -translate-y-4 place-items-center rounded-full bg-slate-950 text-black shadow-[0_14px_34px_rgba(0,0,0,0.6)] ring-1 ring-white/10 transition active:scale-95'
         aria-label='Adicionar transação'
       >
         <Plus size={26} strokeWidth={2.5} />
