@@ -26,6 +26,9 @@
   --accent-2: #e7dcc6;
   --accent-3: rgba(205, 187, 147, 0.14);
   --accent-pop: #f3e6cc;
+  /* Acento frio (data-viz / seleção). Usar pouco, para dar vida sem virar "banco". */
+  --accent-cool: #86aee6;
+  --accent-cool-2: #b7cff2;
   --danger: #fb7185;
   --success: #34d399;
 
@@ -135,13 +138,14 @@ option {
   .app-frame::before { content: ''; position: fixed; inset: 0; z-index: -1; background: radial-gradient(circle at 50% 6%, rgba(205, 187, 147, 0.055), transparent 38%); pointer-events: none; }
   .card {
     @apply relative my-3 min-w-0 rounded-4xl p-4;
-    border: 1px solid rgba(255, 255, 255, 0.11);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     background:
-      radial-gradient(140% 120% at 10% 0%, rgba(255, 255, 255, 0.04), transparent 52%),
-      linear-gradient(180deg, rgba(10, 10, 16, 0.94), rgba(2, 2, 6, 0.90));
+      radial-gradient(140% 120% at 10% 0%, rgba(255, 255, 255, 0.06), transparent 52%),
+      linear-gradient(180deg, rgba(16, 16, 24, 0.92), rgba(4, 4, 10, 0.92));
     box-shadow:
-      0 26px 82px rgba(0, 0, 0, 0.70),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      0 30px 96px rgba(0, 0, 0, 0.78),
+      0 0 0 1px rgba(255, 255, 255, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
     backdrop-filter: blur(14px);
   }
   /* Contorno extra (separação em fundos muito escuros) */
@@ -152,8 +156,9 @@ option {
     border-radius: inherit;
     pointer-events: none;
     box-shadow:
-      0 0 0 1px rgba(0, 0, 0, 0.55) inset,
-      0 0 0 1px rgba(255, 255, 255, 0.06);
+      0 0 0 1px rgba(0, 0, 0, 0.65) inset,
+      0 0 0 1px rgba(255, 255, 255, 0.085),
+      0 0 0 1px rgba(134, 174, 230, 0.06);
     opacity: 0.95;
   }
   /* filete sutil no topo do card (separação no "preto absoluto") */
@@ -230,7 +235,8 @@ option {
 
 .text-indigo-600,
 .text-indigo-500 {
-  color: rgba(243, 230, 204, 0.92) !important;
+  /* Acento frio para ícones/seleção (evitar roxo, dar vida). */
+  color: rgba(183, 207, 242, 0.92) !important;
 }
 
 .text-rose-600,
