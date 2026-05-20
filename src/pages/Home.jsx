@@ -49,7 +49,9 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
   const expense = Math.abs(cardValue(summaryCards, 'despesas'));
   const series = (charts.dailySeries || []).slice(-7).map((item) => ({
     day: item.date?.slice(5) || '',
-    balance: (item.receitas || 0) + (item.saldo || 0) + (item.reservasSaida || 0) - (item.despesas || 0) - (item.reservasEntrada || 0)
+    balance:
+      item.runningSaldoDisponivel ??
+      ((item.receitas || 0) + (item.saldo || 0) + (item.reservasSaida || 0) - (item.despesas || 0) - (item.reservasEntrada || 0))
   }));
   const transactions = recentTransactions.slice(0, 5);
   const goalPercent = meta.usedPercent == null ? null : Math.round(meta.usedPercent * 100);
@@ -101,7 +103,7 @@ export default function Home({ data, loading, filters, setFilters, onOpenFilters
         <div className='mb-4 flex items-center justify-between gap-3'>
           <div>
             <p className='text-sm font-semibold text-slate-900'>Atividade recente</p>
-            <p className='text-xs text-slate-500'>Saldo diário sem transferências</p>
+            <p className='text-xs text-slate-500'>Saldo disponível ao longo do período (sem transferências)</p>
           </div>
           <div className='shrink-0 text-right text-xs'>
             <p className='font-semibold text-emerald-600'>+{money(income)}</p>

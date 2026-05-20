@@ -146,7 +146,16 @@ export function buildDashboard(transactions, context = {}) {
     if (isReserveOut(t)) dailyMap[t.date].reservasSaida += t.amount;
     if (isBalance(t)) dailyMap[t.date].saldo += t.amount;
   }
-  const serieDiaria = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+  const serieDiariaRaw = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+
+  // `dailySeries` é usado no gráfico da Home: queremos o saldo disponível acumulado ao longo dos dias.
+  // Fórmula: saldo += (receitas + saldo + reservasSaida) - (despesas + reservasEntrada)
+  let running = 0;
+  const serieDiaria = serieDiariaRaw.map((day) => {
+    const delta = (day.receitas || 0) + (day.saldo || 0) + (day.reservasSaida || 0) - (day.despesas || 0) - (day.reservasEntrada || 0);
+    running += delta;
+    return { ...day, delta, runningSaldoDisponivel: running };
+  });
 
   const recentTransactions = [...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.sheetRowNumber - a.sheetRowNumber).slice(0, 10);
   const topTransactions = [...realExpenseTransactions].sort((a, b) => b.amount - a.amount).slice(0, 10);

@@ -8,7 +8,44 @@ const getField = (row, variants) => variants.find((key) => row[key] !== undefine
 export function normalizeTransactions(rows = [], context = {}) {
   const fieldsDetected = new Set();
   rows.forEach((r) => Object.keys(r || {}).forEach((k) => fieldsDetected.add(k)));
-  const normalized = rows.map((raw, index) => { const parsedDate = parseDateBR(getField(raw, ['Data', 'data'])); const amount = parseMoneyBR(getField(raw, ['Valor', 'valor', 'amount'])); const name = String(getField(raw, ['Nome', 'nome', 'name']) || '').trim(); const type = String(getField(raw, ['Tipo', 'tipo', 'type']) || '').trim(); const reserve = String(getField(raw, ['Reserva', 'reserva', 'reserve']) || '').trim(); return { sheetRowNumber: Number(raw.sheetRowNumber) || index + 2, date: parsedDate?.date || '', displayDate: parsedDate?.displayDate || '', name, type, reserve, reserveKey: normalizeStringKey(reserve), account: String(getField(raw, ['Conta/Canal', 'conta', 'account']) || '').trim(), category: String(getField(raw, ['Categoria', 'categoria', 'category']) || '').trim(), subcategory: String(getField(raw, ['Subcategoria', 'subcategoria', 'subcategory']) || '').trim(), paymentMethod: String(getField(raw, ['Forma', 'forma', 'paymentMethod']) || '').trim(), amount: amount ?? NaN, status: String(getField(raw, ['Status', 'status']) || '').trim(), installment: String(getField(raw, ['Parcela', 'parcela', 'installment']) || '').trim(), notes: String(getField(raw, ['Obs', 'obs', 'notes']) || '').trim() }; }).filter((t) => t.date && t.name && t.type && Number.isFinite(t.amount));
+  const normalized = rows
+    .map((raw, index) => {
+      const parsedDate = parseDateBR(getField(raw, ['Data', 'data']));
+      const parsedAmount = parseMoneyBR(getField(raw, ['Valor', 'valor', 'amount']));
+      const type = String(getField(raw, ['Tipo', 'tipo', 'type']) || '').trim();
+      const reserve = String(getField(raw, ['Reserva', 'reserva', 'reserve']) || '').trim();
+      const account = String(getField(raw, ['Conta/Canal', 'conta', 'account']) || '').trim();
+      const category = String(getField(raw, ['Categoria', 'categoria', 'category']) || '').trim();
+
+      // Importante: a UI assume `amount` positivo e decide o sinal pelo tipo.
+      // Se a planilha tiver valores negativos (entradas antigas/manuais), normalizamos para absoluto.
+      const amount = parsedAmount == null ? NaN : Math.abs(parsedAmount);
+
+      let name = String(getField(raw, ['Nome', 'nome', 'name']) || '').trim();
+      if (!name) {
+        if (normalizeStringKey(type) === 'saldo' && account) name = `Saldo ${account}`;
+        else name = 'Sem nome';
+      }
+
+      return {
+        sheetRowNumber: Number(raw.sheetRowNumber) || index + 2,
+        date: parsedDate?.date || '',
+        displayDate: parsedDate?.displayDate || '',
+        name,
+        type,
+        reserve,
+        reserveKey: normalizeStringKey(reserve),
+        account,
+        category,
+        subcategory: String(getField(raw, ['Subcategoria', 'subcategoria', 'subcategory']) || '').trim(),
+        paymentMethod: String(getField(raw, ['Forma', 'forma', 'paymentMethod']) || '').trim(),
+        amount,
+        status: String(getField(raw, ['Status', 'status']) || '').trim(),
+        installment: String(getField(raw, ['Parcela', 'parcela', 'installment']) || '').trim(),
+        notes: String(getField(raw, ['Obs', 'obs', 'notes']) || '').trim(),
+      };
+    })
+    .filter((t) => t.date && t.type && Number.isFinite(t.amount) && t.amount > 0);
   logger.debug('normalize_transactions_completed', { requestId: context.requestId, inputCount: rows.length, outputCount: normalized.length, fieldsDetected: [...fieldsDetected].slice(0, 30) });
   return normalized;
 }
