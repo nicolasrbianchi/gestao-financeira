@@ -40,6 +40,19 @@ const loadTx = async (query, req) => {
   return filterTx(tx, query, { requestId: req.requestId });
 };
 
+// Para saldo "real" (carteira), queremos considerar todo o histórico até o endDate,
+// mas mantendo filtros não-temporais (conta/tipo/status/etc.) quando informados.
+const loadTxToDate = async (query, req) => {
+  const raw = await client.getTransactions({ requestId: req.requestId });
+  const tx = normalizeTransactions(raw.transactions || [], { requestId: req.requestId });
+
+  const toDateQuery = {
+    ...query,
+    startDate: '',
+  };
+  return filterTx(tx, toDateQuery, { requestId: req.requestId });
+};
+
 router.get('/health', async (req, res, next) => {
   try {
     const appsScript = await client.health({ requestId: req.requestId });
@@ -48,7 +61,23 @@ router.get('/health', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 router.get('/metadata', async (req, res, next) => { try { const d = await client.getMetadata({ requestId: req.requestId }); logger.info('metadata_loaded', { requestId: req.requestId, categories: d.categories?.length || 0 }); res.json(d); } catch (e) { next(e); } });
-router.get('/dashboard', async (req, res, next) => { try { const [tx, metadata] = await Promise.all([loadTx(req.query, req), client.getMetadata({ requestId: req.requestId }).catch((error) => { logger.warn('dashboard_metadata_failed', { requestId: req.requestId, error: error.message }); return {}; })]); logger.info('dashboard_requested', { requestId: req.requestId, count: tx.length }); res.json({ ok: true, ...(buildDashboard(tx, { requestId: req.requestId, filters: req.query, monthlyGoals: metadata.monthlyGoals })) }); } catch (e) { next(e); } });
+router.get('/dashboard', async (req, res, next) => {
+  try {
+    const [tx, txToDate, metadata] = await Promise.all([
+      loadTx(req.query, req),
+      loadTxToDate(req.query, req),
+      client.getMetadata({ requestId: req.requestId }).catch((error) => {
+        logger.warn('dashboard_metadata_failed', { requestId: req.requestId, error: error.message });
+        return {};
+      }),
+    ]);
+
+    logger.info('dashboard_requested', { requestId: req.requestId, count: tx.length, countToDate: txToDate.length });
+    res.json({ ok: true, ...(buildDashboard(tx, { requestId: req.requestId, filters: req.query, monthlyGoals: metadata.monthlyGoals, toDateTransactions: txToDate })) });
+  } catch (e) {
+    next(e);
+  }
+});
 router.get('/transactions', async (req, res, next) => {
   try {
     const transactions = (await loadTx(req.query, req)).sort((a, b) => b.date.localeCompare(a.date) || b.sheetRowNumber - a.sheetRowNumber);
@@ -57,7 +86,23 @@ router.get('/transactions', async (req, res, next) => {
     res.json({ ok: true, summary, transactions });
   } catch (e) { next(e); }
 });
-router.get('/categories', async (req, res, next) => { try { const [tx, metadata] = await Promise.all([loadTx(req.query, req), client.getMetadata({ requestId: req.requestId }).catch((error) => { logger.warn('categories_metadata_failed', { requestId: req.requestId, error: error.message }); return {}; })]); const dashboard = buildDashboard(tx, { requestId: req.requestId, filters: req.query, monthlyGoals: metadata.monthlyGoals }); logger.info('categories_loaded', { requestId: req.requestId, count: dashboard.totalPorCategoria.length }); res.json({ ok: true, meta: dashboard.meta, accountBreakdown: dashboard.accountBreakdown, byCategory: dashboard.totalPorCategoria, bySubcategory: dashboard.totalPorSubcategoria, byAccount: dashboard.totalPorConta, expensesByCategory: dashboard.despesasPorCategoria, expensesBySubcategory: dashboard.despesasPorSubcategoria, expensesByAccount: dashboard.despesasPorConta }); } catch (e) { next(e); } });
+router.get('/categories', async (req, res, next) => {
+  try {
+    const [tx, txToDate, metadata] = await Promise.all([
+      loadTx(req.query, req),
+      loadTxToDate(req.query, req),
+      client.getMetadata({ requestId: req.requestId }).catch((error) => {
+        logger.warn('categories_metadata_failed', { requestId: req.requestId, error: error.message });
+        return {};
+      }),
+    ]);
+    const dashboard = buildDashboard(tx, { requestId: req.requestId, filters: req.query, monthlyGoals: metadata.monthlyGoals, toDateTransactions: txToDate });
+    logger.info('categories_loaded', { requestId: req.requestId, count: dashboard.totalPorCategoria.length, countToDate: txToDate.length });
+    res.json({ ok: true, meta: dashboard.meta, accountBreakdown: dashboard.accountBreakdown, byCategory: dashboard.totalPorCategoria, bySubcategory: dashboard.totalPorSubcategoria, byAccount: dashboard.totalPorConta, expensesByCategory: dashboard.despesasPorCategoria, expensesBySubcategory: dashboard.despesasPorSubcategoria, expensesByAccount: dashboard.despesasPorConta });
+  } catch (e) {
+    next(e);
+  }
+});
 
 router.post('/transactions', async (req, res, next) => {
   try {

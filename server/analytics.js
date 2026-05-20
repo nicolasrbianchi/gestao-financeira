@@ -114,6 +114,8 @@ function buildAccountBreakdown(transactions) {
 }
 
 export function buildDashboard(transactions, context = {}) {
+  const toDate = Array.isArray(context.toDateTransactions) ? context.toDateTransactions : transactions;
+
   const receitas = sum(transactions.filter(isRealIncome));
   const transferenciasEntrada = sum(transactions.filter(isTransferIn));
   const saldoInicial = sum(transactions.filter(isBalance));
@@ -126,7 +128,17 @@ export function buildDashboard(transactions, context = {}) {
   // Regra: transferências entre contas NÃO contam como receita/despesa real,
   // mas afetam o caixa disponível (movimentação entre canais).
   // Então no saldo disponível global elas entram como: +transferIn - transferOut.
-  const saldoDisponivel = receitas + saldoInicial + transferenciasEntrada + reservasSaida - totalDespesas - transferenciasSaida - reservasEntrada;
+  // Saldo deve refletir "carteira" (histórico completo até o endDate),
+  // não apenas o período filtrado da análise.
+  const receitasToDate = sum(toDate.filter(isRealIncome));
+  const transferenciasEntradaToDate = sum(toDate.filter(isTransferIn));
+  const saldoInicialToDate = sum(toDate.filter(isBalance));
+  const despesasToDate = sum(toDate.filter(isRealExpense));
+  const transferenciasSaidaToDate = sum(toDate.filter(isTransferOut));
+  const reservasEntradaToDate = sum(toDate.filter(isReserveIn));
+  const reservasSaidaToDate = sum(toDate.filter(isReserveOut));
+  const reservaAtualToDate = reservasEntradaToDate - reservasSaidaToDate;
+  const saldoDisponivel = receitasToDate + saldoInicialToDate + transferenciasEntradaToDate + reservasSaidaToDate - despesasToDate - transferenciasSaidaToDate - reservasEntradaToDate;
   const meta = buildGoal(totalDespesas, context.filters, context.monthlyGoals);
 
   const totalPorTipo = groupBy(transactions, (t) => t.type);
@@ -139,7 +151,7 @@ export function buildDashboard(transactions, context = {}) {
   const despesasPorCategoria = groupBy(realExpenseTransactions, (t) => t.category);
   const despesasPorSubcategoria = groupBy(realExpenseTransactions, (t) => t.subcategory);
   const despesasPorConta = groupBy(realExpenseTransactions, (t) => t.account);
-  const accountBreakdown = buildAccountBreakdown(transactions);
+  const accountBreakdown = buildAccountBreakdown(toDate);
 
   const dailyMap = {};
   for (const t of transactions) {
@@ -164,7 +176,31 @@ export function buildDashboard(transactions, context = {}) {
   const recentTransactions = [...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.sheetRowNumber - a.sheetRowNumber).slice(0, 10);
   const topTransactions = [...realExpenseTransactions].sort((a, b) => b.amount - a.amount).slice(0, 10);
 
-  const totals = { receitas, despesas: totalDespesas, saldoInicial, transferenciasEntrada, transferenciasSaida, reservasEntrada, reservasSaida, reservaAtual, saldoDisponivel, saldoOperacional: saldoDisponivel, saldoComReservas: saldoDisponivel };
+  const totals = {
+    receitas,
+    despesas: totalDespesas,
+    saldoInicial,
+    transferenciasEntrada,
+    transferenciasSaida,
+    reservasEntrada,
+    reservasSaida,
+    reservaAtual,
+    // Carteira (até hoje)
+    saldoDisponivel,
+    saldoOperacional: saldoDisponivel,
+    saldoComReservas: saldoDisponivel,
+    // (debug/uso futuro)
+    _toDate: {
+      receitas: receitasToDate,
+      despesas: despesasToDate,
+      saldoInicial: saldoInicialToDate,
+      transferenciasEntrada: transferenciasEntradaToDate,
+      transferenciasSaida: transferenciasSaidaToDate,
+      reservasEntrada: reservasEntradaToDate,
+      reservasSaida: reservasSaidaToDate,
+      reservaAtual: reservaAtualToDate,
+    },
+  };
   const groups = { despesasPorCategoria, despesasPorSubcategoria, despesasPorConta };
 
   logger.debug('dashboard_build_completed', { requestId: context.requestId, transactionCount: transactions.length, goalMonth: meta.month, goalValue: meta.value, accountCount: accountBreakdown.length, insightsCount: buildInsights(transactions, totals, groups).length });
