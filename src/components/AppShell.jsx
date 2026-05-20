@@ -92,12 +92,12 @@ export default function AppShell(props) {
   const renderPage = () => {
     if (error) return <ErrorState error={error} onRetry={reload} />;
 
-    if (safeTab === 'home') return <Home data={data} loading={loading} />;
+    if (safeTab === 'home') return <Home data={data} loading={loading} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} />;
     if (safeTab === 'transactions') {
       return <Transactions data={data} loading={loading} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} />;
     }
     if (safeTab === 'categories') return <Categories data={data} loading={loading} />;
-    return <More api={api} metadata={metadata || {}} onLogout={onLogout} />;
+    return <More api={api} metadata={metadata || {}} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} onReload={reload} onLogout={onLogout} />;
   };
 
   return (

@@ -1,7 +1,24 @@
 import React, { useState } from 'react';
-import { LogOut, Server, Tags } from 'lucide-react';
+import { CalendarDays, Database, Filter, LogOut, RefreshCcw, Server, ShieldCheck, SlidersHorizontal, Tags } from 'lucide-react';
+import { defaultFilters, filterChip } from '../utils/filters';
 
-export default function More({ api, metadata = {}, onLogout }) {
+function Row({ icon: Icon, title, description, action, children }) {
+  return (
+    <article className='card'>
+      <div className='flex items-start gap-3'>
+        <span className='grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-50 text-indigo-500'>{Icon && <Icon size={18} />}</span>
+        <div className='min-w-0 flex-1'>
+          <h2 className='font-bold text-slate-900'>{title}</h2>
+          {description && <p className='mt-1 text-sm text-slate-500'>{description}</p>}
+          {children}
+        </div>
+      </div>
+      {action && <div className='mt-4'>{action}</div>}
+    </article>
+  );
+}
+
+export default function More({ api, metadata = {}, filters, setFilters, onOpenFilters, onReload, onLogout }) {
   const [status, setStatus] = useState('');
   const [meta, setMeta] = useState('');
   const [checking, setChecking] = useState(false);
@@ -25,33 +42,58 @@ export default function More({ api, metadata = {}, onLogout }) {
       <header className='px-1'>
         <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Configurações</p>
         <h1 className='text-2xl font-bold text-slate-900'>Mais</h1>
-        <p className='mt-1 text-sm text-slate-500'>Status, conexão e sessão.</p>
+        <p className='mt-1 text-sm text-slate-500'>Preferências, filtros e saúde da conexão.</p>
       </header>
 
-      <section className='card'>
-        <div className='flex items-start gap-3'>
-          <span className='grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-indigo-50 text-indigo-600'><Server size={18} /></span>
-          <div className='min-w-0 flex-1'>
-            <h2 className='font-bold text-slate-900'>Conexão</h2>
-            <p className='mt-1 text-sm text-slate-500'>Valida API, sessão e Apps Script.</p>
+      <Row
+        icon={SlidersHorizontal}
+        title='Filtros globais'
+        description={filterChip(filters) || 'MTD padrão ativo'}
+        action={(
+          <div className='grid grid-cols-2 gap-3'>
+            <button type='button' onClick={onOpenFilters} className='flex items-center justify-center gap-2 rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'><Filter size={16} /> Ajustar</button>
+            <button type='button' onClick={() => setFilters?.(defaultFilters())} className='flex items-center justify-center gap-2 rounded-3xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600'><CalendarDays size={16} /> MTD</button>
           </div>
-        </div>
-        <button type='button' onClick={testConnection} disabled={checking} className='mt-4 w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>
-          {checking ? 'Testando…' : 'Testar conexão'}
-        </button>
-        {status && <p className='mt-3 break-words text-sm font-semibold text-slate-700'>{status}</p>}
-        {meta && <p className='mt-1 text-xs text-slate-400'>{meta}</p>}
+        )}
+      />
+
+      <section className='grid grid-cols-2 gap-3'>
+        <article className='rounded-4xl bg-white p-4 shadow-soft'>
+          <Tags className='text-indigo-500' size={18} />
+          <p className='mt-3 text-xs text-slate-500'>Categorias</p>
+          <p className='mt-1 text-xl font-bold'>{(metadata.categories || []).length}</p>
+        </article>
+        <article className='rounded-4xl bg-white p-4 shadow-soft'>
+          <Database className='text-emerald-500' size={18} />
+          <p className='mt-3 text-xs text-slate-500'>Contas</p>
+          <p className='mt-1 text-xl font-bold'>{(metadata.accounts || []).length}</p>
+        </article>
       </section>
 
-      <section className='card'>
-        <div className='flex items-start gap-3'>
-          <span className='grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-600'><Tags size={18} /></span>
-          <div className='min-w-0 flex-1'>
-            <h2 className='font-bold text-slate-900'>Metadados</h2>
-            <p className='mt-1 text-sm text-slate-500'>Categorias: {(metadata.categories || []).length} · Contas: {(metadata.accounts || []).length}</p>
-          </div>
+      <Row
+        icon={Server}
+        title='Conexão'
+        description='Valida API, sessão e Apps Script.'
+        action={<button type='button' onClick={testConnection} disabled={checking} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>{checking ? 'Testando…' : 'Testar conexão'}</button>}
+      >
+        {status && <p className='mt-3 break-words text-sm font-semibold text-slate-700'>{status}</p>}
+        {meta && <p className='mt-1 text-xs text-slate-400'>{meta}</p>}
+      </Row>
+
+      <Row
+        icon={RefreshCcw}
+        title='Dados do app'
+        description='Recarrega os dados da aba atual e metadados básicos.'
+        action={<button type='button' onClick={onReload} className='w-full rounded-3xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600'>Recarregar dados</button>}
+      />
+
+      <Row icon={ShieldCheck} title='Regras ativas' description='Sem banco próprio · Apps Script protegido no backend · sessão HTTP-only.'>
+        <div className='mt-3 flex flex-wrap gap-2'>
+          <span className='badge'>MTD padrão</span>
+          <span className='badge'>Meta geral</span>
+          <span className='badge'>Transferência especial</span>
         </div>
-      </section>
+      </Row>
 
       <section className='card'>
         <button type='button' onClick={onLogout} className='flex w-full items-center justify-center gap-2 rounded-3xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600'>
