@@ -135,7 +135,7 @@ option {
   .app-frame::before { content: ''; position: fixed; inset: 0; z-index: -1; background: radial-gradient(circle at 50% 6%, rgba(205, 187, 147, 0.055), transparent 38%); pointer-events: none; }
   .card {
     @apply relative my-3 min-w-0 rounded-4xl p-4;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.11);
     background:
       radial-gradient(140% 120% at 10% 0%, rgba(255, 255, 255, 0.04), transparent 52%),
       linear-gradient(180deg, rgba(10, 10, 16, 0.94), rgba(2, 2, 6, 0.90));
@@ -143,6 +143,18 @@ option {
       0 26px 82px rgba(0, 0, 0, 0.70),
       inset 0 1px 0 rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(14px);
+  }
+  /* Contorno extra (separação em fundos muito escuros) */
+  .card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.55) inset,
+      0 0 0 1px rgba(255, 255, 255, 0.06);
+    opacity: 0.95;
   }
   /* filete sutil no topo do card (separação no "preto absoluto") */
   .card::before {
