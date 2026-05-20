@@ -28,7 +28,8 @@ function newSession() {
 }
 
 function renderInline(text = '') {
-  // Mini-markdown seguro (sem HTML): suporta **bold** e *bold* + `code`.
+  // Mini-markdown seguro (sem HTML): suporta **bold** e `code`.
+  // (Não interpretamos *single asterisk* pra evitar negrito “estranho”.)
   const nodes = [];
   let i = 0;
   const pushText = (value) => {
@@ -37,14 +38,12 @@ function renderInline(text = '') {
   };
 
   while (i < text.length) {
-    // code
     if (text[i] === '`') {
       const j = text.indexOf('`', i + 1);
       if (j > i) {
-        const content = text.slice(i + 1, j);
         nodes.push(
-          <code key={`c-${i}`} className='rounded-lg bg-black/10 px-1.5 py-0.5 text-[0.95em] font-semibold text-slate-900'>
-            {content}
+          <code key={`c-${i}`} className='rounded-lg bg-white/10 px-1.5 py-0.5 text-[0.95em] font-semibold text-slate-100'>
+            {text.slice(i + 1, j)}
           </code>
         );
         i = j + 1;
@@ -52,14 +51,12 @@ function renderInline(text = '') {
       }
     }
 
-    // **bold**
     if (text[i] === '*' && text[i + 1] === '*') {
       const j = text.indexOf('**', i + 2);
       if (j > i) {
-        const content = text.slice(i + 2, j);
         nodes.push(
-          <strong key={`b-${i}`} className='font-extrabold text-slate-950'>
-            {content}
+          <strong key={`b-${i}`} className='font-extrabold text-slate-50'>
+            {text.slice(i + 2, j)}
           </strong>
         );
         i = j + 2;
@@ -67,24 +64,10 @@ function renderInline(text = '') {
       }
     }
 
-    // *bold* (pedido do Nic)
-    if (text[i] === '*') {
-      const j = text.indexOf('*', i + 1);
-      if (j > i) {
-        const content = text.slice(i + 1, j);
-        nodes.push(
-          <strong key={`b1-${i}`} className='font-extrabold text-slate-950'>
-            {content}
-          </strong>
-        );
-        i = j + 1;
-        continue;
-      }
-    }
-
-    // plain
     const nextSpecial = (() => {
-      const candidates = [text.indexOf('`', i), text.indexOf('*', i)].filter((v) => v !== -1);
+      const a = text.indexOf('`', i);
+      const b = text.indexOf('**', i);
+      const candidates = [a, b].filter((v) => v !== -1);
       return candidates.length ? Math.min(...candidates) : -1;
     })();
     if (nextSpecial === -1) {
@@ -175,32 +158,32 @@ export default function Ai({ api }) {
   };
 
   return (
-    <div className='space-y-4'>
+    <div className='flex min-h-[calc(100dvh-12.5rem)] flex-col gap-4'>
       <header className='flex items-end justify-between gap-3 px-1'>
         <div className='min-w-0'>
           <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Assistente</p>
-          <h1 className='truncate text-2xl font-bold text-slate-900'>Nicco IA</h1>
-          <p className='mt-1 text-sm text-slate-500'>Pergunta qualquer coisa sobre seus números e transações.</p>
+          <h1 className='truncate text-2xl font-bold text-slate-100'>Nicco IA</h1>
+          <p className='mt-1 text-sm text-slate-400'>Pergunta qualquer coisa sobre seus números e transações.</p>
         </div>
         <button type='button' onClick={startNew} className='icon-btn' aria-label='Nova conversa'>
           <Trash2 size={18} />
         </button>
       </header>
 
-      {/* Chat incorporado na página (sem card/caixa). */}
-      <div className='min-w-0 rounded-4xl bg-white p-0 shadow-soft'>
-        <div ref={listRef} className='max-h-[62vh] space-y-4 overflow-auto px-4 py-4'>
+      {/* Chat: área principal + barra de input fixa dentro da página */}
+      <section className='flex min-h-0 flex-1 flex-col overflow-hidden rounded-4xl border border-white/10 bg-[rgba(10,10,16,0.70)] shadow-soft'>
+        <div ref={listRef} className='min-h-0 flex-1 space-y-4 overflow-auto px-4 py-4'>
           {messages.length === 0 ? (
-            <div className='rounded-3xl bg-slate-50 p-4 text-sm text-slate-600'>
+            <div className='rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300'>
               Me pergunta tipo: “quanto gastei por categoria?”, “qual conta mais saiu dinheiro?”, “o que tá pesando esse mês?”.
             </div>
           ) : (
             messages.map((m, idx) => (
-              <div key={`${m.at || idx}-${idx}`} className='space-y-2'>
+              <div key={`${m.at || idx}-${idx}`} className='space-y-1.5'>
                 <p className='text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500'>
                   {m.role === 'user' ? 'Você' : 'Nicco IA'}
                 </p>
-                <div className='rounded-3xl bg-slate-50 px-4 py-3 text-sm text-slate-800 shadow-soft'>
+                <div className='rounded-3xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200'>
                   <RichText text={m.content} />
                 </div>
               </div>
@@ -208,21 +191,21 @@ export default function Ai({ api }) {
           )}
 
           {loading && (
-            <div className='space-y-2'>
+            <div className='space-y-1.5'>
               <p className='text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500'>Nicco IA</p>
-              <div className='rounded-3xl bg-slate-50 px-4 py-3 text-sm text-slate-500 shadow-soft'>Pensando…</div>
+              <div className='rounded-3xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-400'>Pensando…</div>
             </div>
           )}
         </div>
 
-        <div className='border-t border-slate-200/60 px-4 py-3'>
+        <div className='border-t border-white/10 bg-[rgba(6,6,10,0.82)] px-4 py-3'>
           <div className='flex items-end gap-2'>
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               rows={2}
               placeholder='Pergunta pro Nicco IA…'
-              className='min-h-[48px] flex-1 resize-none rounded-3xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 shadow-soft outline-none focus:border-indigo-300'
+              className='min-h-[52px] flex-1 resize-none rounded-3xl border border-white/10 bg-white/5 px-4 py-3 text-base text-slate-100 shadow-soft outline-none placeholder:text-slate-500 focus:border-white/20'
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -234,7 +217,7 @@ export default function Ai({ api }) {
               type='button'
               onClick={send}
               disabled={!canSend}
-              className='grid h-12 w-12 place-items-center rounded-full bg-slate-900 text-white shadow-soft transition disabled:opacity-40'
+              className='grid h-12 w-12 place-items-center rounded-full bg-[rgba(231,220,198,0.92)] text-black shadow-soft transition disabled:opacity-40'
               aria-label='Enviar'
             >
               <Send size={18} />
@@ -242,7 +225,7 @@ export default function Ai({ api }) {
           </div>
           <p className='mt-2 text-[11px] text-slate-500'>Enter envia · Shift+Enter quebra linha</p>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
