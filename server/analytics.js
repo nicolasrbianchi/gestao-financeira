@@ -88,29 +88,55 @@ function buildGoal(realExpenses, filters, monthlyGoals) {
 
 function buildAccountBreakdown(transactions) {
   const map = new Map();
-  const row = (account) => {
-    const key = account || 'Sem conta';
-    if (!map.has(key)) map.set(key, { account: key, saldoInicial: 0, receitas: 0, transferenciasEntrada: 0, despesas: 0, transferenciasSaida: 0, reservasEntrada: 0, reservasSaida: 0, saldoDisponivel: 0, reservaAtual: 0 });
-    return map.get(key);
-  };
+  const keyOf = (account) => account || 'Sem conta';
+  const orderKey = (tx) => `${tx.date || ''}#${String(tx.sheetRowNumber || 0).padStart(8, '0')}`;
 
-  for (const tx of transactions) {
-    const item = row(tx.account);
-    const amount = Number(tx.amount) || 0;
-    if (isBalance(tx)) item.saldoInicial += amount;
-    if (isRealIncome(tx)) item.receitas += amount;
-    if (isTransferIn(tx)) item.transferenciasEntrada += amount;
-    if (isRealExpense(tx)) item.despesas += amount;
-    if (isTransferOut(tx)) item.transferenciasSaida += amount;
-    if (isReserveIn(tx)) item.reservasEntrada += amount;
-    if (isReserveOut(tx)) item.reservasSaida += amount;
+  const byAccount = transactions.reduce((acc, tx) => {
+    const key = keyOf(tx.account);
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(tx);
+    return acc;
+  }, {});
+
+  for (const [accountKey, items] of Object.entries(byAccount)) {
+    const sorted = items.slice().sort((a, b) => orderKey(a).localeCompare(orderKey(b)));
+
+    // Regra (importante): "Saldo" funciona como SNAPSHOT.
+    // Pegamos o último Saldo e calculamos o resto a partir dele, evitando somar histórico + snapshot (duplo-count).
+    const lastSaldo = [...sorted].reverse().find((t) => isBalance(t));
+    const cutoff = lastSaldo ? orderKey(lastSaldo) : null;
+    const stream = cutoff ? sorted.filter((t) => orderKey(t) > cutoff) : sorted;
+
+    const row = {
+      account: accountKey,
+      saldoInicial: lastSaldo ? Number(lastSaldo.amount) || 0 : 0,
+      receitas: 0,
+      transferenciasEntrada: 0,
+      despesas: 0,
+      transferenciasSaida: 0,
+      reservasEntrada: 0,
+      reservasSaida: 0,
+      saldoDisponivel: 0,
+      reservaAtual: 0,
+      _saldoSnapshotAt: lastSaldo ? lastSaldo.date : null,
+    };
+
+    for (const tx of stream) {
+      const amount = Number(tx.amount) || 0;
+      if (isRealIncome(tx)) row.receitas += amount;
+      if (isTransferIn(tx)) row.transferenciasEntrada += amount;
+      if (isRealExpense(tx)) row.despesas += amount;
+      if (isTransferOut(tx)) row.transferenciasSaida += amount;
+      if (isReserveIn(tx)) row.reservasEntrada += amount;
+      if (isReserveOut(tx)) row.reservasSaida += amount;
+    }
+
+    row.reservaAtual = row.reservasEntrada - row.reservasSaida;
+    row.saldoDisponivel = row.saldoInicial + row.receitas + row.transferenciasEntrada + row.reservasSaida - row.despesas - row.transferenciasSaida - row.reservasEntrada;
+    map.set(accountKey, row);
   }
 
-  return [...map.values()].map((item) => ({
-    ...item,
-    reservaAtual: item.reservasEntrada - item.reservasSaida,
-    saldoDisponivel: item.saldoInicial + item.receitas + item.transferenciasEntrada + item.reservasSaida - item.despesas - item.transferenciasSaida - item.reservasEntrada,
-  })).sort((a, b) => b.saldoDisponivel - a.saldoDisponivel);
+  return [...map.values()].sort((a, b) => b.saldoDisponivel - a.saldoDisponivel);
 }
 
 export function buildDashboard(transactions, context = {}) {
@@ -130,6 +156,13 @@ export function buildDashboard(transactions, context = {}) {
   // Então no saldo disponível global elas entram como: +transferIn - transferOut.
   // Saldo deve refletir "carteira" (histórico completo até o endDate),
   // não apenas o período filtrado da análise.
+  const accountBreakdown = buildAccountBreakdown(toDate);
+
+  // Saldo disponível (carteira) deve ser a soma dos saldos por conta/canal.
+  // Isso permite o uso de "Saldo" como snapshot de reconciliação (último Saldo por conta).
+  const saldoDisponivel = sum(accountBreakdown.map((a) => ({ amount: a.saldoDisponivel })));
+
+  // Debug/uso futuro: mantendo os agregados antigos do "toDate".
   const receitasToDate = sum(toDate.filter(isRealIncome));
   const transferenciasEntradaToDate = sum(toDate.filter(isTransferIn));
   const saldoInicialToDate = sum(toDate.filter(isBalance));
@@ -138,7 +171,6 @@ export function buildDashboard(transactions, context = {}) {
   const reservasEntradaToDate = sum(toDate.filter(isReserveIn));
   const reservasSaidaToDate = sum(toDate.filter(isReserveOut));
   const reservaAtualToDate = reservasEntradaToDate - reservasSaidaToDate;
-  const saldoDisponivel = receitasToDate + saldoInicialToDate + transferenciasEntradaToDate + reservasSaidaToDate - despesasToDate - transferenciasSaidaToDate - reservasEntradaToDate;
   const meta = buildGoal(totalDespesas, context.filters, context.monthlyGoals);
 
   const totalPorTipo = groupBy(transactions, (t) => t.type);
@@ -151,7 +183,7 @@ export function buildDashboard(transactions, context = {}) {
   const despesasPorCategoria = groupBy(realExpenseTransactions, (t) => t.category);
   const despesasPorSubcategoria = groupBy(realExpenseTransactions, (t) => t.subcategory);
   const despesasPorConta = groupBy(realExpenseTransactions, (t) => t.account);
-  const accountBreakdown = buildAccountBreakdown(toDate);
+  // accountBreakdown calculado acima (snapshot-aware)
 
   const dailyMap = {};
   for (const t of transactions) {
