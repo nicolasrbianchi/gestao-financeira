@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarDays, CreditCard, Filter, Landmark, Search, Tags } from 'lucide-react';
+import { CalendarDays, Filter, Search } from 'lucide-react';
 import { money } from '../utils/format';
 import { filterChip } from '../utils/filters';
 
@@ -24,7 +24,7 @@ export default function Transactions({ data, loading, filters, setFilters, onOpe
         <p className='mt-1 text-sm text-slate-500'>{filterChip(filters) || 'Todos os registros'}</p>
       </header>
 
-      <section className='rounded-4xl bg-white p-4 shadow-soft'>
+      <section className='rounded-4xl bg-white p-3 shadow-soft'>
         <div className='flex items-center gap-2'>
           <label className='relative flex-1'>
             <Search className='pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400' size={16} />
@@ -42,58 +42,46 @@ export default function Transactions({ data, loading, filters, setFilters, onOpe
       </section>
 
       <section className='grid grid-cols-2 gap-3'>
-        <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
+        <article className='min-w-0 rounded-4xl bg-white p-3 shadow-soft'>
           <p className='text-xs text-slate-500'>Total filtrado</p>
-          <p className='mt-1 break-words text-xl font-bold'>{money(summary.totalAmount || 0)}</p>
+          <p className='mt-1 break-words text-lg font-bold'>{money(summary.totalAmount || 0)}</p>
         </article>
-        <article className='min-w-0 rounded-4xl bg-white p-4 shadow-soft'>
+        <article className='min-w-0 rounded-4xl bg-white p-3 shadow-soft'>
           <p className='text-xs text-slate-500'>Itens</p>
-          <p className='mt-1 text-xl font-bold'>{summary.count ?? transactions.length}</p>
+          <p className='mt-1 text-lg font-bold'>{summary.count ?? transactions.length}</p>
         </article>
       </section>
 
       {loading && data && <div className='rounded-3xl bg-indigo-50 p-3 text-center text-xs font-semibold text-indigo-600'>Atualizando…</div>}
 
       {transactions.length ? (
-        <section className='space-y-3'>
+        <section className='space-y-2.5'>
           {transactions.map((transaction, index) => {
             const isIncome = transaction.type === 'Receita' || transaction.type === 'Saldo' || (transaction.type === 'Reserva' && transaction.reserve === 'Saida');
             const tone = toneByType[transaction.type] || 'text-slate-300 bg-slate-500/10 border-slate-300/20';
             return (
-              <article key={`${transaction.sheetRowNumber || index}-${transaction.name || index}`} className='card'>
+              <article key={`${transaction.sheetRowNumber || index}-${transaction.name || index}`} className='rounded-3xl bg-white p-3 shadow-soft'>
                 <div className='flex min-w-0 items-start justify-between gap-3'>
                   <div className='min-w-0 flex-1'>
-                    <div className='mb-2 flex flex-wrap items-center gap-2'>
-                      <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${tone}`}>{transaction.type || 'Sem tipo'}</span>
-                      {transaction.reserve && <span className='badge'>Reserva: {transaction.reserve}</span>}
-                      {transaction.status && <span className='badge'>{transaction.status}</span>}
+                    <div className='flex items-center gap-2'>
+                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone}`}>{transaction.type || 'Sem tipo'}</span>
+                      <p className='truncate text-sm font-bold text-slate-900'>{transaction.name || 'Sem nome'}</p>
                     </div>
-                    <h2 className='truncate text-base font-bold text-slate-900'>{transaction.name || 'Sem nome'}</h2>
-                    <p className='mt-1 flex items-center gap-1 text-xs text-slate-500'><CalendarDays size={13} /> {transaction.displayDate || transaction.date || 'Sem data'}</p>
+                    <p className='mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500'><CalendarDays size={12} /> {transaction.displayDate || transaction.date || 'Sem data'} · {transaction.account || 'Sem conta'}</p>
                   </div>
-                  <p className={`max-w-[8.5rem] shrink-0 break-words text-right text-lg font-extrabold ${isIncome ? 'pos' : 'neg'}`}>
+                  <p className={`max-w-[8rem] shrink-0 break-words text-right text-sm font-extrabold ${isIncome ? 'pos' : 'neg'}`}>
                     {isIncome ? '+' : '-'}{money(Math.abs(transaction.amount || 0))}
                   </p>
                 </div>
 
-                <div className='mt-4 grid grid-cols-2 gap-2 text-xs text-slate-500'>
-                  <div className='min-w-0 rounded-2xl bg-slate-50 p-3'>
-                    <p className='mb-1 flex items-center gap-1 font-semibold text-slate-400'><Landmark size={13} /> Conta</p>
-                    <p className='truncate font-bold text-slate-800'>{transaction.account || 'Sem conta'}</p>
-                  </div>
-                  <div className='min-w-0 rounded-2xl bg-slate-50 p-3'>
-                    <p className='mb-1 flex items-center gap-1 font-semibold text-slate-400'><Tags size={13} /> Categoria</p>
-                    <p className='truncate font-bold text-slate-800'>{transaction.category || 'Sem categoria'}</p>
-                  </div>
-                  {(transaction.subcategory || transaction.paymentMethod || transaction.installment) && (
-                    <div className='col-span-2 flex flex-wrap gap-2 pt-1'>
-                      {transaction.subcategory && <span className='badge'>{transaction.subcategory}</span>}
-                      {transaction.paymentMethod && <span className='badge'><CreditCard size={12} className='inline' /> {transaction.paymentMethod}</span>}
-                      {transaction.installment && <span className='badge'>Parcela {transaction.installment}</span>}
-                    </div>
-                  )}
+                <div className='mt-2 flex min-w-0 flex-wrap gap-1.5 text-[11px]'>
+                  {transaction.category && <span className='badge'>{transaction.category}</span>}
+                  {transaction.subcategory && <span className='badge'>{transaction.subcategory}</span>}
+                  {transaction.paymentMethod && <span className='badge'>{transaction.paymentMethod}</span>}
+                  {transaction.reserve && <span className='badge'>Reserva: {transaction.reserve}</span>}
+                  {transaction.installment && <span className='badge'>{transaction.installment}</span>}
                 </div>
-                {transaction.notes && <p className='mt-3 break-words rounded-2xl bg-slate-50 p-3 text-xs text-slate-400'>{transaction.notes}</p>}
+                {transaction.notes && <p className='mt-2 truncate text-[11px] text-slate-400'>{transaction.notes}</p>}
               </article>
             );
           })}

@@ -52,7 +52,7 @@ router.get('/transactions', async (req, res, next) => {
     res.json({ ok: true, summary, transactions });
   } catch (e) { next(e); }
 });
-router.get('/categories', async (req, res, next) => { try { const dashboard = buildDashboard(await loadTx(req.query, req), { requestId: req.requestId, filters: req.query }); logger.info('categories_loaded', { requestId: req.requestId, count: dashboard.totalPorCategoria.length }); res.json({ ok: true, byCategory: dashboard.totalPorCategoria, bySubcategory: dashboard.totalPorSubcategoria, byAccount: dashboard.totalPorConta, expensesByCategory: dashboard.despesasPorCategoria, expensesBySubcategory: dashboard.despesasPorSubcategoria, expensesByAccount: dashboard.despesasPorConta }); } catch (e) { next(e); } });
+router.get('/categories', async (req, res, next) => { try { const [tx, metadata] = await Promise.all([loadTx(req.query, req), client.getMetadata({ requestId: req.requestId }).catch((error) => { logger.warn('categories_metadata_failed', { requestId: req.requestId, error: error.message }); return {}; })]); const dashboard = buildDashboard(tx, { requestId: req.requestId, filters: req.query, monthlyGoals: metadata.monthlyGoals }); logger.info('categories_loaded', { requestId: req.requestId, count: dashboard.totalPorCategoria.length }); res.json({ ok: true, meta: dashboard.meta, accountBreakdown: dashboard.accountBreakdown, byCategory: dashboard.totalPorCategoria, bySubcategory: dashboard.totalPorSubcategoria, byAccount: dashboard.totalPorConta, expensesByCategory: dashboard.despesasPorCategoria, expensesBySubcategory: dashboard.despesasPorSubcategoria, expensesByAccount: dashboard.despesasPorConta }); } catch (e) { next(e); } });
 
 router.post('/transactions', async (req, res, next) => {
   try {
