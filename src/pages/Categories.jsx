@@ -94,21 +94,21 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
       <header className='px-1'>
         <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Análise</p>
         <h1 className='text-2xl font-bold text-slate-900'>Categorias</h1>
-        <p className='mt-1 text-sm text-slate-500'>Despesas reais por categoria e por conta.</p>
+        <p className='mt-1 text-sm text-slate-500'>Entenda onde o dinheiro está indo.</p>
       </header>
 
       <div className='flex gap-2 px-1'>
         <button
           type='button'
           onClick={() => setMode('expenses')}
-          className={`rounded-full px-4 py-2 text-xs font-bold shadow-soft ring-1 ring-white/10 ${mode === 'expenses' ? 'bg-slate-950 text-white' : 'bg-white/5 text-slate-300'}`}
+          className={`rounded-full px-4 py-2 text-xs font-bold shadow-soft ring-1 ring-white/10 ${mode === 'expenses' ? 'bg-[rgba(231,220,198,0.92)] text-black' : 'bg-white/5 text-slate-300'}`}
         >
           Despesas reais
         </button>
         <button
           type='button'
           onClick={() => setMode('all')}
-          className={`rounded-full px-4 py-2 text-xs font-bold shadow-soft ring-1 ring-white/10 ${mode === 'all' ? 'bg-slate-950 text-white' : 'bg-white/5 text-slate-300'}`}
+          className={`rounded-full px-4 py-2 text-xs font-bold shadow-soft ring-1 ring-white/10 ${mode === 'all' ? 'bg-[rgba(231,220,198,0.92)] text-black' : 'bg-white/5 text-slate-300'}`}
         >
           Geral
         </button>
@@ -116,40 +116,29 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
 
       {loading && data && <div className='rounded-3xl bg-indigo-50 p-3 text-center text-xs font-semibold text-indigo-600'>Atualizando…</div>}
 
-      <section className='grid grid-cols-2 gap-3'>
-        <article className='rounded-4xl bg-white p-4 shadow-soft'>
-          <ArrowDownRight className='text-rose-500' size={18} />
-          <p className='mt-3 text-xs text-slate-500'>Despesas reais</p>
-          <p className='mt-1 break-words text-xl font-bold'>{money(expenseTotal)}</p>
-        </article>
-        <article className='rounded-4xl bg-white p-4 shadow-soft'>
-          <Tags className='text-indigo-500' size={18} />
-          <p className='mt-3 text-xs text-slate-500'>Top categoria</p>
-          <p className='mt-1 truncate text-lg font-bold'>{topExpense?.name || '—'}</p>
-        </article>
-      </section>
-
-      <section className='card h'>
+      {/* Layout mais clean: 1 card principal (donut + lista top 8). */}
+      <section className='rounded-4xl bg-white p-5 shadow-soft'>
         <div className='mb-4 flex items-start justify-between gap-3'>
           <div>
-            <h2 className='text-base font-bold text-slate-900'>Mapa de despesas</h2>
-            <p className='text-sm text-slate-500'>{modeData.byCategory.length ? `Distribuição (${modeData.label}).` : 'Sem dados no período.'}</p>
+            <h2 className='text-base font-bold text-slate-900'>Mapa</h2>
+            <p className='text-sm text-slate-500'>{modeData.byCategory.length ? `Top categorias (${modeData.label}).` : 'Sem dados no período.'}</p>
           </div>
           {modeData.topAccount && <span className='badge'>Canal top: {modeData.topAccount.name}</span>}
         </div>
-        <div className='grid grid-cols-1 gap-4'>
-          <div className='h-[190px]'>
+
+        <div className='grid gap-4'>
+          <div className='h-[200px]'>
             {modeData.byCategory.length ? (
               <ResponsiveContainer width='100%' height='100%'>
                 <PieChart>
-                  <Pie data={modeData.byCategory.slice(0, 8)} dataKey='value' nameKey='name' innerRadius={56} outerRadius={86} paddingAngle={3}>
+                  <Pie data={modeData.byCategory.slice(0, 8)} dataKey='value' nameKey='name' innerRadius={60} outerRadius={90} paddingAngle={3}>
                     {modeData.byCategory.slice(0, 8).map((entry, index) => <Cell key={entry.name || index} fill={COLORS[index % COLORS.length]} />)}
                     <Label
                       position='center'
                       content={() => (
                         <text x='50%' y='50%' textAnchor='middle' dominantBaseline='middle' fill='#e2e8f0'>
-                          <tspan x='50%' dy='-0.3em' fontSize='12'>Total</tspan>
-                          <tspan x='50%' dy='1.3em' fontSize='14' fontWeight='800'>
+                          <tspan x='50%' dy='-0.25em' fontSize='12'>Total</tspan>
+                          <tspan x='50%' dy='1.25em' fontSize='14' fontWeight='800'>
                             {money(modeData.total || 0)}
                           </tspan>
                         </text>
@@ -163,46 +152,36 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
               <div className='grid h-full place-items-center text-sm text-slate-400'>Sem gráfico disponível.</div>
             )}
           </div>
-          <div className='h-[160px]'>
-            {modeData.byCategory.length ? (
-              <ResponsiveContainer width='100%' height='100%'>
-                <BarChart
-                  data={modeData.byCategory.slice(0, 8)}
-                  layout='vertical'
-                  margin={{ left: 0, right: 8, top: 6, bottom: 6 }}
-                >
-                  <XAxis type='number' hide />
-                  <YAxis
-                    type='category'
-                    dataKey='name'
-                    width={110}
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 10, fill: '#94a3b8' }}
-                    tickFormatter={(value) => String(value).slice(0, 14)}
-                  />
-                  <Tooltip formatter={(value) => money(value)} />
-                  <Bar dataKey='value' radius={[10, 10, 10, 10]}>
-                    {modeData.byCategory.slice(0, 8).map((entry, index) => <Cell key={entry.name || index} fill={COLORS[index % COLORS.length]} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : null}
+
+          <div className='space-y-3'>
+            {modeData.byCategory.slice(0, 8).map((item, index) => {
+              const percent = modeData.total ? (Math.abs(item.value || 0) / modeData.total) * 100 : 0;
+              return (
+                <article key={item.name || index}>
+                  <div className='mb-2 flex min-w-0 items-center justify-between gap-3'>
+                    <button
+                      type='button'
+                      onClick={() => {
+                        if (!item?.name) return;
+                        setFilters?.({ ...(filters || {}), category: item.name });
+                        onGoTransactions?.();
+                      }}
+                      className='min-w-0 truncate text-left text-sm font-semibold text-slate-800'
+                      title={item.name || ''}
+                    >
+                      {item.name || 'Sem preenchimento'}
+                    </button>
+                    <p className='shrink-0 text-xs font-bold text-slate-500'>{percent.toFixed(1)}%</p>
+                  </div>
+                  <div className='progress'><span style={{ width: `${Math.min(percent, 100)}%`, background: COLORS[index % COLORS.length] }} /></div>
+                  <p className='mt-1 text-xs font-bold text-slate-500'>{money(item.value || 0)}</p>
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      <PercentList
-        title={`${mode === 'all' ? 'Categorias (geral)' : 'Despesas por categoria'}`}
-        icon={Tags}
-        items={modeData.byCategory}
-        total={modeData.total}
-        onSelect={(name) => {
-          if (!name) return;
-          setFilters?.({ ...(filters || {}), category: name });
-          onGoTransactions?.();
-        }}
-      />
       <PercentList
         title='Essencial vs Extra'
         icon={Layers3}
