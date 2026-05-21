@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Label } from 'recharts';
 import { ArrowDownRight, Landmark, Layers3, Tags } from 'lucide-react';
 import { money } from '../utils/format';
@@ -57,31 +57,17 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
   const expensesByCategory = data?.expensesByCategory || [];
   const expensesBySubcategory = data?.expensesBySubcategory || [];
   const expensesByAccount = data?.expensesByAccount || [];
+  const topTransactions = data?.topTransactions || [];
+  const insights = data?.insights || [];
 
-  const [mode, setMode] = useState('expenses'); // 'expenses' | 'all'
-
-  const modeData = useMemo(() => {
-    if (mode === 'all') {
-      return {
-        byCategory: byCategory,
-        bySubcategory: bySubcategory,
-        byAccount: byAccount,
-        total: totalOf(byCategory),
-        top: byCategory[0],
-        topAccount: byAccount[0],
-        label: 'Geral'
-      };
-    }
-    return {
-      byCategory: expensesByCategory,
-      bySubcategory: expensesBySubcategory.length ? expensesBySubcategory : bySubcategory,
-      byAccount: expensesByAccount.length ? expensesByAccount : byAccount,
-      total: totalOf(expensesByCategory),
-      top: expensesByCategory[0],
-      topAccount: (expensesByAccount.length ? expensesByAccount : byAccount)[0],
-      label: 'Despesas'
-    };
-  }, [mode, byCategory, bySubcategory, byAccount, expensesByCategory, expensesBySubcategory, expensesByAccount]);
+  const subcategoryItems = useMemo(
+    () => (expensesBySubcategory.length ? expensesBySubcategory : bySubcategory),
+    [expensesBySubcategory, bySubcategory]
+  );
+  const accountItems = useMemo(
+    () => (expensesByAccount.length ? expensesByAccount : byAccount),
+    [expensesByAccount, byAccount]
+  );
 
   const expenseTotal = totalOf(expensesByCategory);
   const topExpense = expensesByCategory[0];
@@ -97,23 +83,6 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
         <p className='mt-1 text-sm text-slate-500'>Entenda onde o dinheiro está indo.</p>
       </header>
 
-      <div className='flex gap-2 px-1'>
-        <button
-          type='button'
-          onClick={() => setMode('expenses')}
-          className={`rounded-full px-4 py-2 text-xs font-bold shadow-soft ring-1 ring-white/10 ${mode === 'expenses' ? 'bg-[rgba(231,220,198,0.92)] text-black' : 'bg-white/5 text-slate-300'}`}
-        >
-          Despesas reais
-        </button>
-        <button
-          type='button'
-          onClick={() => setMode('all')}
-          className={`rounded-full px-4 py-2 text-xs font-bold shadow-soft ring-1 ring-white/10 ${mode === 'all' ? 'bg-[rgba(231,220,198,0.92)] text-black' : 'bg-white/5 text-slate-300'}`}
-        >
-          Geral
-        </button>
-      </div>
-
       {loading && data && <div className='rounded-3xl bg-indigo-50 p-3 text-center text-xs font-semibold text-indigo-600'>Atualizando…</div>}
 
       {/* Layout mais clean: 1 card principal (donut + lista top 8). */}
@@ -121,25 +90,25 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
         <div className='mb-4 flex items-start justify-between gap-3'>
           <div>
             <h2 className='text-base font-bold text-slate-900'>Mapa</h2>
-            <p className='text-sm text-slate-500'>{modeData.byCategory.length ? `Top categorias (${modeData.label}).` : 'Sem dados no período.'}</p>
+            <p className='text-sm text-slate-500'>{expensesByCategory.length ? 'Top categorias (despesas reais).' : 'Sem dados no período.'}</p>
           </div>
-          {modeData.topAccount && <span className='badge'>Canal top: {modeData.topAccount.name}</span>}
+          {topAccount && <span className='badge'>Canal top: {topAccount.name}</span>}
         </div>
 
         <div className='grid gap-4'>
           <div className='h-[200px]'>
-            {modeData.byCategory.length ? (
+            {expensesByCategory.length ? (
               <ResponsiveContainer width='100%' height='100%'>
                 <PieChart>
-                  <Pie data={modeData.byCategory.slice(0, 8)} dataKey='value' nameKey='name' innerRadius={60} outerRadius={90} paddingAngle={3}>
-                    {modeData.byCategory.slice(0, 8).map((entry, index) => <Cell key={entry.name || index} fill={COLORS[index % COLORS.length]} />)}
+                  <Pie data={expensesByCategory.slice(0, 8)} dataKey='value' nameKey='name' innerRadius={60} outerRadius={90} paddingAngle={3}>
+                    {expensesByCategory.slice(0, 8).map((entry, index) => <Cell key={entry.name || index} fill={COLORS[index % COLORS.length]} />)}
                     <Label
                       position='center'
                       content={() => (
                         <text x='50%' y='50%' textAnchor='middle' dominantBaseline='middle' fill='#e2e8f0'>
                           <tspan x='50%' dy='-0.25em' fontSize='12'>Total</tspan>
                           <tspan x='50%' dy='1.25em' fontSize='14' fontWeight='800'>
-                            {money(modeData.total || 0)}
+                            {money(expenseTotal || 0)}
                           </tspan>
                         </text>
                       )}
@@ -154,8 +123,8 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
           </div>
 
           <div className='space-y-3'>
-            {modeData.byCategory.slice(0, 8).map((item, index) => {
-              const percent = modeData.total ? (Math.abs(item.value || 0) / modeData.total) * 100 : 0;
+            {expensesByCategory.slice(0, 8).map((item, index) => {
+              const percent = expenseTotal ? (Math.abs(item.value || 0) / expenseTotal) * 100 : 0;
               return (
                 <article key={item.name || index}>
                   <div className='mb-2 flex min-w-0 items-center justify-between gap-3'>
@@ -185,8 +154,8 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
       <PercentList
         title='Essencial vs Extra'
         icon={Layers3}
-        items={modeData.bySubcategory}
-        total={totalOf(modeData.bySubcategory)}
+        items={subcategoryItems}
+        total={totalOf(subcategoryItems)}
         onSelect={(name) => {
           if (!name) return;
           setFilters?.({ ...(filters || {}), subcategory: name });
@@ -196,8 +165,8 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
       <PercentList
         title='Contas Bancarias'
         icon={Landmark}
-        items={modeData.byAccount}
-        total={totalOf(modeData.byAccount)}
+        items={accountItems}
+        total={totalOf(accountItems)}
         onSelect={(name) => {
           if (!name) return;
           setFilters?.({ ...(filters || {}), account: name });
@@ -205,7 +174,48 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
         }}
       />
 
-      {/* O modo "Geral" já cobre a visão de categorias além de despesas. */}
+      {topTransactions.length > 0 && (
+        <section className='rounded-4xl bg-white p-5 shadow-soft'>
+          <div className='mb-4 flex items-center justify-between gap-3'>
+            <div>
+              <h2 className='text-base font-bold text-slate-900'>Maiores despesas</h2>
+              <p className='text-xs text-slate-500'>Top lançamentos por valor.</p>
+            </div>
+            <span className='grid h-10 w-10 place-items-center rounded-2xl bg-slate-50 text-rose-500'><ArrowDownRight size={18} /></span>
+          </div>
+          <div className='space-y-3'>
+            {topTransactions.slice(0, 8).map((t, idx) => (
+              <article key={`${t.sheetRowNumber || idx}-${idx}`} className='rounded-3xl bg-white/5 p-4 ring-1 ring-white/10'>
+                <div className='flex items-start justify-between gap-3'>
+                  <div className='min-w-0'>
+                    <p className='truncate text-sm font-bold text-slate-100'>{t.name || 'Sem nome'}</p>
+                    <p className='mt-1 truncate text-xs text-slate-400'>{t.displayDate || t.date || ''}{t.account ? ` · ${t.account}` : ''}</p>
+                    {t.category && <p className='mt-1 truncate text-xs text-slate-400'>Categoria: {t.category}</p>}
+                  </div>
+                  <p className='shrink-0 text-sm font-extrabold text-rose-200'>-{money(Math.abs(t.amount || 0))}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {insights.length > 0 && (
+        <section className='rounded-4xl bg-white p-5 shadow-soft'>
+          <div className='mb-3 flex items-center justify-between gap-3'>
+            <div>
+              <h2 className='text-base font-bold text-slate-900'>Insights</h2>
+              <p className='text-xs text-slate-500'>Leituras automáticas do período.</p>
+            </div>
+            <span className='grid h-10 w-10 place-items-center rounded-2xl bg-slate-50 text-indigo-500'><Tags size={18} /></span>
+          </div>
+          <ul className='space-y-2 text-sm text-slate-300'>
+            {insights.slice(0, 6).map((line, idx) => (
+              <li key={idx} className='rounded-3xl bg-white/5 p-4 ring-1 ring-white/10'>{String(line)}</li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

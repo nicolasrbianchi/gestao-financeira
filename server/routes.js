@@ -120,7 +120,19 @@ router.get('/categories', async (req, res, next) => {
     const txToDate = filterTx(normalized, buildToDateQuery(req.query), { requestId: req.requestId });
     const dashboard = buildDashboard(tx, { requestId: req.requestId, filters: req.query, monthlyGoals: metadata.monthlyGoals, toDateTransactions: txToDate, chartDays: 8 });
     logger.info('categories_loaded', { requestId: req.requestId, count: dashboard.totalPorCategoria.length, countToDate: txToDate.length });
-    res.json({ ok: true, meta: dashboard.meta, accountBreakdown: dashboard.accountBreakdown, byCategory: dashboard.totalPorCategoria, bySubcategory: dashboard.totalPorSubcategoria, byAccount: dashboard.totalPorConta, expensesByCategory: dashboard.despesasPorCategoria, expensesBySubcategory: dashboard.despesasPorSubcategoria, expensesByAccount: dashboard.despesasPorConta });
+    res.json({
+      ok: true,
+      meta: dashboard.meta,
+      accountBreakdown: dashboard.accountBreakdown,
+      byCategory: dashboard.totalPorCategoria,
+      bySubcategory: dashboard.totalPorSubcategoria,
+      byAccount: dashboard.totalPorConta,
+      expensesByCategory: dashboard.despesasPorCategoria,
+      expensesBySubcategory: dashboard.despesasPorSubcategoria,
+      expensesByAccount: dashboard.despesasPorConta,
+      topTransactions: dashboard.topTransactions,
+      insights: dashboard.insights,
+    });
   } catch (e) {
     next(e);
   }
