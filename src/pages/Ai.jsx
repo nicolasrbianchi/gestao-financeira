@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Send, Trash2 } from 'lucide-react';
+import { Send } from 'lucide-react';
 
 const STORAGE_KEY = 'gf_ai_session:v1';
 
@@ -117,7 +117,6 @@ export default function Ai({ api, resetKey = 0 }) {
   const [loading, setLoading] = useState(false);
   const listRef = useRef(null);
   const stickToBottomRef = useRef(true);
-  const userScrolledUpRef = useRef(false);
   const [showJump, setShowJump] = useState(false);
 
   const messages = session?.messages || [];
@@ -129,13 +128,15 @@ export default function Ai({ api, resetKey = 0 }) {
   const scrollToBottom = () => {
     const el = listRef.current;
     if (!el) return;
-    el.scrollTop = el.scrollHeight;
+    // Evita "overscroll" elástico no iOS.
+    const top = Math.max(0, el.scrollHeight - el.clientHeight);
+    el.scrollTop = top;
   };
 
   useEffect(() => {
-    // Só auto-scroll se o usuário estiver no final E não tiver explicitamente subido.
+    // Só auto-scroll quando o usuário está no fim.
+    // (Nunca “puxa” quando ele sobe pra ler mensagens antigas.)
     if (!stickToBottomRef.current) return;
-    if (userScrolledUpRef.current) return;
     scrollToBottom();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, loading]);
@@ -148,7 +149,6 @@ export default function Ai({ api, resetKey = 0 }) {
     setInput('');
     setLoading(false);
     stickToBottomRef.current = true;
-    userScrolledUpRef.current = false;
     // deixa o DOM atualizar e desce
     setTimeout(scrollToBottom, 0);
   };
@@ -172,9 +172,8 @@ export default function Ai({ api, resetKey = 0 }) {
     setSession(next);
     setLoading(true);
 
-    // Ao enviar, assume intenção de ficar no fim do chat.
+    // Ao enviar, mantém o usuário no fim.
     stickToBottomRef.current = true;
-    userScrolledUpRef.current = false;
     setShowJump(false);
     setTimeout(scrollToBottom, 0);
 
@@ -231,7 +230,6 @@ export default function Ai({ api, resetKey = 0 }) {
             const threshold = 8;
             const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - threshold;
             stickToBottomRef.current = atBottom;
-            userScrolledUpRef.current = !atBottom;
             setShowJump(!atBottom);
           }}
           style={{
@@ -264,7 +262,6 @@ export default function Ai({ api, resetKey = 0 }) {
             type='button'
             onClick={() => {
               stickToBottomRef.current = true;
-              userScrolledUpRef.current = false;
               setShowJump(false);
               scrollToBottom();
             }}
@@ -293,13 +290,11 @@ export default function Ai({ api, resetKey = 0 }) {
                   }
                 }}
                 onFocus={() => {
-                  // Se o usuário focou o composer, assume intenção de continuar no fim.
-                  stickToBottomRef.current = true;
-                  userScrolledUpRef.current = false;
-                  setShowJump(false);
-                  // re-scroll depois do teclado abrir
-                  setTimeout(scrollToBottom, 60);
-                  setTimeout(scrollToBottom, 220);
+                  // Não force scroll aqui (iOS pode gerar "snap" inesperado).
+                  // Só mantém stickToBottom se ele já estava no fim.
+                  setTimeout(() => {
+                    if (stickToBottomRef.current) scrollToBottom();
+                  }, 0);
                 }}
               />
               <button
