@@ -3,8 +3,35 @@ import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis
 import { ArrowDownRight, Landmark, Layers3, Tags } from 'lucide-react';
 import { money } from '../utils/format';
 
-// Paleta premium (sem roxo neon). Primeiro tom = champagne do app.
-const COLORS = ['#f2d58b', '#d6b25e', '#22c55e', '#fb7185', '#06b6d4', '#f59e0b', '#a3a3a3', '#efe2c9'];
+// Paleta mais separada (boa leitura em dark) + cor de marca.
+const COLORS = [
+  '#f2d58b', // brand champagne
+  '#34d399', // emerald
+  '#fb7185', // rose
+  '#22d3ee', // cyan
+  '#a78bfa', // violet
+  '#f59e0b', // amber
+  '#60a5fa', // blue
+  '#f472b6', // pink
+  '#f97316', // orange
+  '#2dd4bf', // teal
+  '#cbd5e1', // slate-300
+  '#84cc16', // lime
+  '#e879f9', // fuchsia
+  '#d6b25e', // deeper gold
+];
+
+function hashString(value = '') {
+  let h = 0;
+  for (let i = 0; i < value.length; i++) h = (h * 31 + value.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+function colorForLabel(label = '') {
+  const key = String(label || '').trim().toLowerCase();
+  const idx = hashString(key) % COLORS.length;
+  return COLORS[idx];
+}
 
 function totalOf(items = []) {
   return items.reduce((sum, item) => sum + Math.abs(item.value || 0), 0);
@@ -24,6 +51,7 @@ function PercentList({ title, icon: Icon, items = [], total, onSelect }) {
         <div className='space-y-3'>
           {items.slice(0, 8).map((item, index) => {
             const percent = total ? (Math.abs(item.value || 0) / total) * 100 : 0;
+            const barColor = colorForLabel(item.name || String(index));
             return (
               <article key={item.name || index}>
                 <div className='mb-2 flex min-w-0 items-center justify-between gap-3'>
@@ -37,7 +65,7 @@ function PercentList({ title, icon: Icon, items = [], total, onSelect }) {
                   </button>
                   <p className='shrink-0 text-xs font-bold text-slate-500'>{percent.toFixed(1)}%</p>
                 </div>
-                <div className='progress'><span style={{ width: `${Math.min(percent, 100)}%`, background: COLORS[index % COLORS.length] }} /></div>
+                <div className='progress'><span style={{ width: `${Math.min(percent, 100)}%`, background: barColor }} /></div>
                 <p className='mt-1 text-xs font-bold text-slate-500'>{money(item.value || 0)}</p>
               </article>
             );
@@ -58,7 +86,6 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
   const expensesBySubcategory = data?.expensesBySubcategory || [];
   const expensesByAccount = data?.expensesByAccount || [];
   const topTransactions = data?.topTransactions || [];
-  const insights = data?.insights || [];
   const dailySeries = data?.charts?.dailySeries || [];
 
   const subcategoryItems = useMemo(
@@ -74,27 +101,23 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
   const topExpense = expensesByCategory[0];
   const topAccount = expensesByAccount[0];
 
-  const dayWithMostExpense = useMemo(() => {
-    const items = (dailySeries || []).filter(Boolean);
-    if (!items.length) return null;
-    const best = items
-      .map((d) => ({ date: d.date, value: Number(d.despesas || 0) }))
-      .sort((a, b) => b.value - a.value)[0];
-    return best?.value ? best : null;
-  }, [dailySeries]);
+  // (mantemos dailySeries no payload pra evoluções futuras)
 
-  const top3Share = useMemo(() => {
-    if (!expenseTotal) return null;
-    const top3 = expensesByCategory.slice(0, 3).reduce((a, c) => a + Math.abs(c.value || 0), 0);
-    return top3 ? (top3 / expenseTotal) * 100 : null;
-  }, [expenseTotal, expensesByCategory]);
-
-  const insightTone = (type) => {
-    if (type === 'danger') return { ring: 'ring-rose-400/20', icon: 'text-rose-300', title: 'text-slate-100', desc: 'text-slate-300' };
-    if (type === 'warning') return { ring: 'ring-amber-300/20', icon: 'text-amber-200', title: 'text-slate-100', desc: 'text-slate-300' };
-    if (type === 'success') return { ring: 'ring-emerald-400/20', icon: 'text-emerald-200', title: 'text-slate-100', desc: 'text-slate-300' };
-    return { ring: 'ring-white/10', icon: 'text-[#f2d58b]', title: 'text-slate-100', desc: 'text-slate-300' };
-  };
+  const highlights = useMemo(() => {
+    const top3 = expenseTotal ? expensesByCategory.slice(0, 3).reduce((a, c) => a + Math.abs(c.value || 0), 0) : 0;
+    const top3Share = expenseTotal && top3 ? (top3 / expenseTotal) * 100 : null;
+    const topCat = topExpense?.name || null;
+    const topCatValue = topExpense?.value || null;
+    const topAcc = topAccount?.name || null;
+    const topAccValue = topAccount?.value || null;
+    return {
+      top3Share,
+      topCat,
+      topCatValue,
+      topAcc,
+      topAccValue,
+    };
+  }, [expenseTotal, expensesByCategory, topExpense, topAccount]);
 
   if (loading && !data) return <div className='loading-state'>Carregando categorias…</div>;
 
@@ -124,7 +147,9 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
               <ResponsiveContainer width='100%' height='100%'>
                 <PieChart>
                   <Pie data={expensesByCategory.slice(0, 8)} dataKey='value' nameKey='name' innerRadius={60} outerRadius={90} paddingAngle={3}>
-                    {expensesByCategory.slice(0, 8).map((entry, index) => <Cell key={entry.name || index} fill={COLORS[index % COLORS.length]} />)}
+                    {expensesByCategory.slice(0, 8).map((entry, index) => (
+                      <Cell key={entry.name || index} fill={colorForLabel(entry.name || String(index))} />
+                    ))}
                     <Label
                       position='center'
                       content={() => (
@@ -148,6 +173,7 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
           <div className='space-y-3'>
             {expensesByCategory.slice(0, 8).map((item, index) => {
               const percent = expenseTotal ? (Math.abs(item.value || 0) / expenseTotal) * 100 : 0;
+              const barColor = colorForLabel(item.name || String(index));
               return (
                 <article key={item.name || index}>
                   <div className='mb-2 flex min-w-0 items-center justify-between gap-3'>
@@ -165,7 +191,7 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
                     </button>
                     <p className='shrink-0 text-xs font-bold text-slate-500'>{percent.toFixed(1)}%</p>
                   </div>
-                  <div className='progress'><span style={{ width: `${Math.min(percent, 100)}%`, background: COLORS[index % COLORS.length] }} /></div>
+                  <div className='progress'><span style={{ width: `${Math.min(percent, 100)}%`, background: barColor }} /></div>
                   <p className='mt-1 text-xs font-bold text-slate-500'>{money(item.value || 0)}</p>
                 </article>
               );
@@ -173,6 +199,45 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
           </div>
         </div>
       </section>
+
+      {/* Resumo compacto (substitui insights/blocos soltos) */}
+      <section className='grid grid-cols-2 gap-3'>
+        <article className='rounded-4xl bg-white p-4 shadow-soft'>
+          <ArrowDownRight className='text-rose-500' size={18} />
+          <p className='mt-3 text-xs text-slate-500'>Despesas reais</p>
+          <p className='mt-1 break-words text-xl font-bold'>{money(expenseTotal)}</p>
+        </article>
+        <article className='rounded-4xl bg-white p-4 shadow-soft'>
+          <Tags className='text-indigo-500' size={18} />
+          <p className='mt-3 text-xs text-slate-500'>Top 3 categorias</p>
+          <p className='mt-1 break-words text-xl font-bold'>{highlights.top3Share == null ? '—' : `${highlights.top3Share.toFixed(1)}%`}</p>
+        </article>
+      </section>
+
+      {(highlights.topCat || highlights.topAcc) && (
+        <section className='rounded-4xl bg-white p-5 shadow-soft'>
+          <div className='grid grid-cols-1 gap-3'>
+            {highlights.topCat && (
+              <div className='flex items-center justify-between gap-3 rounded-3xl bg-white/5 p-4 ring-1 ring-white/10'>
+                <div className='min-w-0'>
+                  <p className='text-xs font-semibold text-slate-500'>Top categoria</p>
+                  <p className='mt-1 truncate text-sm font-extrabold text-slate-100'>{highlights.topCat}</p>
+                </div>
+                {highlights.topCatValue != null && <p className='shrink-0 text-sm font-extrabold text-rose-200'>-{money(highlights.topCatValue)}</p>}
+              </div>
+            )}
+            {highlights.topAcc && (
+              <div className='flex items-center justify-between gap-3 rounded-3xl bg-white/5 p-4 ring-1 ring-white/10'>
+                <div className='min-w-0'>
+                  <p className='text-xs font-semibold text-slate-500'>Top conta/canal</p>
+                  <p className='mt-1 truncate text-sm font-extrabold text-slate-100'>{highlights.topAcc}</p>
+                </div>
+                {highlights.topAccValue != null && <p className='shrink-0 text-sm font-extrabold text-rose-200'>-{money(highlights.topAccValue)}</p>}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       <PercentList
         title='Essencial vs Extra'
@@ -219,69 +284,6 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
                 </div>
               </article>
             ))}
-          </div>
-        </section>
-      )}
-
-      {insights.length > 0 && (
-        <section className='rounded-4xl bg-white p-5 shadow-soft'>
-          <div className='mb-3 flex items-center justify-between gap-3'>
-            <div>
-              <h2 className='text-base font-bold text-slate-900'>Insights</h2>
-              <p className='text-xs text-slate-500'>Leituras automáticas do período.</p>
-            </div>
-            <span className='grid h-10 w-10 place-items-center rounded-2xl bg-slate-50 text-indigo-500'><Tags size={18} /></span>
-          </div>
-          <div className='space-y-3'>
-            {insights.slice(0, 8).map((it, idx) => {
-              const tone = insightTone(it?.type);
-              const value = it?.value;
-              const rightValue = typeof value === 'number'
-                ? money(value)
-                : typeof value === 'string'
-                  ? value
-                  : value?.amount
-                    ? money(value.amount)
-                    : null;
-
-              return (
-                <article key={it?.id || idx} className={`rounded-3xl bg-white/5 p-4 ring-1 ${tone.ring}`}>
-                  <div className='flex items-start justify-between gap-3'>
-                    <div className='min-w-0'>
-                      <p className={`text-sm font-extrabold ${tone.title}`}>{it?.title || 'Insight'}</p>
-                      {it?.description && <p className={`mt-1 text-xs ${tone.desc}`}>{it.description}</p>}
-                    </div>
-                    {rightValue && <p className='shrink-0 text-xs font-extrabold text-slate-100'>{rightValue}</p>}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* Blocos extras (mais info rápida) */}
-      <section className='grid grid-cols-2 gap-3'>
-        <article className='rounded-4xl bg-white p-4 shadow-soft'>
-          <ArrowDownRight className='text-rose-500' size={18} />
-          <p className='mt-3 text-xs text-slate-500'>Despesas reais</p>
-          <p className='mt-1 break-words text-xl font-bold'>{money(expenseTotal)}</p>
-        </article>
-        <article className='rounded-4xl bg-white p-4 shadow-soft'>
-          <Tags className='text-indigo-500' size={18} />
-          <p className='mt-3 text-xs text-slate-500'>Concentração (Top 3)</p>
-          <p className='mt-1 break-words text-xl font-bold'>{top3Share == null ? '—' : `${top3Share.toFixed(1)}%`}</p>
-        </article>
-      </section>
-
-      {dayWithMostExpense && (
-        <section className='rounded-4xl bg-white p-5 shadow-soft'>
-          <div className='flex items-center justify-between gap-3'>
-            <div>
-              <h2 className='text-base font-bold text-slate-900'>Dia mais caro</h2>
-              <p className='text-xs text-slate-500'>{dayWithMostExpense.date}</p>
-            </div>
-            <p className='text-sm font-extrabold text-rose-200'>-{money(dayWithMostExpense.value)}</p>
           </div>
         </section>
       )}
