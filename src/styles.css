@@ -133,6 +133,12 @@ option {
       linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.06));
     padding-bottom: calc(7.75rem + env(safe-area-inset-bottom));
   }
+
+  /* Chat pages: evita scroll duplo (body + lista) e garante que só as mensagens rolem. */
+  .app-frame-chat {
+    height: 100dvh;
+    overflow: hidden;
+  }
   .app-frame::before { content: ''; position: fixed; inset: 0; z-index: -1; background: radial-gradient(circle at 50% 6%, rgba(205, 187, 147, 0.055), transparent 38%); pointer-events: none; }
   .card {
     @apply relative my-3 min-w-0 rounded-4xl p-4;

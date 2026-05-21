@@ -147,7 +147,7 @@ export default function AppShell(props) {
   };
 
   return (
-    <div className='app-frame'>
+    <div className={`app-frame ${safeTab === 'ai' ? 'app-frame-chat' : ''}`}>
       <div className='top-actions'>
         {safeTab === 'ai' ? (
           <button

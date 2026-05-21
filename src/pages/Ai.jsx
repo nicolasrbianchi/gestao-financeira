@@ -117,6 +117,7 @@ export default function Ai({ api, resetKey = 0 }) {
   const [loading, setLoading] = useState(false);
   const listRef = useRef(null);
   const stickToBottomRef = useRef(true);
+  const [showJump, setShowJump] = useState(false);
 
   const messages = session?.messages || [];
 
@@ -221,6 +222,7 @@ export default function Ai({ api, resetKey = 0 }) {
             const threshold = 48;
             const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - threshold;
             stickToBottomRef.current = atBottom;
+            setShowJump(!atBottom);
           }}
           style={{
             // Espaço pro composer + safe-area + bottom-nav.
@@ -246,6 +248,20 @@ export default function Ai({ api, resetKey = 0 }) {
             </ChatBubble>
           )}
         </div>
+
+        {showJump && (
+          <button
+            type='button'
+            onClick={() => {
+              stickToBottomRef.current = true;
+              setShowJump(false);
+              scrollToBottom();
+            }}
+            className='fixed bottom-[calc(9.4rem+env(safe-area-inset-bottom))] right-6 z-40 rounded-full border border-white/10 bg-[rgba(6,6,10,0.88)] px-4 py-2 text-xs font-bold text-slate-100 shadow-soft backdrop-blur active:opacity-90'
+          >
+            Ir pro fim
+          </button>
+        )}
 
         <div
           className='pointer-events-none fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[430px]'
