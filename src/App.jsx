@@ -26,6 +26,21 @@ export default function App() {
         api('/metadata').then(setMetadata).catch(() => setMetadata({}));
       });
   }, [auth, reloadKey]);
+
+  // Notificação best-effort: importações pendentes
+  useEffect(() => {
+    if (!auth) return;
+    api('/imports/pending')
+      .then((r) => {
+        const count = (r.items || []).length;
+        const prev = Number(localStorage.getItem('gf_inbox_pending_count') || 0);
+        if (count > prev) setToast(`${count} importação(ões) pendente(s) para aprovar.`);
+        localStorage.setItem('gf_inbox_pending_count', String(count));
+      })
+      .catch(() => {
+        // ignore (DATA_SOURCE!=db ou erro de rede)
+      });
+  }, [auth, reloadKey]);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 3500); return () => clearTimeout(t); }, [toast]);
 
   if (auth === null) return <div className='loading-state'>Carregando…</div>;
