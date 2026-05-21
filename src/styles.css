@@ -127,7 +127,7 @@ option {
     Esse lift sutil no rodapé dá separação sem parecer cinza.
   */
   .app-frame {
-    @apply relative mx-auto min-h-dvh w-full max-w-[430px] px-4 pt-4;
+    @apply relative mx-auto flex min-h-dvh w-full max-w-[430px] flex-col px-4 pt-4;
     background:
       radial-gradient(120% 60% at 50% 108%, rgba(255, 255, 255, 0.035), transparent 55%),
       linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.06));
@@ -138,6 +138,8 @@ option {
   .app-frame-chat {
     height: 100dvh;
     overflow: hidden;
+    /* Aproxima o composer do bottom-nav (mantém só o necessário pra não ficar por baixo). */
+    padding-bottom: calc(6.15rem + env(safe-area-inset-bottom));
   }
   .app-frame::before { content: ''; position: fixed; inset: 0; z-index: -1; background: radial-gradient(circle at 50% 6%, rgba(205, 187, 147, 0.055), transparent 38%); pointer-events: none; }
   .card {

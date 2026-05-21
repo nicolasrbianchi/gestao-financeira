@@ -177,7 +177,7 @@ export default function AppShell(props) {
           <Settings size={18} />
         </button>
       </div>
-      <main className='min-w-0'>{renderPage()}</main>
+      <main className='min-w-0 flex-1 min-h-0'>{renderPage()}</main>
 
       <BottomNav tab={safeTab} onTab={onTab} onAdd={() => setShowTransactionSheet(true)} />
       <FilterSheet open={showFilters} onClose={() => setShowFilters(false)} filters={filters} setFilters={setFilters} metadata={metadata || {}} />
