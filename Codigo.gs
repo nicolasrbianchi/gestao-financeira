@@ -270,12 +270,34 @@ function parseMoney_(v) {
 
 function normalizeDate_(value) {
   if (!value) return new Date();
+  if (value instanceof Date && !isNaN(value.getTime())) return value;
 
   const s = String(value).trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s + 'T12:00:00');
+  if (!s) return new Date();
 
-  // Fallback: tenta parsear qualquer string (ex: 15/05/2026)
-  return new Date(s);
+  // ISO date vindo do <input type="date"> (YYYY-MM-DD)
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) {
+    const yyyy = Number(iso[1]);
+    const mm = Number(iso[2]);
+    const dd = Number(iso[3]);
+    return new Date(yyyy, mm - 1, dd);
+  }
+
+  // BR date (e BR datetime quando a coluna está formatada com hora):
+  // 20/05/2026
+  // 20/05/2026 08:00:00
+  const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/);
+  if (br) {
+    const dd = Number(br[1]);
+    const mm = Number(br[2]);
+    const yyyy = Number(br[3]);
+    return new Date(yyyy, mm - 1, dd);
+  }
+
+  // Fallback
+  const parsed = new Date(s);
+  return isNaN(parsed.getTime()) ? new Date() : parsed;
 }
 
 function ensureTransactionHeader_() {
@@ -342,6 +364,10 @@ function addTransaction_(p) {
   const row = header.map((h) => (h in rowObj ? rowObj[h] : ''));
   sh.appendRow(row);
 
+  // Garante display só com data (sem hora) na coluna Data.
+  const dataCol = header.indexOf('Data') + 1;
+  if (dataCol > 0) sh.getRange(sh.getLastRow(), dataCol).setNumberFormat('dd/MM/yyyy');
+
   return { ok: true, row: sh.getLastRow() };
 }
 
@@ -390,6 +416,10 @@ function updateTransaction_(p) {
 
   const row = header.map((h) => (h in rowObj ? rowObj[h] : ''));
   sh.getRange(rowNumber, 1, 1, row.length).setValues([row]);
+
+  // Garante display só com data (sem hora) na coluna Data.
+  const dataCol = header.indexOf('Data') + 1;
+  if (dataCol > 0) sh.getRange(rowNumber, dataCol).setNumberFormat('dd/MM/yyyy');
 
   return { ok: true, row: rowNumber };
 }

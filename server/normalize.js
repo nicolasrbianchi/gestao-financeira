@@ -2,7 +2,52 @@ import { logger } from './logger.js';
 export function normalizeStringKey(value = '') { return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase(); }
 const toIsoDate = (dateObj) => `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
 function UtilitiesDisplay(d) { return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`; }
-export function parseDateBR(value) { if (value == null || value === '') return null; if (value instanceof Date && !Number.isNaN(value.getTime())) return { date: toIsoDate(value), displayDate: UtilitiesDisplay(value) }; if (typeof value === 'number') { const d = new Date(Math.round((value - 25569) * 86400 * 1000)); if (Number.isNaN(d.getTime())) return null; return { date: toIsoDate(d), displayDate: UtilitiesDisplay(d) }; } const s = String(value).trim(); if (!s) return null; if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const d = new Date(`${s}T12:00:00Z`); if (Number.isNaN(d.getTime())) return null; return { date: s, displayDate: `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` }; } const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if (br) { const [, dd, mm, yyyy] = br; const iso = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`; return { date: iso, displayDate: `${dd.padStart(2, '0')}/${mm.padStart(2, '0')}/${yyyy}` }; } const parsed = new Date(s); if (Number.isNaN(parsed.getTime())) return null; return { date: toIsoDate(parsed), displayDate: UtilitiesDisplay(parsed) }; }
+export function parseDateBR(value) {
+  if (value == null || value === '') return null;
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return { date: toIsoDate(value), displayDate: UtilitiesDisplay(value) };
+  }
+
+  // Google Sheets às vezes manda data como serial.
+  if (typeof value === 'number') {
+    const d = new Date(Math.round((value - 25569) * 86400 * 1000));
+    if (Number.isNaN(d.getTime())) return null;
+    return { date: toIsoDate(d), displayDate: UtilitiesDisplay(d) };
+  }
+
+  const s = String(value).trim();
+  if (!s) return null;
+
+  // ISO date (campo de <input type="date"> da UI)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    // Meio-dia em UTC reduz risco de "virar dia anterior" em timezones negativos.
+    const d = new Date(`${s}T12:00:00Z`);
+    if (Number.isNaN(d.getTime())) return null;
+    return { date: s, displayDate: `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` };
+  }
+
+  // BR date: 20/05/2026
+  const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (br) {
+    const [, dd, mm, yyyy] = br;
+    const iso = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+    return { date: iso, displayDate: `${dd.padStart(2, '0')}/${mm.padStart(2, '0')}/${yyyy}` };
+  }
+
+  // BR date time (quando a coluna está formatada como data+hora no Sheets):
+  // Ex: 20/05/2026 08:00:00
+  const brDateTime = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (brDateTime) {
+    const [, dd, mm, yyyy] = brDateTime;
+    const iso = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+    return { date: iso, displayDate: `${dd.padStart(2, '0')}/${mm.padStart(2, '0')}/${yyyy}` };
+  }
+
+  const parsed = new Date(s);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return { date: toIsoDate(parsed), displayDate: UtilitiesDisplay(parsed) };
+}
 export function parseMoneyBR(value) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   if (value == null) return null;
