@@ -156,6 +156,18 @@ export default function AppShell(props) {
             setEditingTx(tx);
             setShowTransactionSheet(true);
           }}
+          onDelete={async (tx) => {
+            try {
+              const id = tx?.id ?? tx?.sheetRowNumber ?? tx?.row;
+              if (!id) throw new Error('id inválido');
+              await api(`/transactions/${id}`, { method: 'DELETE' });
+              onToast?.('Transação excluída.');
+              onReload?.();
+              reload();
+            } catch (e) {
+              onToast?.(e?.message || 'Erro ao excluir transação.');
+            }
+          }}
         />
       );
     }

@@ -31,6 +31,8 @@ export default function ManageMonthlyGoalsSheet({ open, onClose, api }) {
 
   useEffect(() => {
     if (!open) return;
+    // default para o mês atual
+    setMonth((m) => m || new Date().toISOString().slice(0, 7));
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -95,13 +97,30 @@ export default function ManageMonthlyGoalsSheet({ open, onClose, api }) {
           ) : sorted.length ? (
             <div className='space-y-2'>
               {sorted.map((g) => (
-                <div key={g.month} className='flex items-center justify-between gap-2 rounded-3xl bg-white px-3 py-2 shadow-soft'>
+                <button
+                  key={g.month}
+                  type='button'
+                  onClick={() => {
+                    setMonth(g.month);
+                    setValue(toPtbrMoney(g.value));
+                  }}
+                  className='flex w-full items-center justify-between gap-2 rounded-3xl bg-white px-3 py-2 text-left shadow-soft'
+                >
                   <div className='min-w-0'>
                     <p className='truncate text-sm font-semibold text-slate-900'>{g.month}</p>
                     <p className='text-[11px] text-slate-400'>R$ {toPtbrMoney(g.value)}</p>
                   </div>
-                  <button type='button' onClick={() => remove(g.month)} className='rounded-2xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600'>Remover</button>
-                </div>
+                  <button
+                    type='button'
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      remove(g.month);
+                    }}
+                    className='rounded-2xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600'
+                  >
+                    Remover
+                  </button>
+                </button>
               ))}
             </div>
           ) : (
@@ -112,4 +131,3 @@ export default function ManageMonthlyGoalsSheet({ open, onClose, api }) {
     </div>
   );
 }
-

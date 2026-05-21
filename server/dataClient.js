@@ -31,10 +31,14 @@ export async function updateTransaction(payload, ctx = {}) {
   return apps.updateTransaction(payload, ctx);
 }
 
+export async function deleteTransaction(payload, ctx = {}) {
+  if (source === 'db') return db.deleteTransaction(payload, ctx);
+  throw new Error('Exclusão disponível apenas quando DATA_SOURCE=db.');
+}
+
 export async function health(ctx = {}) {
   if (source === 'db') return db.health(ctx);
   return apps.health(ctx);
 }
 
 export const getLastAppsScriptCall = () => apps.getLastAppsScriptCall?.();
-

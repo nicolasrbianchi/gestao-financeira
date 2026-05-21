@@ -40,7 +40,7 @@ function keyOfTx(t, fallbackIndex = 0) {
   return String(t?.sheetRowNumber || `${t?.date || 'no-date'}:${t?.name || 'no-name'}:${fallbackIndex}`);
 }
 
-export default function Transactions({ data, loading, filters, setFilters, onEdit }) {
+export default function Transactions({ data, loading, filters, setFilters, onEdit, onDelete }) {
   const transactions = data?.transactions || [];
   const summary = data?.summary || { totalAmount: 0, count: transactions.length };
   const period = filterChip(filters) || 'Todos os registros';
@@ -49,7 +49,7 @@ export default function Transactions({ data, loading, filters, setFilters, onEdi
   const [openId, setOpenId] = useState(null);
   const dragRef = useRef({ id: null, startX: 0, startY: 0, started: false, dragging: false, dx: 0 });
 
-  const ACTION_W = 86; // px (área do botão)
+  const ACTION_W = 172; // px (2 botões)
 
   const onPointerDown = (event, id) => {
     // Só pega primário (evita multi-touch estranho)
@@ -161,16 +161,29 @@ export default function Transactions({ data, loading, filters, setFilters, onEdi
                   return (
                     <div key={id} className='relative overflow-hidden rounded-3xl'>
                       {/* Underlay actions */}
-                      <div className='absolute inset-y-0 right-0 flex items-stretch' style={{ width: ACTION_W }}>
+                      <div className='absolute inset-y-0 right-0 flex items-stretch gap-2 pr-2' style={{ width: ACTION_W }}>
                         <button
                           type='button'
-                          className='w-full rounded-3xl bg-[rgba(231,220,198,0.92)] px-3 text-xs font-extrabold text-black shadow-soft ring-1 ring-black/10'
+                          className='h-full flex-1 rounded-3xl bg-[rgba(231,220,198,0.92)] px-3 text-xs font-extrabold text-black shadow-soft ring-1 ring-black/10'
                           onClick={() => {
                             setOpenId(null);
                             onEdit?.(transaction);
                           }}
                         >
                           Editar
+                        </button>
+                        <button
+                          type='button'
+                          className='h-full flex-1 rounded-3xl bg-rose-500/15 px-3 text-xs font-extrabold text-rose-700 shadow-soft ring-1 ring-rose-600/20'
+                          onClick={() => {
+                            setOpenId(null);
+                            const ok = window.confirm(`Excluir "${transaction.name || 'transação'}"?`);
+                            if (!ok) return;
+                            // callback opcional (AppShell faz a chamada + reload)
+                            if (typeof onDelete === 'function') onDelete(transaction);
+                          }}
+                        >
+                          Excluir
                         </button>
                       </div>
 

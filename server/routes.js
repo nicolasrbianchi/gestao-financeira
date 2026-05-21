@@ -298,6 +298,22 @@ router.put('/transactions/:id', (req, res, next) => updateTransactionById(Number
 // Legado (compat): rota antiga por "row".
 router.put('/transactions/by-row/:row', (req, res, next) => updateTransactionById(Number(req.params.row || 0), req, res, next));
 
+async function deleteTransactionById(id, req, res, next) {
+  try {
+    if (String(config.dataSource || '').toLowerCase() !== 'db') {
+      return res.status(409).json({ ok: false, error: 'Exclusão disponível apenas quando DATA_SOURCE=db.', requestId: req.requestId });
+    }
+    if (!id || id < 1) return res.status(400).json({ ok: false, error: 'id inválido.', requestId: req.requestId });
+    const result = await client.deleteTransaction({ id }, { requestId: req.requestId });
+    res.json({ ok: true, data: result });
+  } catch (e) {
+    next(e);
+  }
+}
+
+router.delete('/transactions/:id', (req, res, next) => deleteTransactionById(Number(req.params.id || 0), req, res, next));
+router.delete('/transactions/by-row/:row', (req, res, next) => deleteTransactionById(Number(req.params.row || 0), req, res, next));
+
 router.post('/ai/chat', async (req, res, next) => {
   try {
     const body = req.body || {};

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CalendarDays, Database, Filter, LogOut, RefreshCcw, Server, ShieldCheck, SlidersHorizontal, Tags } from 'lucide-react';
+import { CalendarDays, Filter, LogOut, RefreshCcw, Server, SlidersHorizontal, Tags, Target } from 'lucide-react';
 import { mtdFilters, filterChip } from '../utils/filters';
 import ManageTagsSheet from '../components/ManageTagsSheet';
 import ManageMonthlyGoalsSheet from '../components/ManageMonthlyGoalsSheet';
@@ -47,7 +47,7 @@ export default function More({ api, metadata = {}, filters, setFilters, onOpenFi
       <header className='px-1'>
         <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Configurações</p>
         <h1 className='text-2xl font-bold text-slate-900'>Mais</h1>
-        <p className='mt-1 text-sm text-slate-500'>Preferências, filtros e saúde da conexão.</p>
+        <p className='mt-1 text-sm text-slate-500'>Gestão do app, filtros e operação.</p>
       </header>
 
       <Row
@@ -62,37 +62,24 @@ export default function More({ api, metadata = {}, filters, setFilters, onOpenFi
         )}
       />
 
-      <section className='grid grid-cols-2 gap-3'>
-        <article className='rounded-4xl bg-white p-4 shadow-soft'>
-          <Tags className='text-indigo-500' size={18} />
-          <p className='mt-3 text-xs text-slate-500'>Categorias</p>
-          <p className='mt-1 text-xl font-bold'>{(metadata.categories || []).length}</p>
-        </article>
-        <article className='rounded-4xl bg-white p-4 shadow-soft'>
-          <Database className='text-emerald-500' size={18} />
-          <p className='mt-3 text-xs text-slate-500'>Contas</p>
-          <p className='mt-1 text-xl font-bold'>{(metadata.accounts || []).length}</p>
-        </article>
-      </section>
-
       <Row
         icon={Tags}
-        title='Gerenciar categorias'
-        description='Criar, renomear e arquivar categorias/subcategorias (apenas em DATA_SOURCE=db).'
-        action={<button type='button' onClick={() => setManageOpen(true)} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Abrir gestão</button>}
+        title='Categorias & subcategorias'
+        description={`Gerenciar opções do app. Ativas: ${(metadata.categories || []).length} categorias · ${(metadata.subcategories || []).length} subcategorias.`}
+        action={<button type='button' onClick={() => setManageOpen(true)} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Gerenciar</button>}
       />
 
       <Row
-        icon={Tags}
-        title='Gerenciar metas mensais'
-        description='Define a meta geral por mês (apenas em DATA_SOURCE=db).'
-        action={<button type='button' onClick={() => setGoalsOpen(true)} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Abrir metas</button>}
+        icon={Target}
+        title='Metas mensais'
+        description='Defina a meta geral por mês (YYYY-MM).'
+        action={<button type='button' onClick={() => setGoalsOpen(true)} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Gerenciar</button>}
       />
 
       <Row
         icon={Server}
-        title='Conexão'
-        description='Valida API, sessão e Apps Script.'
+        title='Status do sistema'
+        description='Valida API e fonte de dados ativa.'
         action={<button type='button' onClick={testConnection} disabled={checking} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>{checking ? 'Testando…' : 'Testar conexão'}</button>}
       >
         {status && <p className='mt-3 break-words text-sm font-semibold text-slate-700'>{status}</p>}
@@ -101,18 +88,10 @@ export default function More({ api, metadata = {}, filters, setFilters, onOpenFi
 
       <Row
         icon={RefreshCcw}
-        title='Dados do app'
-        description='Recarrega os dados da aba atual e metadados básicos.'
+        title='Atualizar dados'
+        description='Recarrega a aba atual e metadados.'
         action={<button type='button' onClick={onReload} className='w-full rounded-3xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600'>Recarregar dados</button>}
       />
-
-      <Row icon={ShieldCheck} title='Regras ativas' description='Sessão HTTP-only · fonte de dados selecionada via env · transferência especial · saldo por snapshot.'>
-        <div className='mt-3 flex flex-wrap gap-2'>
-          <span className='badge'>Saldo = histórico até o fim do período</span>
-          <span className='badge'>Meta geral</span>
-          <span className='badge'>Transferência especial</span>
-        </div>
-      </Row>
 
       <section className='card'>
         <button type='button' onClick={onLogout} className='flex w-full items-center justify-center gap-2 rounded-3xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600'>

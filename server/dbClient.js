@@ -211,3 +211,13 @@ export async function updateTransaction(payload, ctx = {}) {
   logger.info('db_transaction_updated', { requestId, id, type });
   return { ok: true, row: id };
 }
+
+export async function deleteTransaction({ id }, ctx = {}) {
+  const requestId = ctx.requestId;
+  const txId = Number(id || 0);
+  if (!txId) throw new Error('id inválido.');
+  const started = Date.now();
+  await query('delete from transactions where id=$1', [txId]);
+  logger.info('db_transaction_deleted', { requestId, id: txId, durationMs: Date.now() - started });
+  return { ok: true, id: txId };
+}

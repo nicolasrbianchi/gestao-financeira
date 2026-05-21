@@ -41,6 +41,8 @@ export default function ManageTagsSheet({ open, onClose, api }) {
   const [subcategories, setSubcategories] = useState([]);
   const [newCategory, setNewCategory] = useState('');
   const [newSubcategory, setNewSubcategory] = useState('');
+  const [includeInactive, setIncludeInactive] = useState(false);
+  const [search, setSearch] = useState('');
 
   const activeCounts = useMemo(
     () => ({
@@ -55,8 +57,8 @@ export default function ManageTagsSheet({ open, onClose, api }) {
       setLoading(true);
       setError('');
       const [c, s] = await Promise.all([
-        api('/categories/manage?includeInactive=true'),
-        api('/subcategories/manage?includeInactive=true'),
+        api(`/categories/manage?includeInactive=${includeInactive ? 'true' : 'false'}`),
+        api(`/subcategories/manage?includeInactive=${includeInactive ? 'true' : 'false'}`),
       ]);
       setCategories(c.categories || []);
       setSubcategories(s.subcategories || []);
@@ -71,9 +73,15 @@ export default function ManageTagsSheet({ open, onClose, api }) {
     if (!open) return;
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, includeInactive]);
 
   if (!open) return null;
+
+  const q = String(search || '').trim().toLowerCase();
+  const byQuery = (item) => (!q ? true : String(item?.name || '').toLowerCase().includes(q));
+  const sortActiveFirst = (a, b) => Number(!!b.isActive) - Number(!!a.isActive) || String(a.name).localeCompare(String(b.name));
+  const categoriesView = (categories || []).filter(byQuery).sort(sortActiveFirst);
+  const subcategoriesView = (subcategories || []).filter(byQuery).sort(sortActiveFirst);
 
   const create = async (kind) => {
     try {
@@ -138,16 +146,30 @@ export default function ManageTagsSheet({ open, onClose, api }) {
           <button type='button' onClick={onClose} className='shrink-0 rounded-2xl bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-500'>Fechar</button>
         </div>
 
+        <div className='flex items-center justify-between gap-2'>
+          <div className='flex flex-1 items-center gap-2 rounded-3xl bg-white p-2 shadow-soft'>
+            <span className='grid h-10 w-10 place-items-center rounded-2xl bg-slate-50 text-indigo-500'><Tags size={18} /></span>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder='Buscar categoria/subcategoria' className='min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-800 outline-none' />
+          </div>
+          <button
+            type='button'
+            onClick={() => setIncludeInactive((v) => !v)}
+            className={`shrink-0 rounded-3xl px-4 py-3 text-xs font-extrabold ${includeInactive ? 'bg-slate-100 text-slate-700' : 'bg-slate-950 text-white'}`}
+          >
+            {includeInactive ? 'Mostrar só ativas' : 'Mostrar arquivadas'}
+          </button>
+        </div>
+
         {error && <div className='rounded-3xl bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700'>{error}</div>}
 
-        <Section title='Categorias' count={`${categories.length} total`}> 
+        <Section title='Categorias' count={`${categoriesView.length} ${includeInactive ? 'no filtro' : 'ativas'}`}> 
           <div className='grid grid-cols-1 gap-2'>
             <div className='flex items-center gap-2 rounded-3xl bg-white p-2 shadow-soft'>
               <span className='grid h-10 w-10 place-items-center rounded-2xl bg-slate-50 text-indigo-500'><Tags size={18} /></span>
               <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder='Nova categoria' className='min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-800 outline-none' />
               <button type='button' onClick={() => create('category')} className='rounded-2xl bg-slate-950 px-3 py-2 text-xs font-bold text-white'>Criar</button>
             </div>
-            {loading ? <div className='empty-state shadow-none'>Carregando…</div> : categories.map((c) => (
+            {loading ? <div className='empty-state shadow-none'>Carregando…</div> : categoriesView.map((c) => (
               <ItemRow
                 key={c.id}
                 item={c}
@@ -158,14 +180,14 @@ export default function ManageTagsSheet({ open, onClose, api }) {
           </div>
         </Section>
 
-        <Section title='Subcategorias (globais)' count={`${subcategories.length} total`}>
+        <Section title='Subcategorias (globais)' count={`${subcategoriesView.length} ${includeInactive ? 'no filtro' : 'ativas'}`}>
           <div className='grid grid-cols-1 gap-2'>
             <div className='flex items-center gap-2 rounded-3xl bg-white p-2 shadow-soft'>
               <span className='grid h-10 w-10 place-items-center rounded-2xl bg-slate-50 text-indigo-500'><Tags size={18} /></span>
               <input value={newSubcategory} onChange={(e) => setNewSubcategory(e.target.value)} placeholder='Nova subcategoria' className='min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-800 outline-none' />
               <button type='button' onClick={() => create('subcategory')} className='rounded-2xl bg-slate-950 px-3 py-2 text-xs font-bold text-white'>Criar</button>
             </div>
-            {loading ? <div className='empty-state shadow-none'>Carregando…</div> : subcategories.map((s) => (
+            {loading ? <div className='empty-state shadow-none'>Carregando…</div> : subcategoriesView.map((s) => (
               <ItemRow
                 key={s.id}
                 item={s}
@@ -179,4 +201,3 @@ export default function ManageTagsSheet({ open, onClose, api }) {
     </div>
   );
 }
-
