@@ -81,6 +81,7 @@ Schema: `schema.sql`.
 ### Setup do banco (reproduzível)
 
 1. Crie um projeto no Supabase e copie a connection string.
+   - Em plataformas IPv4-only (ex: Render), prefira **Session Pooler** (IPv4 proxied) ao invés de Direct connection (IPv6).
 2. Configure no `.env`:
    - `DATA_SOURCE=db`
    - `DATABASE_URL=...`
