@@ -56,7 +56,6 @@ export async function updateSubcategory(id, { name, isActive } = {}) {
      returning id, name, is_active as "isActive"`,
     params
   );
-  if (!rows[0]) throw new Error('Subcategoria não encontrada.');
+  if (!rows[0]) throw new Error('Classificação não encontrada.');
   return rows[0];
 }
-

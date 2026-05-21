@@ -139,7 +139,7 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
     if (!form.data || !form.conta || !form.valor) return 'Preencha data, conta/canal e valor.';
     if (!isBalance && !form.nome) return 'Preencha o nome da transação.';
     if (isReserve && !form.reserva) return 'Reserva exige Entrada ou Saida.';
-    if (isIncomeOrExpense && (!form.categoria || !form.subcategoria || !form.forma)) return 'Receita e Despesa exigem categoria, subcategoria e forma.';
+    if (isIncomeOrExpense && (!form.categoria || !form.subcategoria || !form.forma)) return 'Receita e Despesa exigem categoria, classificação e forma.';
     if (isBalance && !form.categoria) return 'Saldo exige categoria.';
     return '';
   };
@@ -230,7 +230,7 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
             <div className='grid grid-cols-1 gap-3'>
               {selectOrInput('categoria', 'Categoria', uniqueOptions(metadata.categories, fallback.categories), { required: true })}
               <div className='grid grid-cols-2 gap-3'>
-                {selectOrInput('subcategoria', 'Subcategoria', uniqueOptions(metadata.subcategories, fallback.subcategories), { required: true })}
+                {selectOrInput('subcategoria', 'Classificação', uniqueOptions(metadata.subcategories, fallback.subcategories), { required: true })}
                 {selectOrInput('forma', 'Forma', uniqueOptions(paymentMethods, fallback.paymentMethods), { required: true })}
               </div>
               {selectOrInput('status', 'Status opcional', uniqueOptions(metadata.statuses, fallback.statuses), {})}

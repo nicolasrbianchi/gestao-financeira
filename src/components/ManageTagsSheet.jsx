@@ -141,7 +141,7 @@ export default function ManageTagsSheet({ open, onClose, api }) {
           <div className='min-w-0'>
             <p className='text-xs font-semibold uppercase tracking-[0.18em] text-indigo-500'>Gestão</p>
             <h2 className='mt-1 truncate text-xl font-bold text-slate-900'>Categorias</h2>
-            <p className='mt-1 text-sm text-slate-500'>Ativas: {activeCounts.categories} · Subcategorias ativas: {activeCounts.subcategories}</p>
+            <p className='mt-1 text-sm text-slate-500'>Ativas: {activeCounts.categories} · Classificações ativas: {activeCounts.subcategories}</p>
           </div>
           <button type='button' onClick={onClose} className='shrink-0 rounded-2xl bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-500'>Fechar</button>
         </div>
@@ -149,7 +149,7 @@ export default function ManageTagsSheet({ open, onClose, api }) {
         <div className='flex items-center justify-between gap-2'>
           <div className='flex flex-1 items-center gap-2 rounded-3xl bg-white p-2 shadow-soft'>
             <span className='grid h-10 w-10 place-items-center rounded-2xl bg-slate-50 text-indigo-500'><Tags size={18} /></span>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder='Buscar categoria/subcategoria' className='min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-800 outline-none' />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder='Buscar categoria/classificação' className='min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-800 outline-none' />
           </div>
           <button
             type='button'
@@ -180,11 +180,11 @@ export default function ManageTagsSheet({ open, onClose, api }) {
           </div>
         </Section>
 
-        <Section title='Subcategorias (globais)' count={`${subcategoriesView.length} ${includeInactive ? 'no filtro' : 'ativas'}`}>
+        <Section title='Classificações (globais)' count={`${subcategoriesView.length} ${includeInactive ? 'no filtro' : 'ativas'}`}>
           <div className='grid grid-cols-1 gap-2'>
             <div className='flex items-center gap-2 rounded-3xl bg-white p-2 shadow-soft'>
               <span className='grid h-10 w-10 place-items-center rounded-2xl bg-slate-50 text-indigo-500'><Tags size={18} /></span>
-              <input value={newSubcategory} onChange={(e) => setNewSubcategory(e.target.value)} placeholder='Nova subcategoria' className='min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-800 outline-none' />
+              <input value={newSubcategory} onChange={(e) => setNewSubcategory(e.target.value)} placeholder='Nova classificação' className='min-w-0 flex-1 bg-transparent text-sm font-semibold text-slate-800 outline-none' />
               <button type='button' onClick={() => create('subcategory')} className='rounded-2xl bg-slate-950 px-3 py-2 text-xs font-bold text-white'>Criar</button>
             </div>
             {loading ? <div className='empty-state shadow-none'>Carregando…</div> : subcategoriesView.map((s) => (

@@ -56,7 +56,7 @@ export default function FilterSheet({ open, onClose, filters, setFilters, metada
 
         <div className='grid grid-cols-1 gap-3'>
           {select('category', 'Categoria', metadata.categories)}
-          {select('subcategory', 'Subcategoria', metadata.subcategories)}
+          {select('subcategory', 'Classificação', metadata.subcategories)}
           {select('account', 'Conta/Canal', metadata.accounts)}
           {select('type', 'Tipo', metadata.types)}
           {select('status', 'Status', metadata.statuses)}

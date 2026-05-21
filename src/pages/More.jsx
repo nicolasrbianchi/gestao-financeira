@@ -53,8 +53,8 @@ export default function More({ api, metadata = {}, onLogout }) {
 
       <Row
         icon={Tags}
-        title='Categorias & subcategorias'
-        description={`Gerenciar opções do app. Ativas: ${(metadata.categories || []).length} categorias · ${(metadata.subcategories || []).length} subcategorias.`}
+        title='Categorias & classificações'
+        description={`Gerenciar opções do app. Ativas: ${(metadata.categories || []).length} categorias · ${(metadata.subcategories || []).length} classificações.`}
         action={<button type='button' onClick={() => setManageOpen(true)} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Gerenciar</button>}
       />
 
