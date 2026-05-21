@@ -20,6 +20,15 @@ Stack: **React/Vite + Express + Apps Script + Google Sheets**.
 - Script start local/prod: `node server/index.js`
 - Em produção, `APPS_SCRIPT_URL` é obrigatório.
 
+### Keep-alive (Render Free)
+
+No plano free do Render o serviço pode “dormir” por inatividade. Para reduzir cold starts, expusemos dois endpoints **sem autenticação**:
+
+- `GET /api/ping` → `204`
+- `GET /api/wakeup` → `204`
+
+E configuramos um monitor externo no **UptimeRobot** (https://dashboard.uptimerobot.com/monitors) para bater periodicamente em `/api/wakeup`.
+
 ## Observabilidade
 - Logs estruturados JSON com `requestId` por requisição.
 - Erros da API retornam `requestId` para rastreio.
