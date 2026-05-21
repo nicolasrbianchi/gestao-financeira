@@ -116,6 +116,7 @@ export default function Ai({ api, resetKey = 0 }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const listRef = useRef(null);
+  const stickToBottomRef = useRef(true);
 
   const messages = session?.messages || [];
 
@@ -123,9 +124,17 @@ export default function Ai({ api, resetKey = 0 }) {
     saveSession(session);
   }, [session]);
 
+  const scrollToBottom = () => {
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  };
+
   useEffect(() => {
-    if (!listRef.current) return;
-    listRef.current.scrollTop = listRef.current.scrollHeight;
+    // Só auto-scroll se o usuário estiver no final (evita "puxar" quando ele está lendo acima)
+    if (!stickToBottomRef.current) return;
+    scrollToBottom();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, loading]);
 
   const canSend = useMemo(() => !loading && input.trim().length > 0, [loading, input]);
@@ -135,6 +144,9 @@ export default function Ai({ api, resetKey = 0 }) {
     setSession(fresh);
     setInput('');
     setLoading(false);
+    stickToBottomRef.current = true;
+    // deixa o DOM atualizar e desce
+    setTimeout(scrollToBottom, 0);
   };
 
   // Trigger externo (AppShell top-actions)
@@ -197,8 +209,6 @@ export default function Ai({ api, resetKey = 0 }) {
             </div>
           </div>
         </div>
-
-        <p className='mt-2 text-sm text-slate-400'>Pergunta qualquer coisa sobre seus números e transações.</p>
       </header>
 
       {/* ChatGPT-ish: conversa ocupa a página; composer fixo no fundo da viewport (acima do bottom-nav). */}
@@ -206,9 +216,16 @@ export default function Ai({ api, resetKey = 0 }) {
         <div
           ref={listRef}
           className='min-h-0 space-y-3 overflow-auto pr-1'
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            const threshold = 48;
+            const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - threshold;
+            stickToBottomRef.current = atBottom;
+          }}
           style={{
             // Espaço pro composer + safe-area + bottom-nav.
             paddingBottom: 'calc(7.5rem + env(safe-area-inset-bottom))',
+            WebkitOverflowScrolling: 'touch',
           }}
         >
           {messages.length === 0 ? (
@@ -259,13 +276,7 @@ export default function Ai({ api, resetKey = 0 }) {
                 <Send size={18} />
               </button>
             </div>
-            <div className='mt-2 flex items-center justify-between gap-2 px-1 text-[11px] text-slate-500'>
-              <span>Enter envia · Shift+Enter quebra linha</span>
-              <button type='button' onClick={startNew} className='inline-flex items-center gap-1.5 font-semibold text-slate-300/90'>
-                <Trash2 size={14} />
-                Nova conversa
-              </button>
-            </div>
+            <div className='mt-2 px-1 text-[11px] text-slate-500'>Enter envia · Shift+Enter quebra linha</div>
           </div>
         </div>
       </section>
