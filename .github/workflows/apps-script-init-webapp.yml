@@ -1,0 +1,69 @@
+name: Init Web App Deployment (Apps Script)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  init:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install clasp
+        run: npm i -g @google/clasp@3.3.0
+
+      - name: Validate clasp credentials secret
+        run: |
+          if [ -z "${{ secrets.CLASPRC_JSON }}" ]; then
+            echo "Missing GitHub secret: CLASPRC_JSON";
+            exit 1;
+          fi
+
+      - name: Write ~/.clasprc.json
+        run: |
+          mkdir -p "$HOME"
+          cat > "$HOME/.clasprc.json" <<'JSON'
+          ${{ secrets.CLASPRC_JSON }}
+          JSON
+
+      - name: Prepare Apps Script sources
+        run: |
+          mkdir -p apps-script
+          cp -f Codigo.gs apps-script/Codigo.gs
+
+      - name: Push code
+        run: clasp push --force
+
+      - name: Create version + new deployment
+        id: deploy
+        shell: bash
+        run: |
+          OUTV=$(clasp version "init webapp: ${GITHUB_SHA}")
+          echo "$OUTV"
+          VERSION=$(echo "$OUTV" | grep -Eo 'Created version [0-9]+' | awk '{print $3}')
+          [ -n "$VERSION" ] || (echo "Could not parse version" >&2; exit 1)
+
+          OUTD=$(clasp deploy -V "$VERSION" -d "webapp init: ${GITHUB_SHA}")
+          echo "$OUTD"
+
+          DEPLOYMENT=$(echo "$OUTD" | grep -Eo 'AKfycb[^ ]+' | head -n 1)
+          if [ -z "$DEPLOYMENT" ]; then
+            echo "Could not parse deploymentId" >&2
+            exit 1
+          fi
+
+          echo "deploymentId=$DEPLOYMENT" >> "$GITHUB_OUTPUT"
+          echo "webAppUrl=https://script.google.com/macros/s/$DEPLOYMENT/exec" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          echo "DeploymentId: ${{ steps.deploy.outputs.deploymentId }}"
+          echo "Web app URL: ${{ steps.deploy.outputs.webAppUrl }}"
+
