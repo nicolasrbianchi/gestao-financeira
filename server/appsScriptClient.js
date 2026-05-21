@@ -135,5 +135,14 @@ export async function addTransaction(payload, ctx) {
   cache.metadata.value = cache.metadata.value; // no-op (documenta intenção)
   return result;
 }
+
+export async function updateTransaction(payload, ctx) {
+  const result = await callAppsScript('update', payload, { ...(ctx || {}), force: true });
+  // Escrita: invalida cache.
+  cache.transactions.value = null;
+  cache.transactions.at = 0;
+  cache.metadata.value = cache.metadata.value; // no-op
+  return result;
+}
 export const health = (ctx) => callAppsScript('health', {}, { ...(ctx || {}), force: true });
 export const getLastAppsScriptCall = () => lastAppsScriptCall;

@@ -43,6 +43,7 @@ export default function AppShell(props) {
   const { tab, onTab, filters, setFilters, metadata, initialDashboard, api, withQuery, onLogout, onToast, onReload } = props;
   const [showFilters, setShowFilters] = useState(false);
   const [showTransactionSheet, setShowTransactionSheet] = useState(false);
+  const [editingTx, setEditingTx] = useState(null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -119,9 +120,15 @@ export default function AppShell(props) {
 
   const handleSaved = () => {
     setShowTransactionSheet(false);
+    setEditingTx(null);
     onToast?.('Transação salva com sucesso.');
     onReload?.();
     reload();
+  };
+
+  const closeTransactionSheet = () => {
+    setShowTransactionSheet(false);
+    setEditingTx(null);
   };
 
   const renderPage = () => {
@@ -139,7 +146,18 @@ export default function AppShell(props) {
       );
     }
     if (safeTab === 'transactions') {
-      return <Transactions data={data} loading={loading} filters={filters} setFilters={setFilters} />;
+      return (
+        <Transactions
+          data={data}
+          loading={loading}
+          filters={filters}
+          setFilters={setFilters}
+          onEdit={(tx) => {
+            setEditingTx(tx);
+            setShowTransactionSheet(true);
+          }}
+        />
+      );
     }
     if (safeTab === 'categories') return <Categories data={data} loading={loading} filters={filters} setFilters={setFilters} onGoTransactions={() => onTab('transactions')} />;
     if (safeTab === 'ai') return <Ai api={api} resetKey={aiResetKey} />;
@@ -179,15 +197,24 @@ export default function AppShell(props) {
       </div>
       <main className='min-w-0'>{renderPage()}</main>
 
-      <BottomNav tab={safeTab} onTab={onTab} onAdd={() => setShowTransactionSheet(true)} />
+      <BottomNav
+        tab={safeTab}
+        onTab={onTab}
+        onAdd={() => {
+          setEditingTx(null);
+          setShowTransactionSheet(true);
+        }}
+      />
       <FilterSheet open={showFilters} onClose={() => setShowFilters(false)} filters={filters} setFilters={setFilters} metadata={metadata || {}} />
       <TransactionSheet
         open={showTransactionSheet}
-        onClose={() => setShowTransactionSheet(false)}
+        onClose={closeTransactionSheet}
         metadata={metadata || {}}
         api={api}
         onSaved={handleSaved}
         onToast={onToast}
+        initialTransaction={editingTx}
+        mode={editingTx ? 'edit' : 'add'}
       />
     </div>
   );

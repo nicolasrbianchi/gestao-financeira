@@ -36,7 +36,7 @@ function groupByDate(items = []) {
   return [...map.entries()];
 }
 
-export default function Transactions({ data, loading, filters, setFilters }) {
+export default function Transactions({ data, loading, filters, setFilters, onEdit }) {
   const transactions = data?.transactions || [];
   const summary = data?.summary || { totalAmount: 0, count: transactions.length };
   const period = filterChip(filters) || 'Todos os registros';
@@ -103,7 +103,20 @@ export default function Transactions({ data, loading, filters, setFilters }) {
                   const tone = toneByType[transaction.type] || 'text-slate-300 bg-slate-500/10 border-slate-300/20';
                   const amountTone = amountColorByType[transaction.type] || (isIncome ? 'pos' : 'neg');
                   return (
-                    <article key={`${transaction.sheetRowNumber || index}-${transaction.name || index}`} className='rounded-3xl bg-white p-3 shadow-soft'>
+                    <article
+                      key={`${transaction.sheetRowNumber || index}-${transaction.name || index}`}
+                      className='rounded-3xl bg-white p-3 shadow-soft transition hover:shadow-md'
+                      role={onEdit ? 'button' : undefined}
+                      tabIndex={onEdit ? 0 : undefined}
+                      onClick={() => onEdit?.(transaction)}
+                      onKeyDown={(e) => {
+                        if (!onEdit) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onEdit(transaction);
+                        }
+                      }}
+                    >
                       <div className='flex min-w-0 items-start justify-between gap-3'>
                         <div className='min-w-0 flex-1'>
                           <div className='flex items-center gap-2'>

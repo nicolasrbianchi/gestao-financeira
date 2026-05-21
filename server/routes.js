@@ -156,6 +156,29 @@ router.post('/transactions', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+router.put('/transactions/:row', async (req, res, next) => {
+  try {
+    const p = req.body || {};
+    const row = Number(req.params.row || 0);
+    if (!row || row < 2) return res.status(400).json({ ok: false, error: 'sheetRowNumber inválido.', requestId: req.requestId });
+
+    if (!p.data || !p.tipo || !p.conta) return res.status(400).json({ ok: false, error: 'Preencha data, tipo e conta/canal.', requestId: req.requestId });
+    if (p.tipo !== 'Saldo' && !p.nome) return res.status(400).json({ ok: false, error: 'Preencha o nome da transação.', requestId: req.requestId });
+    if (p.tipo === 'Reserva' && !p.reserva) return res.status(400).json({ ok: false, error: 'Reserva obrigatória para tipo Reserva.', requestId: req.requestId });
+    if (['Receita', 'Despesa'].includes(p.tipo) && (!p.categoria || !p.subcategoria || !p.forma)) return res.status(400).json({ ok: false, error: 'Receita e Despesa exigem categoria, subcategoria e forma.', requestId: req.requestId });
+    if (p.tipo === 'Saldo' && !p.categoria) return res.status(400).json({ ok: false, error: 'Saldo exige categoria.', requestId: req.requestId });
+    const amount = parseMoneyBR(p.valor);
+    if (!amount || amount <= 0) { logger.warn('transaction_validation_failed', { requestId: req.requestId, reason: 'invalid_amount_update' }); return res.status(400).json({ ok: false, error: 'Valor inválido.', requestId: req.requestId }); }
+
+    const payload = { ...p, row, sheetRowNumber: row, nome: p.nome || `Saldo ${p.conta}`, valor: amount };
+    const result = await client.updateTransaction(payload, { requestId: req.requestId });
+    logger.info('transaction_updated', { requestId: req.requestId, row, tipo: p.tipo, status: p.status || '' });
+    res.json({ ok: true, data: result });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/ai/chat', async (req, res, next) => {
   try {
     const body = req.body || {};

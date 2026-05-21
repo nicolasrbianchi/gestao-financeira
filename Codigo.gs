@@ -56,6 +56,11 @@ function doGet(e) {
       return respond_(addTransaction_(p), p.callback);
     }
 
+    if (action === 'update') {
+      validateToken_(p.token);
+      return respond_(updateTransaction_(p), p.callback);
+    }
+
     if (action === 'summary') {
       validateToken_(p.token);
       return respond_(getSummary_(p.month), p.callback);
@@ -75,6 +80,7 @@ function doPost(e) {
     validateToken_(body.token);
 
     if (action === 'add') return respond_(addTransaction_(body), body.callback);
+    if (action === 'update') return respond_(updateTransaction_(body), body.callback);
     if (action === 'summary') return respond_(getSummary_(body.month), body.callback);
     if (action === 'transactions') return respond_(getTransactions_(), body.callback);
     if (action === 'metadata' || action === 'config') return respond_(getMetadata_(), body.callback);
@@ -337,6 +343,55 @@ function addTransaction_(p) {
   sh.appendRow(row);
 
   return { ok: true, row: sh.getLastRow() };
+}
+
+function updateTransaction_(p) {
+  const sh = sheet_(TRANSACTIONS_SHEET);
+  const header = ensureTransactionHeader_();
+
+  const rowNumber = Number(p.row || p.sheetRowNumber || p.rowNumber || 0);
+  if (!rowNumber || rowNumber < 2) throw new Error('row inválido (sheetRowNumber).');
+
+  const data = p.data || p.date;
+  const tipo = p.tipo || p.type;
+  const reserva = p.reserva || p.reserve || '';
+  const conta = p.conta || p.account || '';
+  const categoria = p.categoria || p.category || '';
+  const subcategoria = p.subcategoria || p.subcategory || '';
+  const forma = p.forma || p.paymentMethod || '';
+  const status = p.status || '';
+  const parcela = p.parcela || p.installment || '';
+  const obs = p.obs || p.notes || '';
+  const valor = parseMoney_(p.valor !== undefined ? p.valor : p.amount);
+  const nome = String(p.nome || p.name || (tipo === 'Saldo' && conta ? 'Saldo ' + conta : '')).trim();
+
+  if (!tipo) throw new Error('Tipo obrigatório.');
+  if (!conta) throw new Error('Conta/Canal obrigatório.');
+  if (tipo !== 'Saldo' && !nome) throw new Error('Nome obrigatório.');
+  if (tipo === 'Reserva' && !reserva) throw new Error('Reserva obrigatória para tipo Reserva.');
+  if ((tipo === 'Receita' || tipo === 'Despesa') && (!categoria || !subcategoria || !forma)) throw new Error('Receita e Despesa exigem categoria, subcategoria e forma.');
+  if (tipo === 'Saldo' && !categoria) throw new Error('Saldo exige categoria.');
+  if (!valor || valor <= 0) throw new Error('Valor obrigatório.');
+
+  const rowObj = {
+    Data: normalizeDate_(data),
+    Nome: nome,
+    Tipo: tipo,
+    Reserva: reserva,
+    'Conta/Canal': conta,
+    Categoria: categoria,
+    Subcategoria: subcategoria,
+    Forma: forma,
+    Valor: valor,
+    Status: status,
+    Parcela: parcela,
+    Obs: obs,
+  };
+
+  const row = header.map((h) => (h in rowObj ? rowObj[h] : ''));
+  sh.getRange(rowNumber, 1, 1, row.length).setValues([row]);
+
+  return { ok: true, row: rowNumber };
 }
 
 function getSummary_(month) {
