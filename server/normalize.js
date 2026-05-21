@@ -3,7 +3,56 @@ export function normalizeStringKey(value = '') { return String(value || '').norm
 const toIsoDate = (dateObj) => `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
 function UtilitiesDisplay(d) { return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`; }
 export function parseDateBR(value) { if (value == null || value === '') return null; if (value instanceof Date && !Number.isNaN(value.getTime())) return { date: toIsoDate(value), displayDate: UtilitiesDisplay(value) }; if (typeof value === 'number') { const d = new Date(Math.round((value - 25569) * 86400 * 1000)); if (Number.isNaN(d.getTime())) return null; return { date: toIsoDate(d), displayDate: UtilitiesDisplay(d) }; } const s = String(value).trim(); if (!s) return null; if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const d = new Date(`${s}T12:00:00Z`); if (Number.isNaN(d.getTime())) return null; return { date: s, displayDate: `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` }; } const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if (br) { const [, dd, mm, yyyy] = br; const iso = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`; return { date: iso, displayDate: `${dd.padStart(2, '0')}/${mm.padStart(2, '0')}/${yyyy}` }; } const parsed = new Date(s); if (Number.isNaN(parsed.getTime())) return null; return { date: toIsoDate(parsed), displayDate: UtilitiesDisplay(parsed) }; }
-export function parseMoneyBR(value) { if (typeof value === 'number') return Number.isFinite(value) ? value : null; if (value == null) return null; const num = Number(String(value).trim().replace(/\s|R\$/gi, '').replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '')); return Number.isFinite(num) ? num : null; }
+export function parseMoneyBR(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (value == null) return null;
+
+  let s = String(value).trim();
+  if (!s) return null;
+
+  // Remove espaços/moeda e mantém só dígitos + separadores.
+  s = s.replace(/\s/g, '').replace(/R\$/gi, '').replace(/[^\d.,-]/g, '');
+
+  const lastComma = s.lastIndexOf(',');
+  const lastDot = s.lastIndexOf('.');
+  const hasComma = lastComma !== -1;
+  const hasDot = lastDot !== -1;
+
+  // Heurística:
+  // - Se tiver ',' e '.', o último separador vira o decimal.
+  // - Se tiver só ',', assume pt-BR (',' decimal).
+  // - Se tiver só '.', assume decimal quando houver 1–2 casas; com 3 casas tende a ser milhar.
+  let decimalSep = null;
+  if (hasComma && hasDot) decimalSep = lastComma > lastDot ? ',' : '.';
+  else if (hasComma) decimalSep = ',';
+  else if (hasDot) {
+    const parts = s.split('.');
+    if (parts.length === 2) {
+      const frac = parts[1] || '';
+      if (frac.length >= 1 && frac.length <= 2) decimalSep = '.';
+      else if (frac.length === 3) decimalSep = null; // provável separador de milhar
+      else if (frac.length === 0) decimalSep = null;
+      else decimalSep = '.'; // fallback
+    } else {
+      decimalSep = null; // múltiplos pontos → milhar
+    }
+  }
+
+  let normalized = s;
+  if (decimalSep === ',') {
+    normalized = normalized.replace(/\./g, '').replace(',', '.');
+  } else if (decimalSep === '.') {
+    normalized = normalized.replace(/,/g, '');
+    // mantém só o último '.' como decimal
+    const idx = normalized.lastIndexOf('.');
+    normalized = normalized.slice(0, idx).replace(/\./g, '') + normalized.slice(idx);
+  } else {
+    normalized = normalized.replace(/[.,]/g, '');
+  }
+
+  const num = Number(normalized);
+  return Number.isFinite(num) ? num : null;
+}
 const getField = (row, variants) => variants.find((key) => row[key] !== undefined && row[key] !== null) ? row[variants.find((key) => row[key] !== undefined && row[key] !== null)] : '';
 export function normalizeTransactions(rows = [], context = {}) {
   const fieldsDetected = new Set();

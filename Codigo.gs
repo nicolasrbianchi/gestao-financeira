@@ -215,15 +215,51 @@ function getMetadata_() {
 function parseMoney_(v) {
   if (typeof v === 'number') return v;
 
-  const n = Number(
-    String(v || '')
-      .replace(/\s/g, '')
-      .replace('R$', '')
-      .replace(/\./g, '')
-      .replace(',', '.')
-  );
+  var s = String(v || '').trim();
+  if (!s) return 0;
 
-  return Number.isNaN(n) ? 0 : n;
+  // Remove espaços/moeda e mantém apenas dígitos + separadores.
+  s = s.replace(/\s/g, '').replace(/R\$/gi, '').replace(/[^0-9.,-]/g, '');
+
+  var lastComma = s.lastIndexOf(',');
+  var lastDot = s.lastIndexOf('.');
+  var hasComma = lastComma !== -1;
+  var hasDot = lastDot !== -1;
+
+  // Heurística alinhada ao server:
+  // - Se tiver ',' e '.', o último separador vira decimal.
+  // - Se tiver só ',', assume pt-BR (',' decimal).
+  // - Se tiver só '.', assume decimal com 1–2 casas; com 3 casas tende a ser milhar.
+  var decimalSep = null;
+  if (hasComma && hasDot) decimalSep = lastComma > lastDot ? ',' : '.';
+  else if (hasComma) decimalSep = ',';
+  else if (hasDot) {
+    var parts = s.split('.');
+    if (parts.length === 2) {
+      var frac = parts[1] || '';
+      if (frac.length >= 1 && frac.length <= 2) decimalSep = '.';
+      else if (frac.length === 3) decimalSep = null;
+      else if (frac.length === 0) decimalSep = null;
+      else decimalSep = '.';
+    } else {
+      decimalSep = null;
+    }
+  }
+
+  var normalized = s;
+  if (decimalSep === ',') {
+    normalized = normalized.replace(/\./g, '').replace(',', '.');
+  } else if (decimalSep === '.') {
+    normalized = normalized.replace(/,/g, '');
+    // mantém só o último '.' como decimal
+    var idx = normalized.lastIndexOf('.');
+    normalized = normalized.slice(0, idx).replace(/\./g, '') + normalized.slice(idx);
+  } else {
+    normalized = normalized.replace(/[.,]/g, '');
+  }
+
+  var n = Number(normalized);
+  return isNaN(n) ? 0 : n;
 }
 
 function normalizeDate_(value) {
