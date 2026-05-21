@@ -1,6 +1,6 @@
 name: Configure Apps Script Properties
 
-'on':
+"on":
   workflow_dispatch:
 
 permissions:
