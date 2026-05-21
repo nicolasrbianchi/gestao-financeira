@@ -62,7 +62,7 @@ export default function Categories({ data, loading }) {
       <header className='px-1'>
         <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Análise</p>
         <h1 className='text-2xl font-bold text-slate-900'>Categorias</h1>
-        <p className='mt-1 text-sm text-slate-500'>Despesas reais, natureza do dinheiro e canais.</p>
+        <p className='mt-1 text-sm text-slate-500'>Despesas reais por categoria e por conta.</p>
       </header>
 
       {loading && data && <div className='rounded-3xl bg-indigo-50 p-3 text-center text-xs font-semibold text-indigo-600'>Atualizando…</div>}
@@ -93,8 +93,8 @@ export default function Categories({ data, loading }) {
             {expensesByCategory.length ? (
               <ResponsiveContainer width='100%' height='100%'>
                 <PieChart>
-                  <Pie data={expensesByCategory.slice(0, 7)} dataKey='value' nameKey='name' innerRadius={50} outerRadius={82} paddingAngle={3}>
-                    {expensesByCategory.slice(0, 7).map((entry, index) => <Cell key={entry.name || index} fill={COLORS[index % COLORS.length]} />)}
+                  <Pie data={expensesByCategory.slice(0, 8)} dataKey='value' nameKey='name' innerRadius={50} outerRadius={82} paddingAngle={3}>
+                    {expensesByCategory.slice(0, 8).map((entry, index) => <Cell key={entry.name || index} fill={COLORS[index % COLORS.length]} />)}
                   </Pie>
                   <Tooltip formatter={(value) => money(value)} />
                 </PieChart>
@@ -106,10 +106,21 @@ export default function Categories({ data, loading }) {
           <div className='h-[160px]'>
             {expensesByCategory.length ? (
               <ResponsiveContainer width='100%' height='100%'>
-                <BarChart data={expensesByCategory.slice(0, 6)} margin={{ left: 0, right: 0, top: 8, bottom: 0 }}>
-                  <XAxis dataKey='name' axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} interval={0} tickFormatter={(value) => String(value).slice(0, 8)} />
+                <BarChart data={expensesByCategory.slice(0, 8)} margin={{ left: 0, right: 0, top: 8, bottom: 8 }}>
+                  <XAxis
+                    dataKey='name'
+                    axisLine={false}
+                    tickLine={false}
+                    interval={0}
+                    tickMargin={10}
+                    angle={-18}
+                    textAnchor='end'
+                    height={44}
+                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                    tickFormatter={(value) => String(value).slice(0, 10)}
+                  />
                   <Tooltip formatter={(value) => money(value)} />
-                  <Bar dataKey='value' radius={[10, 10, 0, 0]}>{expensesByCategory.slice(0, 6).map((entry, index) => <Cell key={entry.name || index} fill={COLORS[index % COLORS.length]} />)}</Bar>
+                  <Bar dataKey='value' radius={[10, 10, 0, 0]}>{expensesByCategory.slice(0, 8).map((entry, index) => <Cell key={entry.name || index} fill={COLORS[index % COLORS.length]} />)}</Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : null}
@@ -119,7 +130,7 @@ export default function Categories({ data, loading }) {
 
       <PercentList title='Despesas por categoria' icon={Tags} items={expensesByCategory} total={expenseTotal} />
       <PercentList title='Essencial vs Extra' icon={Layers3} items={expensesBySubcategory.length ? expensesBySubcategory : bySubcategory} total={totalOf(expensesBySubcategory.length ? expensesBySubcategory : bySubcategory)} />
-      <PercentList title='Por conta/canal' icon={Landmark} items={expensesByAccount.length ? expensesByAccount : byAccount} total={totalOf(expensesByAccount.length ? expensesByAccount : byAccount)} />
+      <PercentList title='Contas Bancarias' icon={Landmark} items={expensesByAccount.length ? expensesByAccount : byAccount} total={totalOf(expensesByAccount.length ? expensesByAccount : byAccount)} />
 
       {byCategory.length > expensesByCategory.length && (
         <PercentList title='Categorias gerais' icon={Tags} items={byCategory} total={allCategoryTotal} />
