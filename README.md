@@ -39,6 +39,7 @@ Este repo pode fazer deploy automático do Apps Script via **GitHub Actions** us
 
 Requisitos:
 - Configurar o secret `CLASPRC_JSON` no GitHub (conteúdo do arquivo `~/.clasprc.json` gerado pelo `clasp login`).
+- (Uma vez) Ativar a **Google Apps Script API** na conta: https://script.google.com/home/usersettings
 
 Configuração de propriedades (Script Properties) via GitHub Actions (manual):
 - Criar secrets:
@@ -46,8 +47,13 @@ Configuração de propriedades (Script Properties) via GitHub Actions (manual):
   - `APPS_SCRIPT_SECRET_TOKEN`
 - Rodar o workflow **Configure Apps Script Properties** (Actions tab)
 
-Quando ocorrer push na `main` alterando `Codigo.gs`/`appsscript.json`, o workflow faz:
+Quando ocorrer push na `main` alterando `Codigo.gs` e/ou `apps-script/appsscript.json`, o workflow faz:
 - `clasp push` (atualiza o código no projeto do Apps Script)
 - `clasp deploy` (re-deploy no mesmo deploymentId do Web App)
 
 Obs: o manifest do Apps Script fica em `apps-script/appsscript.json`.
+
+### Operação (regra prática)
+- Mudou algo no **Apps Script** (ex: `Codigo.gs` ou `apps-script/appsscript.json`)?
+  → além do deploy normal do app (Render), **precisa rodar/aguardar** o workflow **Deploy Apps Script Web App** ficar verde.
+- Se o merge foi na `main`, ele roda automático. Se precisar forçar, roda manualmente em **Actions → Deploy Apps Script Web App → Run workflow**.
