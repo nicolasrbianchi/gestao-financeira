@@ -208,7 +208,7 @@ export default function Ai({ api, resetKey = 0 }) {
   };
 
   return (
-    <div className='flex min-h-0 flex-1 flex-col gap-4 overflow-hidden'>
+    <div className='flex h-[calc(100dvh-9.75rem)] min-h-0 flex-col gap-4 overflow-hidden'>
       <header className='sticky top-0 z-10 px-1 pt-1'>
         <div className='flex items-center justify-between gap-3'>
           <div className='flex min-w-0 items-center gap-3'>
