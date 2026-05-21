@@ -164,7 +164,7 @@ export default function Transactions({ data, loading, filters, setFilters, onEdi
                       <div className='absolute inset-y-0 right-0 flex items-stretch' style={{ width: ACTION_W }}>
                         <button
                           type='button'
-                          className='w-full rounded-3xl bg-indigo-600 px-3 text-xs font-extrabold text-white shadow-soft'
+                          className='w-full rounded-3xl bg-[rgba(231,220,198,0.92)] px-3 text-xs font-extrabold text-black shadow-soft ring-1 ring-black/10'
                           onClick={() => {
                             setOpenId(null);
                             onEdit?.(transaction);
@@ -183,23 +183,8 @@ export default function Transactions({ data, loading, filters, setFilters, onEdi
                         onPointerUp={(e) => onPointerUp(e, id)}
                         onPointerCancel={(e) => onPointerUp(e, id)}
                         onClick={() => {
-                          if (!onEdit) return;
-                          if (isOpen) return setOpenId(null);
-                          onEdit(transaction);
-                        }}
-                        role={onEdit ? 'button' : undefined}
-                        tabIndex={onEdit ? 0 : undefined}
-                        onKeyDown={(e) => {
-                          if (!onEdit) return;
-                          if (e.key === 'Escape') {
-                            e.preventDefault();
-                            setOpenId(null);
-                          }
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            if (isOpen) setOpenId(null);
-                            else onEdit(transaction);
-                          }
+                          // Clique no card não edita; serve só pra fechar caso esteja aberto.
+                          if (isOpen) setOpenId(null);
                         }}
                       >
                         <div className='flex min-w-0 items-start justify-between gap-3'>
