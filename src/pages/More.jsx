@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CalendarDays, Database, Filter, LogOut, RefreshCcw, Server, ShieldCheck, SlidersHorizontal, Tags } from 'lucide-react';
 import { mtdFilters, filterChip } from '../utils/filters';
+import ManageTagsSheet from '../components/ManageTagsSheet';
 
 function Row({ icon: Icon, title, description, action, children }) {
   return (
@@ -22,12 +23,14 @@ export default function More({ api, metadata = {}, filters, setFilters, onOpenFi
   const [status, setStatus] = useState('');
   const [meta, setMeta] = useState('');
   const [checking, setChecking] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
 
   const testConnection = async () => {
     try {
       setChecking(true);
       const response = await api('/health');
-      setStatus(response.appsScript?.ok ? 'API e Apps Script conectados' : 'API conectada, mas Apps Script falhou');
+      const ds = response.dataSource || 'appsScript';
+      setStatus(response.data?.ok ? `API conectada (fonte: ${ds})` : `API conectada, mas fonte de dados falhou (${ds})`);
       setMeta(`v${response.app?.version || '0.0.0'} · ${response.nodeEnv || 'ambiente indefinido'}`);
     } catch (error) {
       setStatus(error.message || 'Falha ao testar conexão');
@@ -71,6 +74,13 @@ export default function More({ api, metadata = {}, filters, setFilters, onOpenFi
       </section>
 
       <Row
+        icon={Tags}
+        title='Gerenciar categorias'
+        description='Criar, renomear e arquivar categorias/subcategorias (apenas em DATA_SOURCE=db).'
+        action={<button type='button' onClick={() => setManageOpen(true)} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Abrir gestão</button>}
+      />
+
+      <Row
         icon={Server}
         title='Conexão'
         description='Valida API, sessão e Apps Script.'
@@ -87,7 +97,7 @@ export default function More({ api, metadata = {}, filters, setFilters, onOpenFi
         action={<button type='button' onClick={onReload} className='w-full rounded-3xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600'>Recarregar dados</button>}
       />
 
-      <Row icon={ShieldCheck} title='Regras ativas' description='Sem banco próprio · Apps Script protegido no backend · sessão HTTP-only.'>
+      <Row icon={ShieldCheck} title='Regras ativas' description='Sessão HTTP-only · fonte de dados selecionada via env · transferência especial · saldo por snapshot.'>
         <div className='mt-3 flex flex-wrap gap-2'>
           <span className='badge'>Saldo = histórico até o fim do período</span>
           <span className='badge'>Meta geral</span>
@@ -101,6 +111,8 @@ export default function More({ api, metadata = {}, filters, setFilters, onOpenFi
           Sair da sessão
         </button>
       </section>
+
+      <ManageTagsSheet open={manageOpen} onClose={() => setManageOpen(false)} api={api} />
     </div>
   );
 }

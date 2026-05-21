@@ -9,6 +9,8 @@ Stack: **React/Vite + Express + Apps Script + Google Sheets**.
 2. Criar `.env` com:
    - `APP_LOGIN`, `APP_PASSWORD`, `SESSION_SECRET`
    - `APPS_SCRIPT_URL`, `APPS_SCRIPT_TOKEN`
+   - (Opcional) `DATA_SOURCE=appsScript|db`
+   - (Se `DATA_SOURCE=db`) `DATABASE_URL` e `DATABASE_SSL=true`
    - `LOG_LEVEL` (`error|warn|info|debug`, padrão: `debug` em dev, `info` em produção)
    - opcional `ENABLE_DIAGNOSTICS=true` para habilitar `/api/debug/diagnostics`
    - opcional `USE_MOCK_DATA=true` somente em desenvolvimento
@@ -66,3 +68,41 @@ Obs: o manifest do Apps Script fica em `apps-script/appsscript.json`.
 - Mudou algo no **Apps Script** (ex: `Codigo.gs` ou `apps-script/appsscript.json`)?
   → além do deploy normal do app (Render), **precisa rodar/aguardar** o workflow **Deploy Apps Script Web App** ficar verde.
 - Se o merge foi na `main`, ele roda automático. Se precisar forçar, roda manualmente em **Actions → Deploy Apps Script Web App → Run workflow**.
+
+## Banco de Dados (Supabase/Postgres)
+
+O app suporta trocar a fonte de dados via env:
+
+- `DATA_SOURCE=appsScript` (padrão; Google Sheets/Apps Script)
+- `DATA_SOURCE=db` (Postgres)
+
+Schema: `schema.sql`.
+
+### Setup do banco (reproduzível)
+
+1. Crie um projeto no Supabase e copie a connection string.
+2. Configure no `.env`:
+   - `DATA_SOURCE=db`
+   - `DATABASE_URL=...`
+   - `DATABASE_SSL=true` (padrão Supabase)
+3. Rode:
+   - `npm run db:setup`
+
+### Migração (planilha/Apps Script → DB)
+
+Pré-req: `APPS_SCRIPT_URL` e `APPS_SCRIPT_TOKEN` configurados.
+
+- Dry-run:
+  - `npm run db:migrate:apps -- --dry-run`
+- Migração real:
+  - `npm run db:migrate:apps`
+
+Verificação rápida:
+- `npm run db:verify`
+
+### Categorias/Subcategorias
+
+No modo DB, categorias e subcategorias são gerenciáveis dentro do app (aba **Mais** → **Gerenciar categorias**).
+
+Regras:
+- Não deletamos de verdade: ao invés disso usamos **arquivar/reativar** (`is_active`).
