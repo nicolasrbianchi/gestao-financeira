@@ -1,7 +1,7 @@
 name: Deploy Apps Script Web App
 
 "on":
-  workflow_dispatch:
+  workflow_dispatch: {}
   push:
     branches: [main]
     paths:
