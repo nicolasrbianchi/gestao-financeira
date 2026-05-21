@@ -118,7 +118,6 @@ export default function Ai({ api, resetKey = 0 }) {
   const listRef = useRef(null);
   const atBottomRef = useRef(true);
   const pendingAutoScrollRef = useRef(true);
-  const [showJump, setShowJump] = useState(false);
 
   const messages = session?.messages || [];
 
@@ -181,7 +180,6 @@ export default function Ai({ api, resetKey = 0 }) {
     // Ao enviar, sempre mantém no fim.
     pendingAutoScrollRef.current = true;
     atBottomRef.current = true;
-    setShowJump(false);
     setTimeout(() => scrollToBottom('auto'), 0);
 
     try {
@@ -236,7 +234,6 @@ export default function Ai({ api, resetKey = 0 }) {
             const el = e.currentTarget;
             const atBottom = isAtBottom(el);
             atBottomRef.current = atBottom;
-            setShowJump(!atBottom);
           }}
           style={{
             WebkitOverflowScrolling: 'touch',
@@ -264,20 +261,7 @@ export default function Ai({ api, resetKey = 0 }) {
           )}
         </div>
 
-        {showJump && (
-          <button
-            type='button'
-            onClick={() => {
-              atBottomRef.current = true;
-              pendingAutoScrollRef.current = true;
-              setShowJump(false);
-              scrollToBottom();
-            }}
-            className='absolute bottom-20 right-4 z-40 rounded-full border border-white/10 bg-[rgba(6,6,10,0.88)] px-4 py-2 text-xs font-bold text-slate-100 shadow-soft backdrop-blur active:opacity-90'
-          >
-            Ir pro fim
-          </button>
-        )}
+        {/* Sem botão "Ir pro fim" (ganhar espaço). */}
 
         <div className='sticky bottom-0 border-t border-white/10 bg-[rgba(6,6,10,0.88)] px-3 py-3 backdrop-blur' style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <div className='flex items-end gap-2'>
@@ -304,7 +288,6 @@ export default function Ai({ api, resetKey = 0 }) {
               <Send size={18} />
             </button>
           </div>
-          <div className='mt-2 px-1 text-[11px] text-slate-500'>Enter envia · Shift+Enter quebra linha</div>
         </div>
       </section>
     </div>
