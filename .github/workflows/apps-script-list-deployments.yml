@@ -1,0 +1,40 @@
+name: List Apps Script Deployments
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install clasp
+        run: npm i -g @google/clasp@3.3.0
+
+      - name: Validate clasp credentials secret
+        run: |
+          if [ -z "${{ secrets.CLASPRC_JSON }}" ]; then
+            echo "Missing GitHub secret: CLASPRC_JSON";
+            exit 1;
+          fi
+
+      - name: Write ~/.clasprc.json
+        run: |
+          mkdir -p "$HOME"
+          cat > "$HOME/.clasprc.json" <<'JSON'
+          ${{ secrets.CLASPRC_JSON }}
+          JSON
+
+      - name: List deployments
+        run: |
+          echo "ScriptId: $(cat .clasp.json | sed -n 's/.*\"scriptId\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p')"
+          clasp deployments
+
