@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
+import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Label } from 'recharts';
 import { ArrowDownRight, Landmark, Layers3, Tags } from 'lucide-react';
 import { money } from '../utils/format';
 
@@ -142,8 +142,19 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
             {modeData.byCategory.length ? (
               <ResponsiveContainer width='100%' height='100%'>
                 <PieChart>
-                  <Pie data={modeData.byCategory.slice(0, 8)} dataKey='value' nameKey='name' innerRadius={50} outerRadius={82} paddingAngle={3}>
+                  <Pie data={modeData.byCategory.slice(0, 8)} dataKey='value' nameKey='name' innerRadius={56} outerRadius={86} paddingAngle={3}>
                     {modeData.byCategory.slice(0, 8).map((entry, index) => <Cell key={entry.name || index} fill={COLORS[index % COLORS.length]} />)}
+                    <Label
+                      position='center'
+                      content={() => (
+                        <text x='50%' y='50%' textAnchor='middle' dominantBaseline='middle' fill='#e2e8f0'>
+                          <tspan x='50%' dy='-0.3em' fontSize='12'>Total</tspan>
+                          <tspan x='50%' dy='1.3em' fontSize='14' fontWeight='800'>
+                            {money(modeData.total || 0)}
+                          </tspan>
+                        </text>
+                      )}
+                    />
                   </Pie>
                   <Tooltip formatter={(value) => money(value)} />
                 </PieChart>
@@ -155,21 +166,25 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
           <div className='h-[160px]'>
             {modeData.byCategory.length ? (
               <ResponsiveContainer width='100%' height='100%'>
-                <BarChart data={modeData.byCategory.slice(0, 8)} margin={{ left: 0, right: 0, top: 8, bottom: 8 }}>
-                  <XAxis
+                <BarChart
+                  data={modeData.byCategory.slice(0, 8)}
+                  layout='vertical'
+                  margin={{ left: 0, right: 8, top: 6, bottom: 6 }}
+                >
+                  <XAxis type='number' hide />
+                  <YAxis
+                    type='category'
                     dataKey='name'
+                    width={110}
                     axisLine={false}
                     tickLine={false}
-                    interval={0}
-                    tickMargin={10}
-                    angle={-18}
-                    textAnchor='end'
-                    height={44}
                     tick={{ fontSize: 10, fill: '#94a3b8' }}
-                    tickFormatter={(value) => String(value).slice(0, 10)}
+                    tickFormatter={(value) => String(value).slice(0, 14)}
                   />
                   <Tooltip formatter={(value) => money(value)} />
-                  <Bar dataKey='value' radius={[10, 10, 0, 0]}>{modeData.byCategory.slice(0, 8).map((entry, index) => <Cell key={entry.name || index} fill={COLORS[index % COLORS.length]} />)}</Bar>
+                  <Bar dataKey='value' radius={[10, 10, 10, 10]}>
+                    {modeData.byCategory.slice(0, 8).map((entry, index) => <Cell key={entry.name || index} fill={COLORS[index % COLORS.length]} />)}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : null}

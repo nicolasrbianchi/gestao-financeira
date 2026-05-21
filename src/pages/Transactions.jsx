@@ -110,7 +110,9 @@ export default function Transactions({ data, loading, filters, setFilters }) {
                             <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone}`}>{transaction.type || 'Sem tipo'}</span>
                             <p className='truncate text-sm font-bold text-slate-900'>{transaction.name || 'Sem nome'}</p>
                           </div>
-                          <p className='mt-1 truncate text-[11px] text-slate-500'>{transaction.account || 'Sem conta'}</p>
+                          <p className='mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500'>
+                            <CalendarDays size={12} /> {transaction.displayDate || transaction.date || 'Sem data'} · {transaction.account || 'Sem conta'}
+                          </p>
                         </div>
                         <p className={`max-w-[8rem] shrink-0 break-words text-right text-sm font-extrabold ${amountTone}`}>
                           {signed >= 0 ? '+' : '-'}{money(Math.abs(transaction.amount || 0))}
