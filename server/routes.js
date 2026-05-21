@@ -9,6 +9,7 @@ import { openAiText } from './openaiClient.js';
 import { listCategories, createCategory, updateCategory } from './categoriesDb.js';
 import { listSubcategories, createSubcategory, updateSubcategory } from './subcategoriesDb.js';
 import { listMonthlyGoals, upsertMonthlyGoal, deleteMonthlyGoal } from './monthlyGoalsDb.js';
+import { buildExportPayload, buildTransactionsCsv } from './exporter.js';
 import pkg from '../package.json' with { type: 'json' };
 
 export const router = express.Router();
@@ -313,6 +314,30 @@ async function deleteTransactionById(id, req, res, next) {
 
 router.delete('/transactions/:id', (req, res, next) => deleteTransactionById(Number(req.params.id || 0), req, res, next));
 router.delete('/transactions/by-row/:row', (req, res, next) => deleteTransactionById(Number(req.params.row || 0), req, res, next));
+
+router.get('/export/backup.json', async (req, res, next) => {
+  try {
+    const payload = await buildExportPayload({ requestId: req.requestId });
+    const filename = `nicco-finance-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    res.set('Content-Type', 'application/json; charset=utf-8');
+    res.set('Content-Disposition', `attachment; filename="${filename}"`);
+    res.json(payload);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/export/transactions.csv', async (req, res, next) => {
+  try {
+    const csv = await buildTransactionsCsv({ requestId: req.requestId });
+    const filename = `nicco-finance-transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+    res.set('Content-Type', 'text/csv; charset=utf-8');
+    res.set('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csv);
+  } catch (e) {
+    next(e);
+  }
+});
 
 router.post('/ai/chat', async (req, res, next) => {
   try {

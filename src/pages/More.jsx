@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { CalendarDays, Filter, LogOut, RefreshCcw, Server, SlidersHorizontal, Tags, Target } from 'lucide-react';
-import { mtdFilters, filterChip } from '../utils/filters';
+import { Download, LogOut, Server, Tags, Target } from 'lucide-react';
 import ManageTagsSheet from '../components/ManageTagsSheet';
 import ManageMonthlyGoalsSheet from '../components/ManageMonthlyGoalsSheet';
+import ExportSheet from '../components/ExportSheet';
 
 function Row({ icon: Icon, title, description, action, children }) {
   return (
@@ -20,12 +20,13 @@ function Row({ icon: Icon, title, description, action, children }) {
   );
 }
 
-export default function More({ api, metadata = {}, filters, setFilters, onOpenFilters, onReload, onLogout }) {
+export default function More({ api, metadata = {}, onLogout }) {
   const [status, setStatus] = useState('');
   const [meta, setMeta] = useState('');
   const [checking, setChecking] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const testConnection = async () => {
     try {
@@ -47,20 +48,8 @@ export default function More({ api, metadata = {}, filters, setFilters, onOpenFi
       <header className='px-1'>
         <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Configurações</p>
         <h1 className='text-2xl font-bold text-slate-900'>Mais</h1>
-        <p className='mt-1 text-sm text-slate-500'>Gestão do app, filtros e operação.</p>
+        <p className='mt-1 text-sm text-slate-500'>Gestão do app e operação.</p>
       </header>
-
-      <Row
-        icon={SlidersHorizontal}
-        title='Filtros globais'
-        description={filterChip(filters) || 'MTD'}
-        action={(
-          <div className='grid grid-cols-2 gap-3'>
-            <button type='button' onClick={onOpenFilters} className='flex items-center justify-center gap-2 rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'><Filter size={16} /> Ajustar</button>
-            <button type='button' onClick={() => setFilters?.(mtdFilters())} className='flex items-center justify-center gap-2 rounded-3xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600'><CalendarDays size={16} /> MTD</button>
-          </div>
-        )}
-      />
 
       <Row
         icon={Tags}
@@ -77,6 +66,13 @@ export default function More({ api, metadata = {}, filters, setFilters, onOpenFi
       />
 
       <Row
+        icon={Download}
+        title='Exportar dados'
+        description='Baixar backup e/ou transações.'
+        action={<button type='button' onClick={() => setExportOpen(true)} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Exportar</button>}
+      />
+
+      <Row
         icon={Server}
         title='Status do sistema'
         description='Valida API e fonte de dados ativa.'
@@ -86,12 +82,6 @@ export default function More({ api, metadata = {}, filters, setFilters, onOpenFi
         {meta && <p className='mt-1 text-xs text-slate-400'>{meta}</p>}
       </Row>
 
-      <Row
-        icon={RefreshCcw}
-        title='Atualizar dados'
-        description='Recarrega a aba atual e metadados.'
-        action={<button type='button' onClick={onReload} className='w-full rounded-3xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600'>Recarregar dados</button>}
-      />
 
       <section className='card'>
         <button type='button' onClick={onLogout} className='flex w-full items-center justify-center gap-2 rounded-3xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600'>
@@ -102,6 +92,7 @@ export default function More({ api, metadata = {}, filters, setFilters, onOpenFi
 
       <ManageTagsSheet open={manageOpen} onClose={() => setManageOpen(false)} api={api} />
       <ManageMonthlyGoalsSheet open={goalsOpen} onClose={() => setGoalsOpen(false)} api={api} />
+      <ExportSheet open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>
   );
 }
