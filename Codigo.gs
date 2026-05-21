@@ -447,3 +447,17 @@ function getSummary_(month) {
     recent,
   };
 }
+
+/**
+ * CI helper (não exposto como ação HTTP): seta Script Properties com segurança.
+ * Uso via clasp:
+ *   clasp run ci_setScriptProperties -p '["<SPREADSHEET_ID>","<SECRET_TOKEN>"]'
+ */
+function ci_setScriptProperties(spreadsheetId, secretToken) {
+  if (!spreadsheetId || !secretToken) throw new Error('Informe spreadsheetId e secretToken.');
+  PropertiesService.getScriptProperties().setProperties({
+    SPREADSHEET_ID: String(spreadsheetId).trim(),
+    SECRET_TOKEN: String(secretToken).trim(),
+  }, true);
+  return { ok: true };
+}

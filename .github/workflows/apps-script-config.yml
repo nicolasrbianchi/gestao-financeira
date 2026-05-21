@@ -1,0 +1,54 @@
+name: Configure Apps Script Properties
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apps-script-config
+  cancel-in-progress: false
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install clasp
+        run: npm i -g @google/clasp@3.3.0
+
+      - name: Validate required secrets
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          APPS_SCRIPT_SPREADSHEET_ID: ${{ secrets.APPS_SCRIPT_SPREADSHEET_ID }}
+          APPS_SCRIPT_SECRET_TOKEN: ${{ secrets.APPS_SCRIPT_SECRET_TOKEN }}
+        run: |
+          [ -n "$CLASPRC_JSON" ] || (echo "Missing GitHub secret: CLASPRC_JSON"; exit 1)
+          [ -n "$APPS_SCRIPT_SPREADSHEET_ID" ] || (echo "Missing GitHub secret: APPS_SCRIPT_SPREADSHEET_ID"; exit 1)
+          [ -n "$APPS_SCRIPT_SECRET_TOKEN" ] || (echo "Missing GitHub secret: APPS_SCRIPT_SECRET_TOKEN"; exit 1)
+        shell: bash
+
+      - name: Write ~/.clasprc.json
+        run: |
+          mkdir -p "$HOME"
+          cat > "$HOME/.clasprc.json" <<'JSON'
+          ${{ secrets.CLASPRC_JSON }}
+          JSON
+
+      - name: Push code (ensure CI helper exists)
+        run: clasp push --force
+
+      - name: Set Script Properties (SPREADSHEET_ID, SECRET_TOKEN)
+        env:
+          SPREADSHEET_ID: ${{ secrets.APPS_SCRIPT_SPREADSHEET_ID }}
+          SECRET_TOKEN: ${{ secrets.APPS_SCRIPT_SECRET_TOKEN }}
+        run: |
+          PARAMS=$(node -e 'console.log(JSON.stringify([process.env.SPREADSHEET_ID, process.env.SECRET_TOKEN]))')
+          clasp run ci_setScriptProperties -p "$PARAMS"
+        shell: bash

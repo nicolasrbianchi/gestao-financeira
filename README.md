@@ -40,6 +40,12 @@ Este repo pode fazer deploy automático do Apps Script via **GitHub Actions** us
 Requisitos:
 - Configurar o secret `CLASPRC_JSON` no GitHub (conteúdo do arquivo `~/.clasprc.json` gerado pelo `clasp login`).
 
+Configuração de propriedades (Script Properties) via GitHub Actions (manual):
+- Criar secrets:
+  - `APPS_SCRIPT_SPREADSHEET_ID`
+  - `APPS_SCRIPT_SECRET_TOKEN`
+- Rodar o workflow **Configure Apps Script Properties** (Actions tab)
+
 Quando ocorrer push na `main` alterando `Codigo.gs`/`appsscript.json`, o workflow faz:
 - `clasp push` (atualiza o código no projeto do Apps Script)
 - `clasp deploy` (re-deploy no mesmo deploymentId do Web App)
