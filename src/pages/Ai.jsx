@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Send } from 'lucide-react';
 
 const STORAGE_KEY = 'gf_ai_session:v1';
@@ -116,7 +116,8 @@ export default function Ai({ api, resetKey = 0 }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const listRef = useRef(null);
-  const stickToBottomRef = useRef(true);
+  const atBottomRef = useRef(true);
+  const pendingAutoScrollRef = useRef(true);
   const [showJump, setShowJump] = useState(false);
 
   const messages = session?.messages || [];
@@ -125,19 +126,23 @@ export default function Ai({ api, resetKey = 0 }) {
     saveSession(session);
   }, [session]);
 
-  const scrollToBottom = () => {
+  const isAtBottom = (el) => (el.scrollHeight - el.scrollTop - el.clientHeight) < 12;
+
+  const scrollToBottom = (behavior = 'auto') => {
     const el = listRef.current;
     if (!el) return;
-    // Evita "overscroll" elástico no iOS.
     const top = Math.max(0, el.scrollHeight - el.clientHeight);
-    el.scrollTop = top;
+    // scrollTo é mais estável que mexer em scrollTop em alguns browsers
+    el.scrollTo({ top, behavior });
   };
 
-  useEffect(() => {
-    // Só auto-scroll quando o usuário está no fim.
-    // (Nunca “puxa” quando ele sobe pra ler mensagens antigas.)
-    if (!stickToBottomRef.current) return;
-    scrollToBottom();
+  useLayoutEffect(() => {
+    // Auto-scroll *apenas* quando:
+    // - o usuário estava no fundo; ou
+    // - ele acabou de enviar mensagem (pendingAutoScrollRef)
+    if (!atBottomRef.current && !pendingAutoScrollRef.current) return;
+    scrollToBottom('auto');
+    pendingAutoScrollRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, loading]);
 
@@ -148,7 +153,8 @@ export default function Ai({ api, resetKey = 0 }) {
     setSession(fresh);
     setInput('');
     setLoading(false);
-    stickToBottomRef.current = true;
+    atBottomRef.current = true;
+    pendingAutoScrollRef.current = true;
     // deixa o DOM atualizar e desce
     setTimeout(scrollToBottom, 0);
   };
@@ -172,10 +178,11 @@ export default function Ai({ api, resetKey = 0 }) {
     setSession(next);
     setLoading(true);
 
-    // Ao enviar, mantém o usuário no fim.
-    stickToBottomRef.current = true;
+    // Ao enviar, sempre mantém no fim.
+    pendingAutoScrollRef.current = true;
+    atBottomRef.current = true;
     setShowJump(false);
-    setTimeout(scrollToBottom, 0);
+    setTimeout(() => scrollToBottom('auto'), 0);
 
     try {
       const history = next.messages
@@ -220,22 +227,22 @@ export default function Ai({ api, resetKey = 0 }) {
         </div>
       </header>
 
-      {/* ChatGPT-ish: conversa ocupa a página; composer fixo no fundo da viewport (acima do bottom-nav). */}
-      <section className='relative min-h-0 flex-1 overflow-hidden'>
+      {/* Chat: header fixo, rolagem só nas mensagens, composer sticky (evita bugs iOS com fixed). */}
+      <section className='flex min-h-0 flex-1 flex-col overflow-hidden rounded-4xl border border-white/10 bg-[rgba(10,10,16,0.70)]'>
         <div
           ref={listRef}
-          className='min-h-0 space-y-3 overflow-auto pr-1'
+          className='min-h-0 flex-1 space-y-3 overflow-y-auto px-1 pr-1'
           onScroll={(e) => {
             const el = e.currentTarget;
-            const threshold = 8;
-            const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - threshold;
-            stickToBottomRef.current = atBottom;
+            const atBottom = isAtBottom(el);
+            atBottomRef.current = atBottom;
             setShowJump(!atBottom);
           }}
           style={{
-            // Espaço pro composer + safe-area + bottom-nav.
-            paddingBottom: 'calc(7.5rem + env(safe-area-inset-bottom))',
             WebkitOverflowScrolling: 'touch',
+            overscrollBehaviorY: 'contain',
+            padding: '0.25rem',
+            scrollPaddingBottom: '6.5rem',
           }}
         >
           {messages.length === 0 ? (
@@ -261,54 +268,43 @@ export default function Ai({ api, resetKey = 0 }) {
           <button
             type='button'
             onClick={() => {
-              stickToBottomRef.current = true;
+              atBottomRef.current = true;
+              pendingAutoScrollRef.current = true;
               setShowJump(false);
               scrollToBottom();
             }}
-            className='fixed bottom-[calc(9.4rem+env(safe-area-inset-bottom))] right-6 z-40 rounded-full border border-white/10 bg-[rgba(6,6,10,0.88)] px-4 py-2 text-xs font-bold text-slate-100 shadow-soft backdrop-blur active:opacity-90'
+            className='absolute bottom-20 right-4 z-40 rounded-full border border-white/10 bg-[rgba(6,6,10,0.88)] px-4 py-2 text-xs font-bold text-slate-100 shadow-soft backdrop-blur active:opacity-90'
           >
             Ir pro fim
           </button>
         )}
 
-        <div
-          className='pointer-events-none fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[430px]'
-          style={{ paddingBottom: 'calc(6.9rem + env(safe-area-inset-bottom))' }}
-        >
-          <div className='pointer-events-auto mx-4 rounded-4xl border border-white/10 bg-[rgba(6,6,10,0.88)] p-3 shadow-soft backdrop-blur'>
-            <div className='flex items-end gap-2'>
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                rows={1}
-                placeholder='Pergunta pro Nicco IA…'
-                className='min-h-[52px] max-h-40 flex-1 resize-none rounded-3xl border border-white/10 bg-white/5 px-4 py-3 text-base text-slate-100 shadow-soft outline-none placeholder:text-slate-500 focus:border-white/20'
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    send();
-                  }
-                }}
-                onFocus={() => {
-                  // Não force scroll aqui (iOS pode gerar "snap" inesperado).
-                  // Só mantém stickToBottom se ele já estava no fim.
-                  setTimeout(() => {
-                    if (stickToBottomRef.current) scrollToBottom();
-                  }, 0);
-                }}
-              />
-              <button
-                type='button'
-                onClick={send}
-                disabled={!canSend}
-                className='grid h-12 w-12 place-items-center rounded-full bg-[rgba(231,220,198,0.92)] text-black shadow-soft transition disabled:opacity-40'
-                aria-label='Enviar'
-              >
-                <Send size={18} />
-              </button>
-            </div>
-            <div className='mt-2 px-1 text-[11px] text-slate-500'>Enter envia · Shift+Enter quebra linha</div>
+        <div className='sticky bottom-0 border-t border-white/10 bg-[rgba(6,6,10,0.88)] px-3 py-3 backdrop-blur' style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+          <div className='flex items-end gap-2'>
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              rows={1}
+              placeholder='Pergunta pro Nicco IA…'
+              className='min-h-[52px] max-h-40 flex-1 resize-none rounded-3xl border border-white/10 bg-white/5 px-4 py-3 text-base text-slate-100 shadow-soft outline-none placeholder:text-slate-500 focus:border-white/20'
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+            />
+            <button
+              type='button'
+              onClick={send}
+              disabled={!canSend}
+              className='grid h-12 w-12 place-items-center rounded-full bg-[rgba(231,220,198,0.92)] text-black shadow-soft transition disabled:opacity-40'
+              aria-label='Enviar'
+            >
+              <Send size={18} />
+            </button>
           </div>
+          <div className='mt-2 px-1 text-[11px] text-slate-500'>Enter envia · Shift+Enter quebra linha</div>
         </div>
       </section>
     </div>
