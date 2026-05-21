@@ -10,6 +10,13 @@ import pkg from '../package.json' with { type: 'json' };
 
 export const router = express.Router();
 
+// Mantém o serviço “quente” no Render free (sem auth, sem dependências).
+// Use com um monitor externo (UptimeRobot / cron / etc.).
+router.get(['/ping', '/wakeup'], (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  return res.status(204).end();
+});
+
 const appInfo = { version: pkg.version || '0.0.0', commit: process.env.RENDER_GIT_COMMIT || process.env.COMMIT_SHA || null };
 
 router.get('/auth/status', (req, res) => {
