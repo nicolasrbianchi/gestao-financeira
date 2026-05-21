@@ -47,7 +47,7 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
   const [saving, setSaving] = useState(false);
 
   const isEdit = useMemo(() => {
-    const row = initialTransaction?.sheetRowNumber ?? initialTransaction?.row ?? null;
+    const row = initialTransaction?.id ?? initialTransaction?.sheetRowNumber ?? initialTransaction?.row ?? null;
     return mode === 'edit' || (row != null);
   }, [initialTransaction, mode]);
 
@@ -163,8 +163,8 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
       };
 
       if (isEdit) {
-        const row = initialTransaction?.sheetRowNumber ?? initialTransaction?.row;
-        await api(`/transactions/${row}`, { method: 'PUT', body: JSON.stringify(payload) });
+        const id = initialTransaction?.id ?? initialTransaction?.sheetRowNumber ?? initialTransaction?.row;
+        await api(`/transactions/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
       } else {
         await api('/transactions', { method: 'POST', body: JSON.stringify(payload) });
       }

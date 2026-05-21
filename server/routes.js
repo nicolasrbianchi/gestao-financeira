@@ -1,11 +1,13 @@
 import express from 'express';
 import { requireAuth } from './auth.js';
-import * as client from './appsScriptClient.js';
+import * as client from './dataClient.js';
 import { normalizeTransactions, parseMoneyBR } from './normalize.js';
 import { filterTx, buildDashboard } from './analytics.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { openAiText } from './openaiClient.js';
+import { listCategories, createCategory, updateCategory } from './categoriesDb.js';
+import { listSubcategories, createSubcategory, updateSubcategory } from './subcategoriesDb.js';
 import pkg from '../package.json' with { type: 'json' };
 
 export const router = express.Router();
@@ -43,8 +45,13 @@ router.post('/auth/logout', (req, res) => {
 router.use(requireAuth);
 
 const loadNormalizedTx = async (req) => {
-  const raw = await client.getTransactions({ requestId: req.requestId });
-  return normalizeTransactions(raw.transactions || [], { requestId: req.requestId });
+  const data = await client.getTransactions({ requestId: req.requestId });
+
+  // dataSource=db já vem normalizado; appsScript ainda pode vir raw (mas o dataClient já normaliza).
+  const tx = Array.isArray(data?.transactions) ? data.transactions : [];
+  // Garantia extra (não custa): se vierem transações raw do Apps Script por algum motivo, normaliza.
+  const maybeRaw = tx.length && typeof tx[0] === 'object' && 'Data' in tx[0];
+  return maybeRaw ? normalizeTransactions(tx, { requestId: req.requestId }) : tx;
 };
 
 // Para saldo "real" (carteira), queremos considerar todo o histórico até o endDate,
@@ -56,12 +63,82 @@ const buildToDateQuery = (query = {}) => ({
 
 router.get('/health', async (req, res, next) => {
   try {
-    const appsScript = await client.health({ requestId: req.requestId });
-    logger.info('health_checked', { requestId: req.requestId, appsScriptOk: !!appsScript?.ok });
-    res.json({ ok: true, status: 'up', nodeEnv: process.env.NODE_ENV || 'development', uptime: process.uptime(), app: appInfo, appsScript: { ok: !!appsScript?.ok, mock: !!appsScript?.mock }, metadata: { ok: true }, timestamp: new Date().toISOString() });
+    const dataSource = String(config.dataSource || 'appsScript').toLowerCase();
+    const health = await client.health({ requestId: req.requestId });
+    logger.info('health_checked', { requestId: req.requestId, dataSource, ok: !!health?.ok });
+
+    res.json({
+      ok: true,
+      status: 'up',
+      nodeEnv: process.env.NODE_ENV || 'development',
+      uptime: process.uptime(),
+      app: appInfo,
+      dataSource,
+      data: { ok: !!health?.ok, mock: !!health?.mock },
+      timestamp: new Date().toISOString(),
+    });
   } catch (e) { next(e); }
 });
 router.get('/metadata', async (req, res, next) => { try { const d = await client.getMetadata({ requestId: req.requestId }); logger.info('metadata_loaded', { requestId: req.requestId, categories: d.categories?.length || 0 }); res.json(d); } catch (e) { next(e); } });
+
+// Gestão de categorias/subcategorias (DB-only). Quando DATA_SOURCE!=db, devolve 409.
+function assertDbSource(req, res) {
+  if (String(config.dataSource || '').toLowerCase() !== 'db') {
+    res.status(409).json({ ok: false, error: 'Recurso disponível apenas quando DATA_SOURCE=db.', requestId: req.requestId });
+    return false;
+  }
+  return true;
+}
+
+router.get('/categories/manage', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const includeInactive = String(req.query.includeInactive || '') === 'true';
+    const categories = await listCategories({ includeInactive });
+    res.json({ ok: true, categories });
+  } catch (e) { next(e); }
+});
+
+router.post('/categories/manage', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const created = await createCategory({ name: req.body?.name });
+    res.json({ ok: true, category: created });
+  } catch (e) { next(e); }
+});
+
+router.put('/categories/manage/:id', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const updated = await updateCategory(req.params.id, { name: req.body?.name, isActive: req.body?.isActive });
+    res.json({ ok: true, category: updated });
+  } catch (e) { next(e); }
+});
+
+router.get('/subcategories/manage', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const includeInactive = String(req.query.includeInactive || '') === 'true';
+    const subcategories = await listSubcategories({ includeInactive });
+    res.json({ ok: true, subcategories });
+  } catch (e) { next(e); }
+});
+
+router.post('/subcategories/manage', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const created = await createSubcategory({ name: req.body?.name });
+    res.json({ ok: true, subcategory: created });
+  } catch (e) { next(e); }
+});
+
+router.put('/subcategories/manage/:id', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const updated = await updateSubcategory(req.params.id, { name: req.body?.name, isActive: req.body?.isActive });
+    res.json({ ok: true, subcategory: updated });
+  } catch (e) { next(e); }
+});
 
 // Bootstrap: reduz roundtrips no 1º carregamento (dashboard + metadata em uma chamada)
 router.get('/bootstrap', async (req, res, next) => {
@@ -163,11 +240,10 @@ router.post('/transactions', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-router.put('/transactions/:row', async (req, res, next) => {
+async function updateTransactionById(id, req, res, next) {
   try {
     const p = req.body || {};
-    const row = Number(req.params.row || 0);
-    if (!row || row < 2) return res.status(400).json({ ok: false, error: 'sheetRowNumber inválido.', requestId: req.requestId });
+    if (!id || id < 2) return res.status(400).json({ ok: false, error: 'id inválido.', requestId: req.requestId });
 
     if (!p.data || !p.tipo || !p.conta) return res.status(400).json({ ok: false, error: 'Preencha data, tipo e conta/canal.', requestId: req.requestId });
     if (p.tipo !== 'Saldo' && !p.nome) return res.status(400).json({ ok: false, error: 'Preencha o nome da transação.', requestId: req.requestId });
@@ -175,16 +251,26 @@ router.put('/transactions/:row', async (req, res, next) => {
     if (['Receita', 'Despesa'].includes(p.tipo) && (!p.categoria || !p.subcategoria || !p.forma)) return res.status(400).json({ ok: false, error: 'Receita e Despesa exigem categoria, subcategoria e forma.', requestId: req.requestId });
     if (p.tipo === 'Saldo' && !p.categoria) return res.status(400).json({ ok: false, error: 'Saldo exige categoria.', requestId: req.requestId });
     const amount = parseMoneyBR(p.valor);
-    if (!amount || amount <= 0) { logger.warn('transaction_validation_failed', { requestId: req.requestId, reason: 'invalid_amount_update' }); return res.status(400).json({ ok: false, error: 'Valor inválido.', requestId: req.requestId }); }
+    if (!amount || amount <= 0) {
+      logger.warn('transaction_validation_failed', { requestId: req.requestId, reason: 'invalid_amount_update' });
+      return res.status(400).json({ ok: false, error: 'Valor inválido.', requestId: req.requestId });
+    }
 
-    const payload = { ...p, row, sheetRowNumber: row, nome: p.nome || `Saldo ${p.conta}`, valor: amount };
+    const payload = { ...p, id, row: id, sheetRowNumber: id, nome: p.nome || `Saldo ${p.conta}`, valor: amount };
     const result = await client.updateTransaction(payload, { requestId: req.requestId });
-    logger.info('transaction_updated', { requestId: req.requestId, row, tipo: p.tipo, status: p.status || '' });
+    logger.info('transaction_updated', { requestId: req.requestId, id, tipo: p.tipo, status: p.status || '' });
     res.json({ ok: true, data: result });
   } catch (e) {
     next(e);
   }
-});
+}
+
+// Atualização por id.
+// Legado: quando DATA_SOURCE=appsScript, o id é o sheetRowNumber.
+router.put('/transactions/:id', (req, res, next) => updateTransactionById(Number(req.params.id || 0), req, res, next));
+
+// Legado (compat): rota antiga por "row".
+router.put('/transactions/by-row/:row', (req, res, next) => updateTransactionById(Number(req.params.row || 0), req, res, next));
 
 router.post('/ai/chat', async (req, res, next) => {
   try {
