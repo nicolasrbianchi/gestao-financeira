@@ -1,0 +1,68 @@
+name: Deploy Apps Script Web App
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - 'Codigo.gs'
+      - 'appsscript.json'
+      - '.clasp.json'
+      - '.claspignore'
+      - '.github/workflows/apps-script-deploy.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apps-script-deploy-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SCRIPT_ID: 1CNCq-viEl3YZOUxepiKQFxaZSGJ5ZGmzk98-5hPOsNofVyxjWzx6flf8
+      DEPLOYMENT_ID: AKfycbym918unCEq8o9ozsMeA2cQKeqhYoP1jZWoqc9DjT6JXe0cS4zMcHJR_EmD8625xXZ0
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install clasp
+        run: npm i -g @google/clasp@3.3.0
+
+      - name: Validate clasp credentials secret
+        run: |
+          if [ -z "${{ secrets.CLASPRC_JSON }}" ]; then
+            echo "Missing GitHub secret: CLASPRC_JSON";
+            exit 1;
+          fi
+
+      - name: Write ~/.clasprc.json
+        run: |
+          mkdir -p "$HOME"
+          cat > "$HOME/.clasprc.json" <<'JSON'
+          ${{ secrets.CLASPRC_JSON }}
+          JSON
+
+      - name: Push code to Apps Script
+        run: clasp push --force
+
+      - name: Create a new version
+        id: version
+        shell: bash
+        run: |
+          OUT=$(clasp version "ci: ${GITHUB_SHA}")
+          echo "$OUT"
+          VERSION=$(echo "$OUT" | grep -Eo 'Created version [0-9]+' | awk '{print $3}')
+          if [ -z "$VERSION" ]; then
+            echo "Could not parse version from clasp output" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Redeploy existing Web App deployment
+        run: clasp deploy -i "$DEPLOYMENT_ID" -V "${{ steps.version.outputs.version }}" -d "ci: ${GITHUB_SHA}"

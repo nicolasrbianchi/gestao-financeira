@@ -33,3 +33,13 @@ Stack: **React/Vite + Express + Apps Script + Google Sheets**.
 ## Apps Script
 - Publicar `Codigo.gs` como Web App.
 - Ações suportadas: `health`, `metadata`, `transactions`, `add`, `config`, `summary`.
+
+### Deploy automático (GitHub → Apps Script)
+Este repo pode fazer deploy automático do Apps Script via **GitHub Actions** usando **clasp**.
+
+Requisitos:
+- Configurar o secret `CLASPRC_JSON` no GitHub (conteúdo do arquivo `~/.clasprc.json` gerado pelo `clasp login`).
+
+Quando ocorrer push na `main` alterando `Codigo.gs`/`appsscript.json`, o workflow faz:
+- `clasp push` (atualiza o código no projeto do Apps Script)
+- `clasp deploy` (re-deploy no mesmo deploymentId do Web App)
