@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 import { ArrowDownRight, Landmark, Layers3, Tags } from 'lucide-react';
 import { money } from '../utils/format';
@@ -10,7 +10,7 @@ function totalOf(items = []) {
   return items.reduce((sum, item) => sum + Math.abs(item.value || 0), 0);
 }
 
-function PercentList({ title, icon: Icon, items = [], total }) {
+function PercentList({ title, icon: Icon, items = [], total, onSelect }) {
   return (
     <section className='rounded-4xl bg-white p-5 shadow-soft'>
       <div className='mb-4 flex items-center justify-between'>
@@ -27,7 +27,14 @@ function PercentList({ title, icon: Icon, items = [], total }) {
             return (
               <article key={item.name || index}>
                 <div className='mb-2 flex min-w-0 items-center justify-between gap-3'>
-                  <p className='min-w-0 truncate text-sm font-semibold text-slate-800'>{item.name || 'Sem preenchimento'}</p>
+                  <button
+                    type='button'
+                    onClick={() => onSelect?.(item?.name)}
+                    className='min-w-0 truncate text-left text-sm font-semibold text-slate-800'
+                    title={item.name || ''}
+                  >
+                    {item.name || 'Sem preenchimento'}
+                  </button>
                   <p className='shrink-0 text-xs font-bold text-slate-500'>{percent.toFixed(1)}%</p>
                 </div>
                 <div className='progress'><span style={{ width: `${Math.min(percent, 100)}%`, background: COLORS[index % COLORS.length] }} /></div>
@@ -43,15 +50,40 @@ function PercentList({ title, icon: Icon, items = [], total }) {
   );
 }
 
-export default function Categories({ data, loading }) {
+export default function Categories({ data, loading, filters, setFilters, onGoTransactions }) {
   const byCategory = data?.byCategory || [];
   const bySubcategory = data?.bySubcategory || [];
   const byAccount = data?.byAccount || [];
   const expensesByCategory = data?.expensesByCategory || [];
   const expensesBySubcategory = data?.expensesBySubcategory || [];
   const expensesByAccount = data?.expensesByAccount || [];
+
+  const [mode, setMode] = useState('expenses'); // 'expenses' | 'all'
+
+  const modeData = useMemo(() => {
+    if (mode === 'all') {
+      return {
+        byCategory: byCategory,
+        bySubcategory: bySubcategory,
+        byAccount: byAccount,
+        total: totalOf(byCategory),
+        top: byCategory[0],
+        topAccount: byAccount[0],
+        label: 'Geral'
+      };
+    }
+    return {
+      byCategory: expensesByCategory,
+      bySubcategory: expensesBySubcategory.length ? expensesBySubcategory : bySubcategory,
+      byAccount: expensesByAccount.length ? expensesByAccount : byAccount,
+      total: totalOf(expensesByCategory),
+      top: expensesByCategory[0],
+      topAccount: (expensesByAccount.length ? expensesByAccount : byAccount)[0],
+      label: 'Despesas'
+    };
+  }, [mode, byCategory, bySubcategory, byAccount, expensesByCategory, expensesBySubcategory, expensesByAccount]);
+
   const expenseTotal = totalOf(expensesByCategory);
-  const allCategoryTotal = totalOf(byCategory);
   const topExpense = expensesByCategory[0];
   const topAccount = expensesByAccount[0];
 
@@ -64,6 +96,23 @@ export default function Categories({ data, loading }) {
         <h1 className='text-2xl font-bold text-slate-900'>Categorias</h1>
         <p className='mt-1 text-sm text-slate-500'>Despesas reais por categoria e por conta.</p>
       </header>
+
+      <div className='flex gap-2 px-1'>
+        <button
+          type='button'
+          onClick={() => setMode('expenses')}
+          className={`rounded-full px-4 py-2 text-xs font-bold shadow-soft ring-1 ring-white/10 ${mode === 'expenses' ? 'bg-slate-950 text-white' : 'bg-white/5 text-slate-300'}`}
+        >
+          Despesas reais
+        </button>
+        <button
+          type='button'
+          onClick={() => setMode('all')}
+          className={`rounded-full px-4 py-2 text-xs font-bold shadow-soft ring-1 ring-white/10 ${mode === 'all' ? 'bg-slate-950 text-white' : 'bg-white/5 text-slate-300'}`}
+        >
+          Geral
+        </button>
+      </div>
 
       {loading && data && <div className='rounded-3xl bg-indigo-50 p-3 text-center text-xs font-semibold text-indigo-600'>Atualizando…</div>}
 
@@ -84,17 +133,17 @@ export default function Categories({ data, loading }) {
         <div className='mb-4 flex items-start justify-between gap-3'>
           <div>
             <h2 className='text-base font-bold text-slate-900'>Mapa de despesas</h2>
-            <p className='text-sm text-slate-500'>{expensesByCategory.length ? 'Distribuição das maiores categorias.' : 'Sem despesas no período.'}</p>
+            <p className='text-sm text-slate-500'>{modeData.byCategory.length ? `Distribuição (${modeData.label}).` : 'Sem dados no período.'}</p>
           </div>
-          {topAccount && <span className='badge'>Canal top: {topAccount.name}</span>}
+          {modeData.topAccount && <span className='badge'>Canal top: {modeData.topAccount.name}</span>}
         </div>
         <div className='grid grid-cols-1 gap-4'>
           <div className='h-[190px]'>
-            {expensesByCategory.length ? (
+            {modeData.byCategory.length ? (
               <ResponsiveContainer width='100%' height='100%'>
                 <PieChart>
-                  <Pie data={expensesByCategory.slice(0, 8)} dataKey='value' nameKey='name' innerRadius={50} outerRadius={82} paddingAngle={3}>
-                    {expensesByCategory.slice(0, 8).map((entry, index) => <Cell key={entry.name || index} fill={COLORS[index % COLORS.length]} />)}
+                  <Pie data={modeData.byCategory.slice(0, 8)} dataKey='value' nameKey='name' innerRadius={50} outerRadius={82} paddingAngle={3}>
+                    {modeData.byCategory.slice(0, 8).map((entry, index) => <Cell key={entry.name || index} fill={COLORS[index % COLORS.length]} />)}
                   </Pie>
                   <Tooltip formatter={(value) => money(value)} />
                 </PieChart>
@@ -104,9 +153,9 @@ export default function Categories({ data, loading }) {
             )}
           </div>
           <div className='h-[160px]'>
-            {expensesByCategory.length ? (
+            {modeData.byCategory.length ? (
               <ResponsiveContainer width='100%' height='100%'>
-                <BarChart data={expensesByCategory.slice(0, 8)} margin={{ left: 0, right: 0, top: 8, bottom: 8 }}>
+                <BarChart data={modeData.byCategory.slice(0, 8)} margin={{ left: 0, right: 0, top: 8, bottom: 8 }}>
                   <XAxis
                     dataKey='name'
                     axisLine={false}
@@ -120,7 +169,7 @@ export default function Categories({ data, loading }) {
                     tickFormatter={(value) => String(value).slice(0, 10)}
                   />
                   <Tooltip formatter={(value) => money(value)} />
-                  <Bar dataKey='value' radius={[10, 10, 0, 0]}>{expensesByCategory.slice(0, 8).map((entry, index) => <Cell key={entry.name || index} fill={COLORS[index % COLORS.length]} />)}</Bar>
+                  <Bar dataKey='value' radius={[10, 10, 0, 0]}>{modeData.byCategory.slice(0, 8).map((entry, index) => <Cell key={entry.name || index} fill={COLORS[index % COLORS.length]} />)}</Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : null}
@@ -128,13 +177,41 @@ export default function Categories({ data, loading }) {
         </div>
       </section>
 
-      <PercentList title='Despesas por categoria' icon={Tags} items={expensesByCategory} total={expenseTotal} />
-      <PercentList title='Essencial vs Extra' icon={Layers3} items={expensesBySubcategory.length ? expensesBySubcategory : bySubcategory} total={totalOf(expensesBySubcategory.length ? expensesBySubcategory : bySubcategory)} />
-      <PercentList title='Contas Bancarias' icon={Landmark} items={expensesByAccount.length ? expensesByAccount : byAccount} total={totalOf(expensesByAccount.length ? expensesByAccount : byAccount)} />
+      <PercentList
+        title={`${mode === 'all' ? 'Categorias (geral)' : 'Despesas por categoria'}`}
+        icon={Tags}
+        items={modeData.byCategory}
+        total={modeData.total}
+        onSelect={(name) => {
+          if (!name) return;
+          setFilters?.({ ...(filters || {}), category: name });
+          onGoTransactions?.();
+        }}
+      />
+      <PercentList
+        title='Essencial vs Extra'
+        icon={Layers3}
+        items={modeData.bySubcategory}
+        total={totalOf(modeData.bySubcategory)}
+        onSelect={(name) => {
+          if (!name) return;
+          setFilters?.({ ...(filters || {}), subcategory: name });
+          onGoTransactions?.();
+        }}
+      />
+      <PercentList
+        title='Contas Bancarias'
+        icon={Landmark}
+        items={modeData.byAccount}
+        total={totalOf(modeData.byAccount)}
+        onSelect={(name) => {
+          if (!name) return;
+          setFilters?.({ ...(filters || {}), account: name });
+          onGoTransactions?.();
+        }}
+      />
 
-      {byCategory.length > expensesByCategory.length && (
-        <PercentList title='Categorias gerais' icon={Tags} items={byCategory} total={allCategoryTotal} />
-      )}
+      {/* O modo "Geral" já cobre a visão de categorias além de despesas. */}
     </div>
   );
 }

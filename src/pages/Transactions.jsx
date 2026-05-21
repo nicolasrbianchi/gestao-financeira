@@ -1,5 +1,5 @@
-import React from 'react';
-import { CalendarDays, Filter, Search } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { CalendarDays, Search } from 'lucide-react';
 import { money } from '../utils/format';
 import { filterChip } from '../utils/filters';
 
@@ -17,10 +17,31 @@ const amountColorByType = {
   Saldo: 'text-[#f2d58b]'
 };
 
-export default function Transactions({ data, loading, filters, setFilters, onOpenFilters }) {
+function txSignedAmount(t) {
+  const type = t.type;
+  if (type === 'Receita') return Math.abs(t.amount || 0);
+  if (type === 'Despesa') return -Math.abs(t.amount || 0);
+  if (type === 'Saldo') return Math.abs(t.amount || 0);
+  if (type === 'Reserva') return t.reserve === 'Entrada' ? Math.abs(t.amount || 0) : -Math.abs(t.amount || 0);
+  return 0;
+}
+
+function groupByDate(items = []) {
+  const map = new Map();
+  for (const t of items) {
+    const key = t.displayDate || t.date || 'Sem data';
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(t);
+  }
+  return [...map.entries()];
+}
+
+export default function Transactions({ data, loading, filters, setFilters }) {
   const transactions = data?.transactions || [];
   const summary = data?.summary || { totalAmount: 0, count: transactions.length };
   const period = filterChip(filters) || 'Todos os registros';
+
+  const grouped = useMemo(() => groupByDate(transactions), [transactions]);
 
   if (loading && !data) return <div className='loading-state'>Carregando transações…</div>;
 
@@ -37,9 +58,6 @@ export default function Transactions({ data, loading, filters, setFilters, onOpe
             <p className='truncate text-xs font-semibold text-slate-500'>{period}</p>
             <p className='mt-1 break-words text-2xl font-extrabold text-slate-900'>{money(summary.totalAmount || 0)}</p>
           </div>
-          <button type='button' onClick={onOpenFilters} className='grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-950 text-white' aria-label='Filtrar transações'>
-            <Filter size={18} />
-          </button>
         </div>
 
         <div className='mt-4 flex items-center gap-2'>
@@ -64,42 +82,58 @@ export default function Transactions({ data, loading, filters, setFilters, onOpe
       {loading && data && <div className='rounded-3xl bg-indigo-50 p-3 text-center text-xs font-semibold text-indigo-600'>Atualizando…</div>}
 
       {transactions.length ? (
-        <section className='space-y-2.5'>
-          {transactions.map((transaction, index) => {
-            const isIncome = transaction.type === 'Receita' || transaction.type === 'Saldo' || (transaction.type === 'Reserva' && transaction.reserve === 'Entrada');
-            const tone = toneByType[transaction.type] || 'text-slate-300 bg-slate-500/10 border-slate-300/20';
-            const amountTone = amountColorByType[transaction.type] || (isIncome ? 'pos' : 'neg');
+        <section className='space-y-4'>
+          {grouped.map(([day, items]) => {
+            const dayIncome = items.filter((t) => txSignedAmount(t) > 0 && t.type !== 'Saldo').reduce((a, t) => a + txSignedAmount(t), 0);
+            const dayExpense = Math.abs(items.filter((t) => txSignedAmount(t) < 0 && t.type !== 'Saldo').reduce((a, t) => a + txSignedAmount(t), 0));
             return (
-              <article key={`${transaction.sheetRowNumber || index}-${transaction.name || index}`} className='rounded-3xl bg-white p-3 shadow-soft'>
-                <div className='flex min-w-0 items-start justify-between gap-3'>
-                  <div className='min-w-0 flex-1'>
-                    <div className='flex items-center gap-2'>
-                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone}`}>{transaction.type || 'Sem tipo'}</span>
-                      <p className='truncate text-sm font-bold text-slate-900'>{transaction.name || 'Sem nome'}</p>
-                    </div>
-                    <p className='mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500'>
-                      <CalendarDays size={12} /> {transaction.displayDate || transaction.date || 'Sem data'} · {transaction.account || 'Sem conta'}
-                    </p>
+              <div key={day} className='space-y-2.5'>
+                <div className='flex items-center justify-between px-1'>
+                  <p className='text-xs font-bold text-slate-400'><CalendarDays size={12} className='inline-block -mt-0.5 mr-1' />{day}</p>
+                  <div className='text-[11px] font-semibold'>
+                    {dayIncome ? <span className='text-emerald-400'>+{money(dayIncome)}</span> : null}
+                    {dayIncome && dayExpense ? <span className='mx-2 text-slate-600'>·</span> : null}
+                    {dayExpense ? <span className='text-rose-400'>-{money(dayExpense)}</span> : null}
                   </div>
-                  <p className={`max-w-[8rem] shrink-0 break-words text-right text-sm font-extrabold ${amountTone}`}>
-                    {isIncome ? '+' : '-'}{money(Math.abs(transaction.amount || 0))}
-                  </p>
                 </div>
 
-                <div className='mt-2 flex min-w-0 items-start justify-between gap-3 text-[11px]'>
-                  <div className='min-w-0 text-slate-500'>
-                    {transaction.category ? <span className='font-semibold'>Categoria:</span> : null}{' '}
-                    <span className='truncate'>{transaction.category || ''}</span>
-                  </div>
-                  <div className='flex min-w-0 flex-wrap justify-end gap-1.5'>
-                    {transaction.subcategory && <span className='badge'>{transaction.subcategory}</span>}
-                    {transaction.paymentMethod && <span className='badge'>{transaction.paymentMethod}</span>}
-                    {transaction.reserve && <span className='badge'>Reserva: {transaction.reserve}</span>}
-                    {transaction.installment && <span className='badge'>{transaction.installment}</span>}
-                  </div>
-                </div>
-                {transaction.notes && <p className='mt-2 truncate text-[11px] text-slate-400'>{transaction.notes}</p>}
-              </article>
+                {items.map((transaction, index) => {
+                  const signed = txSignedAmount(transaction);
+                  const isIncome = signed >= 0;
+                  const tone = toneByType[transaction.type] || 'text-slate-300 bg-slate-500/10 border-slate-300/20';
+                  const amountTone = amountColorByType[transaction.type] || (isIncome ? 'pos' : 'neg');
+                  return (
+                    <article key={`${transaction.sheetRowNumber || index}-${transaction.name || index}`} className='rounded-3xl bg-white p-3 shadow-soft'>
+                      <div className='flex min-w-0 items-start justify-between gap-3'>
+                        <div className='min-w-0 flex-1'>
+                          <div className='flex items-center gap-2'>
+                            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone}`}>{transaction.type || 'Sem tipo'}</span>
+                            <p className='truncate text-sm font-bold text-slate-900'>{transaction.name || 'Sem nome'}</p>
+                          </div>
+                          <p className='mt-1 truncate text-[11px] text-slate-500'>{transaction.account || 'Sem conta'}</p>
+                        </div>
+                        <p className={`max-w-[8rem] shrink-0 break-words text-right text-sm font-extrabold ${amountTone}`}>
+                          {signed >= 0 ? '+' : '-'}{money(Math.abs(transaction.amount || 0))}
+                        </p>
+                      </div>
+
+                      <div className='mt-2 flex min-w-0 items-start justify-between gap-3 text-[11px]'>
+                        <div className='min-w-0 text-slate-500'>
+                          {transaction.category ? <span className='font-semibold'>Categoria:</span> : null}{' '}
+                          <span className='truncate'>{transaction.category || ''}</span>
+                        </div>
+                        <div className='flex min-w-0 flex-wrap justify-end gap-1.5'>
+                          {transaction.subcategory && <span className='badge'>{transaction.subcategory}</span>}
+                          {transaction.paymentMethod && <span className='badge'>{transaction.paymentMethod}</span>}
+                          {transaction.reserve && <span className='badge'>Reserva: {transaction.reserve}</span>}
+                          {transaction.installment && <span className='badge'>{transaction.installment}</span>}
+                        </div>
+                      </div>
+                      {transaction.notes && <p className='mt-2 truncate text-[11px] text-slate-400'>{transaction.notes}</p>}
+                    </article>
+                  );
+                })}
+              </div>
             );
           })}
         </section>

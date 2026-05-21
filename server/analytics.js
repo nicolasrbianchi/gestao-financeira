@@ -24,7 +24,35 @@ const isReserveOut = (tx) => isType(tx, 'reserva') && reserveKey(tx).startsWith(
 const sum = (items) => items.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
 
 export function filterTx(transactions, f = {}, context = {}) {
-  const filtered = transactions.filter((t) => (!f.startDate || t.date >= f.startDate) && (!f.endDate || t.date <= f.endDate) && (!f.category || t.category === f.category) && (!f.subcategory || t.subcategory === f.subcategory) && (!f.account || t.account === f.account) && (!f.type || t.type === f.type) && (!f.status || t.status === f.status) && (!f.search || normalizeStringKey(t.name).includes(normalizeStringKey(f.search))));
+  const searchKey = f.search ? normalizeStringKey(f.search) : '';
+  const filtered = transactions.filter((t) => {
+    if (f.startDate && t.date < f.startDate) return false;
+    if (f.endDate && t.date > f.endDate) return false;
+    if (f.category && t.category !== f.category) return false;
+    if (f.subcategory && t.subcategory !== f.subcategory) return false;
+    if (f.account && t.account !== f.account) return false;
+    if (f.type && t.type !== f.type) return false;
+    if (f.status && t.status !== f.status) return false;
+
+    if (searchKey) {
+      const haystack = [
+        t.name,
+        t.category,
+        t.subcategory,
+        t.account,
+        t.paymentMethod,
+        t.notes,
+        t.type,
+        t.reserve,
+      ]
+        .filter(Boolean)
+        .map((v) => normalizeStringKey(v))
+        .join(' ');
+      if (!haystack.includes(searchKey)) return false;
+    }
+
+    return true;
+  });
   logger.debug('transactions_filter_completed', { requestId: context.requestId, sourceCount: transactions.length, filteredCount: filtered.length, filters: { ...f, search: f.search ? '[SET]' : '' } });
   return filtered;
 }

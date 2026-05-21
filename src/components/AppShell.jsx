@@ -139,9 +139,9 @@ export default function AppShell(props) {
       );
     }
     if (safeTab === 'transactions') {
-      return <Transactions data={data} loading={loading} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} />;
+      return <Transactions data={data} loading={loading} filters={filters} setFilters={setFilters} />;
     }
-    if (safeTab === 'categories') return <Categories data={data} loading={loading} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} />;
+    if (safeTab === 'categories') return <Categories data={data} loading={loading} filters={filters} setFilters={setFilters} onGoTransactions={() => onTab('transactions')} />;
     if (safeTab === 'ai') return <Ai api={api} resetKey={aiResetKey} />;
     return <More api={api} metadata={metadata || {}} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} onReload={reloadAll} onLogout={onLogout} />;
   };
