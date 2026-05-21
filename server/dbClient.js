@@ -7,8 +7,10 @@ import { createSubcategory } from './subcategoriesDb.js';
 const TYPES_FALLBACK = ['Receita', 'Despesa', 'Reserva', 'Saldo'];
 const RESERVES_FALLBACK = ['Entrada', 'Saida'];
 const PAYMENT_METHODS_FALLBACK = ['Débito', 'Crédito', 'Pix', 'Boleto', 'Depósito'];
-const CATEGORIES_FALLBACK = ['Transferencia entre contas'];
-const SUBCATEGORIES_FALLBACK = ['Essencial', 'Extra'];
+// Em modo DB, categorias/subcategorias são gerenciadas via tabelas.
+// Evitamos fallback aqui para respeitar arquivamento/gestão.
+const CATEGORIES_FALLBACK = [];
+const SUBCATEGORIES_FALLBACK = [];
 
 function toIsoFromFormDate(value) {
   // UI manda YYYY-MM-DD
@@ -22,7 +24,9 @@ function toIsoFromFormDate(value) {
 function rowToTx(row) {
   // amount no banco é NUMERIC; driver retorna string.
   const amount = row.amount == null ? NaN : Number(row.amount);
-  const dateIso = row.date;
+  const dateIso = row.date instanceof Date
+    ? row.date.toISOString().slice(0, 10)
+    : String(row.date || '');
   const displayDate = dateIso ? `${dateIso.slice(8, 10)}/${dateIso.slice(5, 7)}/${dateIso.slice(0, 4)}` : '';
   const id = Number(row.id);
   return {
@@ -105,8 +109,8 @@ export async function getMetadata(ctx = {}) {
     distinct('payment_method'),
     distinct('status'),
     query('select month, value from monthly_goals order by month asc').catch(() => ({ rows: [] })),
-    query('select id, name, is_active from categories order by lower(name) asc').catch(() => ({ rows: [] })),
-    query('select id, name, is_active from subcategories order by lower(name) asc').catch(() => ({ rows: [] })),
+    query('select id, name, is_active from categories where is_active = true order by lower(name) asc').catch(() => ({ rows: [] })),
+    query('select id, name, is_active from subcategories where is_active = true order by lower(name) asc').catch(() => ({ rows: [] })),
   ]);
 
   const monthlyGoals = Object.fromEntries((goals.rows || []).map((r) => [String(r.month), Number(r.value || 0)]).filter(([k, v]) => k && Number.isFinite(v)));
@@ -120,6 +124,7 @@ export async function getMetadata(ctx = {}) {
     reserves: merge(reserves, RESERVES_FALLBACK),
     accounts: uniq(accounts),
     // Mantém compat (arrays de string) e adiciona listas gerenciáveis (com id).
+    // Importante: apenas opções ATIVAS devem aparecer nos selects.
     categories: merge((categoriesRows.rows || []).map((r) => r.name), CATEGORIES_FALLBACK),
     categoriesList: (categoriesRows.rows || []).map((r) => ({ id: Number(r.id), name: String(r.name), isActive: !!r.is_active })),
     subcategories: merge((subcategoriesRows.rows || []).map((r) => r.name), SUBCATEGORIES_FALLBACK),

@@ -32,6 +32,13 @@ export async function updateCategory(id, { name, isActive } = {}) {
   const categoryId = Number(id || 0);
   if (!categoryId) throw new Error('id inválido.');
 
+  // Categoria especial usada automaticamente pelo tipo=Saldo.
+  const { rows: currentRows } = await query('select name from categories where id=$1', [categoryId]);
+  const currentName = String(currentRows[0]?.name || '');
+  if (currentName === 'Transferencia entre contas' && isActive === false) {
+    throw new Error('Não é permitido arquivar a categoria "Transferencia entre contas" (usada pelo tipo Saldo).');
+  }
+
   const fields = [];
   const params = [categoryId];
   let p = 2;
@@ -59,4 +66,3 @@ export async function updateCategory(id, { name, isActive } = {}) {
   if (!rows[0]) throw new Error('Categoria não encontrada.');
   return rows[0];
 }
-
