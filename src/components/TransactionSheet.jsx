@@ -202,7 +202,7 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
           })}
         </div>
 
-        <div className='grid grid-cols-2 gap-3'>
+        <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
           {input('data', 'Data', { type: 'date', required: true })}
           {input('valor', 'Valor', { inputMode: 'decimal', placeholder: '0,00', required: true })}
         </div>
@@ -229,7 +229,7 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
             <p className='mb-3 text-xs font-bold uppercase tracking-[0.14em] text-slate-400'>Classificação</p>
             <div className='grid grid-cols-1 gap-3'>
               {selectOrInput('categoria', 'Categoria', uniqueOptions(metadata.categories, fallback.categories), { required: true })}
-              <div className='grid grid-cols-2 gap-3'>
+              <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
                 {selectOrInput('subcategoria', 'Classificação', uniqueOptions(metadata.subcategories, fallback.subcategories), { required: true })}
                 {selectOrInput('forma', 'Forma', uniqueOptions(paymentMethods, fallback.paymentMethods), { required: true })}
               </div>
