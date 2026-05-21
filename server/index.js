@@ -7,6 +7,21 @@ import { config, assertConfig } from './config.js';
 import { router } from './routes.js';
 import { logger, requestContext, requestLogger, safeError } from './logger.js';
 
+// DB setup on deploy (opt-in)
+const dbPushOnDeploy = ['yes', 'true', '1'].includes(String(process.env.DB_PUSH_ON_DEPLOY || process.env.DB_PUSH_ON_DEPOY || '').toLowerCase());
+if (dbPushOnDeploy) {
+  try {
+    // roda antes de subir o server. Import dinâmico evita custo quando desativado.
+    const { dbSetup } = await import('../scripts/dbSetup.js');
+    await dbSetup();
+  } catch (e) {
+    // Falha de schema é fatal (melhor falhar deploy do que subir app quebrado)
+    // eslint-disable-next-line no-console
+    console.error('❌ DB_PUSH_ON_DEPLOY falhou:', e?.message || String(e));
+    process.exit(1);
+  }
+}
+
 assertConfig();
 
 const app = express();

@@ -95,7 +95,17 @@ create table if not exists import_inbox (
 );
 
 alter table import_inbox
-  add constraint if not exists fk_import_inbox_transaction
-  foreign key (approved_transaction_id) references transactions(id);
+  add column if not exists approved_transaction_id bigint;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'fk_import_inbox_transaction'
+  ) then
+    alter table import_inbox
+      add constraint fk_import_inbox_transaction
+      foreign key (approved_transaction_id) references transactions(id);
+  end if;
+end $$;
 
 create index if not exists idx_import_inbox_status on import_inbox(status);
