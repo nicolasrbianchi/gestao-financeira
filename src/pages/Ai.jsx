@@ -111,7 +111,7 @@ function ChatBubble({ role, children }) {
   );
 }
 
-export default function Ai({ api }) {
+export default function Ai({ api, resetKey = 0 }) {
   const [session, setSession] = useState(() => loadSession() || newSession());
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -136,6 +136,13 @@ export default function Ai({ api }) {
     setInput('');
     setLoading(false);
   };
+
+  // Trigger externo (AppShell top-actions)
+  useEffect(() => {
+    if (!resetKey) return;
+    startNew();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetKey]);
 
   const send = async () => {
     if (!canSend) return;
@@ -175,8 +182,8 @@ export default function Ai({ api }) {
   };
 
   return (
-    <div className='flex min-h-[calc(100dvh-12.5rem)] flex-col gap-4'>
-      <header className='px-1'>
+    <div className='flex h-[calc(100dvh-9.75rem)] min-h-0 flex-col gap-4 overflow-hidden'>
+      <header className='sticky top-0 z-10 px-1 pt-1'>
         <div className='flex items-center justify-between gap-3'>
           <div className='flex min-w-0 items-center gap-3'>
             <img
@@ -189,25 +196,13 @@ export default function Ai({ api }) {
               <h1 className='truncate text-2xl font-bold text-slate-100'>Nicco IA</h1>
             </div>
           </div>
-
-          <button
-            type='button'
-            onClick={startNew}
-            className='shrink-0 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold text-slate-100 shadow-soft transition active:opacity-90'
-            aria-label='Nova conversa'
-          >
-            <span className='inline-flex items-center gap-2'>
-              <Trash2 size={16} />
-              Nova
-            </span>
-          </button>
         </div>
 
         <p className='mt-2 text-sm text-slate-400'>Pergunta qualquer coisa sobre seus números e transações.</p>
       </header>
 
       {/* ChatGPT-ish: conversa ocupa a página; composer fixo no fundo da viewport (acima do bottom-nav). */}
-      <section className='relative min-h-0 flex-1'>
+      <section className='relative min-h-0 flex-1 overflow-hidden'>
         <div
           ref={listRef}
           className='min-h-0 space-y-3 overflow-auto pr-1'
@@ -264,7 +259,13 @@ export default function Ai({ api }) {
                 <Send size={18} />
               </button>
             </div>
-            <p className='mt-2 px-1 text-[11px] text-slate-500'>Enter envia · Shift+Enter quebra linha</p>
+            <div className='mt-2 flex items-center justify-between gap-2 px-1 text-[11px] text-slate-500'>
+              <span>Enter envia · Shift+Enter quebra linha</span>
+              <button type='button' onClick={startNew} className='inline-flex items-center gap-1.5 font-semibold text-slate-300/90'>
+                <Trash2 size={14} />
+                Nova conversa
+              </button>
+            </div>
           </div>
         </div>
       </section>

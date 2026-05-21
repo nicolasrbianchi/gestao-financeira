@@ -7,7 +7,7 @@ import Transactions from '../pages/Transactions';
 import Categories from '../pages/Categories';
 import More from '../pages/More';
 import Ai from '../pages/Ai';
-import { Filter, Settings } from 'lucide-react';
+import { Filter, Settings, SquarePen } from 'lucide-react';
 
 const ROUTES = {
   home: '/dashboard',
@@ -47,6 +47,7 @@ export default function AppShell(props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [aiResetKey, setAiResetKey] = useState(0);
 
   const safeTab = ROUTES[tab] === undefined ? 'home' : tab;
   const route = useMemo(() => ROUTES[safeTab], [safeTab]);
@@ -141,21 +142,32 @@ export default function AppShell(props) {
       return <Transactions data={data} loading={loading} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} />;
     }
     if (safeTab === 'categories') return <Categories data={data} loading={loading} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} />;
-    if (safeTab === 'ai') return <Ai api={api} />;
+    if (safeTab === 'ai') return <Ai api={api} resetKey={aiResetKey} />;
     return <More api={api} metadata={metadata || {}} filters={filters} setFilters={setFilters} onOpenFilters={() => setShowFilters(true)} onReload={reloadAll} onLogout={onLogout} />;
   };
 
   return (
     <div className='app-frame'>
       <div className='top-actions'>
-        <button
-          type='button'
-          onClick={() => setShowFilters(true)}
-          className='icon-btn'
-          aria-label='Abrir filtros'
-        >
-          <Filter size={18} />
-        </button>
+        {safeTab === 'ai' ? (
+          <button
+            type='button'
+            onClick={() => setAiResetKey((v) => v + 1)}
+            className='icon-btn'
+            aria-label='Nova conversa'
+          >
+            <SquarePen size={18} />
+          </button>
+        ) : (
+          <button
+            type='button'
+            onClick={() => setShowFilters(true)}
+            className='icon-btn'
+            aria-label='Abrir filtros'
+          >
+            <Filter size={18} />
+          </button>
+        )}
         <button
           type='button'
           onClick={() => onTab('more')}
