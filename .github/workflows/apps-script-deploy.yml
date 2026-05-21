@@ -1,15 +1,16 @@
 name: Deploy Apps Script Web App
 
-"on":
-  workflow_dispatch: {}
+on:
+  workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
-      - 'Codigo.gs'
-      - 'appsscript.json'
-      - '.clasp.json'
-      - '.claspignore'
-      - '.github/workflows/apps-script-deploy.yml'
+      - Codigo.gs
+      - appsscript.json
+      - .clasp.json
+      - .claspignore
+      - .github/workflows/apps-script-deploy.yml
 
 permissions:
   contents: read
