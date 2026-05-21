@@ -66,4 +66,5 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Redeploy existing Web App deployment
-        run: clasp deploy -i "$DEPLOYMENT_ID" -V "${{ steps.version.outputs.version }}" -d "ci: ${GITHUB_SHA}"
+        run: |
+          clasp deploy -i "$DEPLOYMENT_ID" -V "${{ steps.version.outputs.version }}" -d "ci: ${GITHUB_SHA}"
