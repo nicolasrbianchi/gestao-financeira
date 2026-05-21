@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, LogOut, Server, Tags, Target } from 'lucide-react';
+import { Download, Inbox, LogOut, Server, Tags, Target } from 'lucide-react';
 import ManageTagsSheet from '../components/ManageTagsSheet';
 import ManageMonthlyGoalsSheet from '../components/ManageMonthlyGoalsSheet';
 import ExportSheet from '../components/ExportSheet';
@@ -20,13 +20,14 @@ function Row({ icon: Icon, title, description, action, children }) {
   );
 }
 
-export default function More({ api, metadata = {}, onLogout }) {
+export default function More({ api, metadata = {}, onLogout, onOpenInbox }) {
   const [status, setStatus] = useState('');
   const [meta, setMeta] = useState('');
   const [checking, setChecking] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [inboxCount, setInboxCount] = useState(null);
 
   const testConnection = async () => {
     try {
@@ -43,6 +44,18 @@ export default function More({ api, metadata = {}, onLogout }) {
     }
   };
 
+  const loadInboxCount = async () => {
+    try {
+      const r = await api('/imports/pending');
+      setInboxCount((r.items || []).length);
+    } catch {
+      setInboxCount(null);
+    }
+  };
+
+  // best-effort ao abrir a tela
+  React.useEffect(() => { loadInboxCount(); /* eslint-disable-next-line */ }, []);
+
   return (
     <div className='space-y-4'>
       <header className='px-1'>
@@ -50,6 +63,13 @@ export default function More({ api, metadata = {}, onLogout }) {
         <h1 className='text-2xl font-bold text-slate-900'>Mais</h1>
         <p className='mt-1 text-sm text-slate-500'>Gestão do app e operação.</p>
       </header>
+
+      <Row
+        icon={Inbox}
+        title='Importações pendentes'
+        description={inboxCount == null ? '—' : `${inboxCount} pendente(s) para aprovar`}
+        action={<button type='button' onClick={onOpenInbox} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Abrir</button>}
+      />
 
       <Row
         icon={Tags}

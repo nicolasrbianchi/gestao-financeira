@@ -10,6 +10,7 @@ import { listCategories, createCategory, updateCategory } from './categoriesDb.j
 import { listSubcategories, createSubcategory, updateSubcategory } from './subcategoriesDb.js';
 import { listMonthlyGoals, upsertMonthlyGoal, deleteMonthlyGoal } from './monthlyGoalsDb.js';
 import { buildExportPayload, buildTransactionsCsv } from './exporter.js';
+import { listPendingImports, rejectImport, approveImport } from './importInboxDb.js';
 import pkg from '../package.json' with { type: 'json' };
 
 export const router = express.Router();
@@ -263,6 +264,56 @@ router.post('/transactions', async (req, res, next) => {
     const payload = { ...p, nome: p.nome || `Saldo ${p.conta}`, valor: amount };
     const result = await client.addTransaction(payload, { requestId: req.requestId });
     logger.info('transaction_created', { requestId: req.requestId, tipo: p.tipo, status: p.status || '' });
+    res.json({ ok: true, data: result });
+  } catch (e) { next(e); }
+});
+
+// Inbox de importação (DB-only)
+router.get('/imports/pending', async (req, res, next) => {
+  try {
+    if (String(config.dataSource || '').toLowerCase() !== 'db') {
+      return res.status(409).json({ ok: false, error: 'Recurso disponível apenas quando DATA_SOURCE=db.', requestId: req.requestId });
+    }
+    const items = await listPendingImports({ requestId: req.requestId });
+    res.json({ ok: true, items });
+  } catch (e) { next(e); }
+});
+
+router.post('/imports/:id/approve', async (req, res, next) => {
+  try {
+    if (String(config.dataSource || '').toLowerCase() !== 'db') {
+      return res.status(409).json({ ok: false, error: 'Recurso disponível apenas quando DATA_SOURCE=db.', requestId: req.requestId });
+    }
+
+    // Reusa validação/criação do /transactions.
+    const p = req.body || {};
+    if (!p.data || !p.tipo || !p.conta) return res.status(400).json({ ok: false, error: 'Preencha data, tipo e conta/canal.', requestId: req.requestId });
+    if (p.tipo !== 'Saldo' && !p.nome) return res.status(400).json({ ok: false, error: 'Preencha o nome da transação.', requestId: req.requestId });
+    if (p.tipo === 'Reserva' && !p.reserva) return res.status(400).json({ ok: false, error: 'Reserva obrigatória para tipo Reserva.', requestId: req.requestId });
+    if (['Receita', 'Despesa'].includes(p.tipo) && (!p.categoria || !p.subcategoria || !p.forma)) return res.status(400).json({ ok: false, error: 'Receita e Despesa exigem categoria, classificação e forma.', requestId: req.requestId });
+    if (p.tipo === 'Saldo' && !p.categoria) return res.status(400).json({ ok: false, error: 'Saldo exige categoria.', requestId: req.requestId });
+    const amount = parseMoneyBR(p.valor);
+    if (!amount || amount <= 0) return res.status(400).json({ ok: false, error: 'Valor inválido.', requestId: req.requestId });
+
+    const payload = { ...p, nome: p.nome || `Saldo ${p.conta}`, valor: amount };
+    const result = await client.addTransaction(payload, { requestId: req.requestId });
+
+    const txId = Number(result?.row || result?.id || 0);
+    if (!txId) throw new Error('Falha ao criar transação.');
+    const importId = Number(req.params.id || 0);
+    await approveImport(importId, txId, { requestId: req.requestId });
+
+    res.json({ ok: true, data: { importId, transactionId: txId } });
+  } catch (e) { next(e); }
+});
+
+router.post('/imports/:id/reject', async (req, res, next) => {
+  try {
+    if (String(config.dataSource || '').toLowerCase() !== 'db') {
+      return res.status(409).json({ ok: false, error: 'Recurso disponível apenas quando DATA_SOURCE=db.', requestId: req.requestId });
+    }
+    const importId = Number(req.params.id || 0);
+    const result = await rejectImport(importId, { requestId: req.requestId });
     res.json({ ok: true, data: result });
   } catch (e) { next(e); }
 });

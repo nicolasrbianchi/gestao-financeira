@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import BottomNav from './BottomNav';
 import FilterSheet from './FilterSheet';
 import TransactionSheet from './TransactionSheet';
+import ImportInboxSheet from './ImportInboxSheet';
 import Home from '../pages/Home';
 import Transactions from '../pages/Transactions';
 import Categories from '../pages/Categories';
@@ -44,11 +45,14 @@ export default function AppShell(props) {
   const [showFilters, setShowFilters] = useState(false);
   const [showTransactionSheet, setShowTransactionSheet] = useState(false);
   const [editingTx, setEditingTx] = useState(null);
+  const [transactionSheetMode, setTransactionSheetMode] = useState('add');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [aiResetKey, setAiResetKey] = useState(0);
+  const [showInbox, setShowInbox] = useState(false);
+  const [approveDraft, setApproveDraft] = useState(null);
 
   const safeTab = ROUTES[tab] === undefined ? 'home' : tab;
   const route = useMemo(() => ROUTES[safeTab], [safeTab]);
@@ -121,6 +125,8 @@ export default function AppShell(props) {
   const handleSaved = () => {
     setShowTransactionSheet(false);
     setEditingTx(null);
+    setApproveDraft(null);
+    setTransactionSheetMode('add');
     onToast?.('Transação salva com sucesso.');
     onReload?.();
     reload();
@@ -129,6 +135,7 @@ export default function AppShell(props) {
   const closeTransactionSheet = () => {
     setShowTransactionSheet(false);
     setEditingTx(null);
+    setTransactionSheetMode('add');
   };
 
   const renderPage = () => {
@@ -154,6 +161,7 @@ export default function AppShell(props) {
           setFilters={setFilters}
           onEdit={(tx) => {
             setEditingTx(tx);
+            setTransactionSheetMode('edit');
             setShowTransactionSheet(true);
           }}
           onDelete={async (tx) => {
@@ -173,7 +181,7 @@ export default function AppShell(props) {
     }
     if (safeTab === 'categories') return <Categories data={data} loading={loading} filters={filters} setFilters={setFilters} onGoTransactions={() => onTab('transactions')} />;
     if (safeTab === 'ai') return <Ai api={api} resetKey={aiResetKey} />;
-    return <More api={api} metadata={metadata || {}} onLogout={onLogout} />;
+    return <More api={api} metadata={metadata || {}} onLogout={onLogout} onOpenInbox={() => setShowInbox(true)} />;
   };
 
   return (
@@ -214,6 +222,7 @@ export default function AppShell(props) {
         onTab={onTab}
         onAdd={() => {
           setEditingTx(null);
+          setTransactionSheetMode('add');
           setShowTransactionSheet(true);
         }}
       />
@@ -226,7 +235,23 @@ export default function AppShell(props) {
         onSaved={handleSaved}
         onToast={onToast}
         initialTransaction={editingTx}
-        mode={editingTx ? 'edit' : 'add'}
+        mode={transactionSheetMode}
+        submitPath={approveDraft?.importId ? `/imports/${approveDraft.importId}/approve` : null}
+      />
+
+      <ImportInboxSheet
+        open={showInbox}
+        onClose={() => setShowInbox(false)}
+        api={api}
+        metadata={metadata || {}}
+        onToast={onToast}
+        onApprove={({ importId, initialForm }) => {
+          setApproveDraft({ importId });
+          setEditingTx({ ...initialForm });
+          setTransactionSheetMode('add');
+          setShowInbox(false);
+          setShowTransactionSheet(true);
+        }}
       />
     </div>
   );

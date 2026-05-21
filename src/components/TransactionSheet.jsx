@@ -40,7 +40,7 @@ function defaultStatus(type) {
   return '';
 }
 
-export default function TransactionSheet({ open, onClose, metadata = {}, api, onSaved, onToast, initialTransaction = null, mode = 'add' }) {
+export default function TransactionSheet({ open, onClose, metadata = {}, api, onSaved, onToast, initialTransaction = null, mode = 'add', submitPath = null }) {
 
   const [form, setForm] = useState(emptyTransaction);
   const [error, setError] = useState('');
@@ -166,7 +166,7 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
         const id = initialTransaction?.id ?? initialTransaction?.sheetRowNumber ?? initialTransaction?.row;
         await api(`/transactions/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
       } else {
-        await api('/transactions', { method: 'POST', body: JSON.stringify(payload) });
+        await api(submitPath || '/transactions', { method: 'POST', body: JSON.stringify(payload) });
       }
       setForm(emptyTransaction);
       onSaved?.();
