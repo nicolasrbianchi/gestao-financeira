@@ -228,7 +228,7 @@ export default function Ai({ api, resetKey = 0 }) {
           className='min-h-0 space-y-3 overflow-auto pr-1'
           onScroll={(e) => {
             const el = e.currentTarget;
-            const threshold = 48;
+            const threshold = 8;
             const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - threshold;
             stickToBottomRef.current = atBottom;
             userScrolledUpRef.current = !atBottom;
