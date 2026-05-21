@@ -8,6 +8,7 @@ import { logger } from './logger.js';
 import { openAiText } from './openaiClient.js';
 import { listCategories, createCategory, updateCategory } from './categoriesDb.js';
 import { listSubcategories, createSubcategory, updateSubcategory } from './subcategoriesDb.js';
+import { listMonthlyGoals, upsertMonthlyGoal, deleteMonthlyGoal } from './monthlyGoalsDb.js';
 import pkg from '../package.json' with { type: 'json' };
 
 export const router = express.Router();
@@ -137,6 +138,31 @@ router.put('/subcategories/manage/:id', async (req, res, next) => {
     if (!assertDbSource(req, res)) return;
     const updated = await updateSubcategory(req.params.id, { name: req.body?.name, isActive: req.body?.isActive });
     res.json({ ok: true, subcategory: updated });
+  } catch (e) { next(e); }
+});
+
+// Metas mensais (DB-only)
+router.get('/monthly-goals/manage', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const goals = await listMonthlyGoals();
+    res.json({ ok: true, goals });
+  } catch (e) { next(e); }
+});
+
+router.post('/monthly-goals/manage', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const goal = await upsertMonthlyGoal({ month: req.body?.month, value: req.body?.value });
+    res.json({ ok: true, goal });
+  } catch (e) { next(e); }
+});
+
+router.delete('/monthly-goals/manage/:month', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    await deleteMonthlyGoal(req.params.month);
+    res.json({ ok: true });
   } catch (e) { next(e); }
 });
 
