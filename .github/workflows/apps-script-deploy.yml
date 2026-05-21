@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SCRIPT_ID: 1CNCq-viEl3YZOUxepiKQFxaZSGJ5ZGmzk98-5hPOsNofVyxjWzx6flf8
-      DEPLOYMENT_ID: AKfycbym918unCEq8o9ozsMeA2cQKeqhYoP1jZWoqc9DjT6JXe0cS4zMcHJR_EmD8625xXZ0
+      DEPLOYMENT_ID: AKfycbzwhfS_jfDU6yRFHMOhVBSKJMPL-6regBm7R4w7vcJigY1hhm1nGn_jH-8U41-YoOY7
     steps:
       - uses: actions/checkout@v4
 
