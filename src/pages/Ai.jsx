@@ -117,6 +117,7 @@ export default function Ai({ api, resetKey = 0 }) {
   const [loading, setLoading] = useState(false);
   const listRef = useRef(null);
   const stickToBottomRef = useRef(true);
+  const userScrolledUpRef = useRef(false);
   const [showJump, setShowJump] = useState(false);
 
   const messages = session?.messages || [];
@@ -132,8 +133,9 @@ export default function Ai({ api, resetKey = 0 }) {
   };
 
   useEffect(() => {
-    // Só auto-scroll se o usuário estiver no final (evita "puxar" quando ele está lendo acima)
+    // Só auto-scroll se o usuário estiver no final E não tiver explicitamente subido.
     if (!stickToBottomRef.current) return;
+    if (userScrolledUpRef.current) return;
     scrollToBottom();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, loading]);
@@ -146,6 +148,7 @@ export default function Ai({ api, resetKey = 0 }) {
     setInput('');
     setLoading(false);
     stickToBottomRef.current = true;
+    userScrolledUpRef.current = false;
     // deixa o DOM atualizar e desce
     setTimeout(scrollToBottom, 0);
   };
@@ -168,6 +171,12 @@ export default function Ai({ api, resetKey = 0 }) {
     };
     setSession(next);
     setLoading(true);
+
+    // Ao enviar, assume intenção de ficar no fim do chat.
+    stickToBottomRef.current = true;
+    userScrolledUpRef.current = false;
+    setShowJump(false);
+    setTimeout(scrollToBottom, 0);
 
     try {
       const history = next.messages
@@ -222,6 +231,7 @@ export default function Ai({ api, resetKey = 0 }) {
             const threshold = 48;
             const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - threshold;
             stickToBottomRef.current = atBottom;
+            userScrolledUpRef.current = !atBottom;
             setShowJump(!atBottom);
           }}
           style={{
@@ -254,6 +264,7 @@ export default function Ai({ api, resetKey = 0 }) {
             type='button'
             onClick={() => {
               stickToBottomRef.current = true;
+              userScrolledUpRef.current = false;
               setShowJump(false);
               scrollToBottom();
             }}
@@ -280,6 +291,15 @@ export default function Ai({ api, resetKey = 0 }) {
                     e.preventDefault();
                     send();
                   }
+                }}
+                onFocus={() => {
+                  // Se o usuário focou o composer, assume intenção de continuar no fim.
+                  stickToBottomRef.current = true;
+                  userScrolledUpRef.current = false;
+                  setShowJump(false);
+                  // re-scroll depois do teclado abrir
+                  setTimeout(scrollToBottom, 60);
+                  setTimeout(scrollToBottom, 220);
                 }}
               />
               <button
