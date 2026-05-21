@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CalendarDays, Database, Filter, LogOut, RefreshCcw, Server, ShieldCheck, SlidersHorizontal, Tags } from 'lucide-react';
 import { mtdFilters, filterChip } from '../utils/filters';
 import ManageTagsSheet from '../components/ManageTagsSheet';
+import ManageMonthlyGoalsSheet from '../components/ManageMonthlyGoalsSheet';
 
 function Row({ icon: Icon, title, description, action, children }) {
   return (
@@ -24,6 +25,7 @@ export default function More({ api, metadata = {}, filters, setFilters, onOpenFi
   const [meta, setMeta] = useState('');
   const [checking, setChecking] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const [goalsOpen, setGoalsOpen] = useState(false);
 
   const testConnection = async () => {
     try {
@@ -81,6 +83,13 @@ export default function More({ api, metadata = {}, filters, setFilters, onOpenFi
       />
 
       <Row
+        icon={Tags}
+        title='Gerenciar metas mensais'
+        description='Define a meta geral por mês (apenas em DATA_SOURCE=db).'
+        action={<button type='button' onClick={() => setGoalsOpen(true)} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Abrir metas</button>}
+      />
+
+      <Row
         icon={Server}
         title='Conexão'
         description='Valida API, sessão e Apps Script.'
@@ -113,6 +122,7 @@ export default function More({ api, metadata = {}, filters, setFilters, onOpenFi
       </section>
 
       <ManageTagsSheet open={manageOpen} onClose={() => setManageOpen(false)} api={api} />
+      <ManageMonthlyGoalsSheet open={goalsOpen} onClose={() => setGoalsOpen(false)} api={api} />
     </div>
   );
 }
