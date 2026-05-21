@@ -132,6 +132,7 @@ router.get('/categories', async (req, res, next) => {
       expensesByAccount: dashboard.despesasPorConta,
       topTransactions: dashboard.topTransactions,
       insights: dashboard.insights,
+      charts: { dailySeries: dashboard.charts?.dailySeries || [] },
     });
   } catch (e) {
     next(e);

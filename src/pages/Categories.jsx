@@ -59,6 +59,7 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
   const expensesByAccount = data?.expensesByAccount || [];
   const topTransactions = data?.topTransactions || [];
   const insights = data?.insights || [];
+  const dailySeries = data?.charts?.dailySeries || [];
 
   const subcategoryItems = useMemo(
     () => (expensesBySubcategory.length ? expensesBySubcategory : bySubcategory),
@@ -72,6 +73,28 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
   const expenseTotal = totalOf(expensesByCategory);
   const topExpense = expensesByCategory[0];
   const topAccount = expensesByAccount[0];
+
+  const dayWithMostExpense = useMemo(() => {
+    const items = (dailySeries || []).filter(Boolean);
+    if (!items.length) return null;
+    const best = items
+      .map((d) => ({ date: d.date, value: Number(d.despesas || 0) }))
+      .sort((a, b) => b.value - a.value)[0];
+    return best?.value ? best : null;
+  }, [dailySeries]);
+
+  const top3Share = useMemo(() => {
+    if (!expenseTotal) return null;
+    const top3 = expensesByCategory.slice(0, 3).reduce((a, c) => a + Math.abs(c.value || 0), 0);
+    return top3 ? (top3 / expenseTotal) * 100 : null;
+  }, [expenseTotal, expensesByCategory]);
+
+  const insightTone = (type) => {
+    if (type === 'danger') return { ring: 'ring-rose-400/20', icon: 'text-rose-300', title: 'text-slate-100', desc: 'text-slate-300' };
+    if (type === 'warning') return { ring: 'ring-amber-300/20', icon: 'text-amber-200', title: 'text-slate-100', desc: 'text-slate-300' };
+    if (type === 'success') return { ring: 'ring-emerald-400/20', icon: 'text-emerald-200', title: 'text-slate-100', desc: 'text-slate-300' };
+    return { ring: 'ring-white/10', icon: 'text-[#f2d58b]', title: 'text-slate-100', desc: 'text-slate-300' };
+  };
 
   if (loading && !data) return <div className='loading-state'>Carregando categorias…</div>;
 
@@ -209,11 +232,57 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
             </div>
             <span className='grid h-10 w-10 place-items-center rounded-2xl bg-slate-50 text-indigo-500'><Tags size={18} /></span>
           </div>
-          <ul className='space-y-2 text-sm text-slate-300'>
-            {insights.slice(0, 6).map((line, idx) => (
-              <li key={idx} className='rounded-3xl bg-white/5 p-4 ring-1 ring-white/10'>{String(line)}</li>
-            ))}
-          </ul>
+          <div className='space-y-3'>
+            {insights.slice(0, 8).map((it, idx) => {
+              const tone = insightTone(it?.type);
+              const value = it?.value;
+              const rightValue = typeof value === 'number'
+                ? money(value)
+                : typeof value === 'string'
+                  ? value
+                  : value?.amount
+                    ? money(value.amount)
+                    : null;
+
+              return (
+                <article key={it?.id || idx} className={`rounded-3xl bg-white/5 p-4 ring-1 ${tone.ring}`}>
+                  <div className='flex items-start justify-between gap-3'>
+                    <div className='min-w-0'>
+                      <p className={`text-sm font-extrabold ${tone.title}`}>{it?.title || 'Insight'}</p>
+                      {it?.description && <p className={`mt-1 text-xs ${tone.desc}`}>{it.description}</p>}
+                    </div>
+                    {rightValue && <p className='shrink-0 text-xs font-extrabold text-slate-100'>{rightValue}</p>}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Blocos extras (mais info rápida) */}
+      <section className='grid grid-cols-2 gap-3'>
+        <article className='rounded-4xl bg-white p-4 shadow-soft'>
+          <ArrowDownRight className='text-rose-500' size={18} />
+          <p className='mt-3 text-xs text-slate-500'>Despesas reais</p>
+          <p className='mt-1 break-words text-xl font-bold'>{money(expenseTotal)}</p>
+        </article>
+        <article className='rounded-4xl bg-white p-4 shadow-soft'>
+          <Tags className='text-indigo-500' size={18} />
+          <p className='mt-3 text-xs text-slate-500'>Concentração (Top 3)</p>
+          <p className='mt-1 break-words text-xl font-bold'>{top3Share == null ? '—' : `${top3Share.toFixed(1)}%`}</p>
+        </article>
+      </section>
+
+      {dayWithMostExpense && (
+        <section className='rounded-4xl bg-white p-5 shadow-soft'>
+          <div className='flex items-center justify-between gap-3'>
+            <div>
+              <h2 className='text-base font-bold text-slate-900'>Dia mais caro</h2>
+              <p className='text-xs text-slate-500'>{dayWithMostExpense.date}</p>
+            </div>
+            <p className='text-sm font-extrabold text-rose-200'>-{money(dayWithMostExpense.value)}</p>
+          </div>
         </section>
       )}
     </div>
