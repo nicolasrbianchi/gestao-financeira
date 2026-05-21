@@ -41,6 +41,11 @@ jobs:
           ${{ secrets.CLASPRC_JSON }}
           JSON
 
+      - name: Prepare Apps Script sources
+        run: |
+          mkdir -p apps-script
+          cp -f Codigo.gs apps-script/Codigo.gs
+
       - name: Push code (ensure CI helper exists)
         run: clasp push --force
 

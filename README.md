@@ -49,3 +49,5 @@ Configuração de propriedades (Script Properties) via GitHub Actions (manual):
 Quando ocorrer push na `main` alterando `Codigo.gs`/`appsscript.json`, o workflow faz:
 - `clasp push` (atualiza o código no projeto do Apps Script)
 - `clasp deploy` (re-deploy no mesmo deploymentId do Web App)
+
+Obs: o manifest do Apps Script fica em `apps-script/appsscript.json`.

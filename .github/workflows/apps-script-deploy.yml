@@ -7,9 +7,8 @@ on:
       - main
     paths:
       - Codigo.gs
-      - appsscript.json
+      - apps-script/appsscript.json
       - .clasp.json
-      - .claspignore
       - .github/workflows/apps-script-deploy.yml
 
 permissions:
@@ -48,6 +47,11 @@ jobs:
           cat > "$HOME/.clasprc.json" <<'JSON'
           ${{ secrets.CLASPRC_JSON }}
           JSON
+
+      - name: Prepare Apps Script sources
+        run: |
+          mkdir -p apps-script
+          cp -f Codigo.gs apps-script/Codigo.gs
 
       - name: Push code to Apps Script
         run: clasp push --force
