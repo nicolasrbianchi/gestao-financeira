@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { CalendarDays, Search } from 'lucide-react';
 import { money } from '../utils/format';
 import { filterChip } from '../utils/filters';
@@ -36,12 +36,66 @@ function groupByDate(items = []) {
   return [...map.entries()];
 }
 
+function keyOfTx(t, fallbackIndex = 0) {
+  return String(t?.sheetRowNumber || `${t?.date || 'no-date'}:${t?.name || 'no-name'}:${fallbackIndex}`);
+}
+
 export default function Transactions({ data, loading, filters, setFilters, onEdit }) {
   const transactions = data?.transactions || [];
   const summary = data?.summary || { totalAmount: 0, count: transactions.length };
   const period = filterChip(filters) || 'Todos os registros';
 
   const grouped = useMemo(() => groupByDate(transactions), [transactions]);
+  const [openId, setOpenId] = useState(null);
+  const dragRef = useRef({ id: null, startX: 0, startY: 0, started: false, dragging: false, dx: 0 });
+
+  const ACTION_W = 86; // px (área do botão)
+
+  const onPointerDown = (event, id) => {
+    // Só pega primário (evita multi-touch estranho)
+    if (event.pointerType !== 'mouse' && event.isPrimary === false) return;
+    dragRef.current = {
+      id,
+      startX: event.clientX,
+      startY: event.clientY,
+      started: true,
+      dragging: false,
+      dx: 0,
+    };
+  };
+
+  const onPointerMove = (event, id) => {
+    const d = dragRef.current;
+    if (!d.started || d.id !== id) return;
+    const dx = event.clientX - d.startX;
+    const dy = event.clientY - d.startY;
+
+    // Só inicia swipe quando for claramente horizontal (senão deixa scroll normal)
+    if (!d.dragging) {
+      if (Math.abs(dx) < 10) return;
+      if (Math.abs(dy) > Math.abs(dx) * 1.2) return;
+      d.dragging = true;
+      try { event.currentTarget.setPointerCapture?.(event.pointerId); } catch { /* ignore */ }
+    }
+
+    d.dx = dx;
+    // feedback: durante drag, abre/fecha visualmente via state rápida
+    // (não animamos por frame; só usamos threshold simples)
+    if (dx < -18) setOpenId(id);
+    if (dx > 18 && openId === id) setOpenId(null);
+  };
+
+  const onPointerUp = (_event, id) => {
+    const d = dragRef.current;
+    if (!d.started || d.id !== id) return;
+    const dx = d.dx;
+    const shouldOpen = dx < -32;
+    const shouldClose = dx > 32;
+
+    if (shouldOpen) setOpenId(id);
+    else if (shouldClose) setOpenId(null);
+    dragRef.current = { id: null, startX: 0, startY: 0, started: false, dragging: false, dx: 0 };
+  };
 
   if (loading && !data) return <div className='loading-state'>Carregando transações…</div>;
 
@@ -98,54 +152,86 @@ export default function Transactions({ data, loading, filters, setFilters, onEdi
                 </div>
 
                 {items.map((transaction, index) => {
+                  const id = keyOfTx(transaction, index);
                   const signed = txSignedAmount(transaction);
                   const isIncome = signed >= 0;
                   const tone = toneByType[transaction.type] || 'text-slate-300 bg-slate-500/10 border-slate-300/20';
                   const amountTone = amountColorByType[transaction.type] || (isIncome ? 'pos' : 'neg');
+                  const isOpen = openId === id;
                   return (
-                    <article
-                      key={`${transaction.sheetRowNumber || index}-${transaction.name || index}`}
-                      className='rounded-3xl bg-white p-3 shadow-soft transition hover:shadow-md'
-                      role={onEdit ? 'button' : undefined}
-                      tabIndex={onEdit ? 0 : undefined}
-                      onClick={() => onEdit?.(transaction)}
-                      onKeyDown={(e) => {
-                        if (!onEdit) return;
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          onEdit(transaction);
-                        }
-                      }}
-                    >
-                      <div className='flex min-w-0 items-start justify-between gap-3'>
-                        <div className='min-w-0 flex-1'>
-                          <div className='flex items-center gap-2'>
-                            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone}`}>{transaction.type || 'Sem tipo'}</span>
-                            <p className='truncate text-sm font-bold text-slate-900'>{transaction.name || 'Sem nome'}</p>
-                          </div>
-                          <p className='mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500'>
-                            <CalendarDays size={12} /> {transaction.displayDate || transaction.date || 'Sem data'} · {transaction.account || 'Sem conta'}
-                          </p>
-                        </div>
-                        <p className={`max-w-[8rem] shrink-0 break-words text-right text-sm font-extrabold ${amountTone}`}>
-                          {signed >= 0 ? '+' : '-'}{money(Math.abs(transaction.amount || 0))}
-                        </p>
+                    <div key={id} className='relative overflow-hidden rounded-3xl'>
+                      {/* Underlay actions */}
+                      <div className='absolute inset-y-0 right-0 flex items-stretch' style={{ width: ACTION_W }}>
+                        <button
+                          type='button'
+                          className='w-full rounded-3xl bg-indigo-600 px-3 text-xs font-extrabold text-white shadow-soft'
+                          onClick={() => {
+                            setOpenId(null);
+                            onEdit?.(transaction);
+                          }}
+                        >
+                          Editar
+                        </button>
                       </div>
 
-                      <div className='mt-2 flex min-w-0 items-start justify-between gap-3 text-[11px]'>
-                        <div className='min-w-0 text-slate-500'>
-                          {transaction.category ? <span className='font-semibold'>Categoria:</span> : null}{' '}
-                          <span className='truncate'>{transaction.category || ''}</span>
+                      {/* Foreground card (swipe) */}
+                      <article
+                        className='rounded-3xl bg-white p-3 shadow-soft transition-transform duration-150'
+                        style={{ transform: isOpen ? `translateX(-${ACTION_W}px)` : 'translateX(0px)' }}
+                        onPointerDown={(e) => onPointerDown(e, id)}
+                        onPointerMove={(e) => onPointerMove(e, id)}
+                        onPointerUp={(e) => onPointerUp(e, id)}
+                        onPointerCancel={(e) => onPointerUp(e, id)}
+                        onClick={() => {
+                          if (!onEdit) return;
+                          if (isOpen) return setOpenId(null);
+                          onEdit(transaction);
+                        }}
+                        role={onEdit ? 'button' : undefined}
+                        tabIndex={onEdit ? 0 : undefined}
+                        onKeyDown={(e) => {
+                          if (!onEdit) return;
+                          if (e.key === 'Escape') {
+                            e.preventDefault();
+                            setOpenId(null);
+                          }
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            if (isOpen) setOpenId(null);
+                            else onEdit(transaction);
+                          }
+                        }}
+                      >
+                        <div className='flex min-w-0 items-start justify-between gap-3'>
+                          <div className='min-w-0 flex-1'>
+                            <div className='flex items-center gap-2'>
+                              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone}`}>{transaction.type || 'Sem tipo'}</span>
+                              <p className='truncate text-sm font-bold text-slate-900'>{transaction.name || 'Sem nome'}</p>
+                            </div>
+                            <p className='mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500'>
+                              <CalendarDays size={12} /> {transaction.displayDate || transaction.date || 'Sem data'} · {transaction.account || 'Sem conta'}
+                            </p>
+                          </div>
+                          <p className={`max-w-[8rem] shrink-0 break-words text-right text-sm font-extrabold ${amountTone}`}>
+                            {signed >= 0 ? '+' : '-'}{money(Math.abs(transaction.amount || 0))}
+                          </p>
                         </div>
-                        <div className='flex min-w-0 flex-wrap justify-end gap-1.5'>
-                          {transaction.subcategory && <span className='badge'>{transaction.subcategory}</span>}
-                          {transaction.paymentMethod && <span className='badge'>{transaction.paymentMethod}</span>}
-                          {transaction.reserve && <span className='badge'>Reserva: {transaction.reserve}</span>}
-                          {transaction.installment && <span className='badge'>{transaction.installment}</span>}
+
+                        <div className='mt-2 flex min-w-0 items-start justify-between gap-3 text-[11px]'>
+                          <div className='min-w-0 text-slate-500'>
+                            {transaction.category ? <span className='font-semibold'>Categoria:</span> : null}{' '}
+                            <span className='truncate'>{transaction.category || ''}</span>
+                          </div>
+                          <div className='flex min-w-0 flex-wrap justify-end gap-1.5'>
+                            {transaction.subcategory && <span className='badge'>{transaction.subcategory}</span>}
+                            {transaction.paymentMethod && <span className='badge'>{transaction.paymentMethod}</span>}
+                            {transaction.reserve && <span className='badge'>Reserva: {transaction.reserve}</span>}
+                            {transaction.installment && <span className='badge'>{transaction.installment}</span>}
+                          </div>
                         </div>
-                      </div>
-                      {transaction.notes && <p className='mt-2 truncate text-[11px] text-slate-400'>{transaction.notes}</p>}
-                    </article>
+                        {transaction.notes && <p className='mt-2 truncate text-[11px] text-slate-400'>{transaction.notes}</p>}
+                      </article>
+                    </div>
                   );
                 })}
               </div>
