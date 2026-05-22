@@ -64,6 +64,16 @@ router.post('/pluggy/webhook', (req, res) => {
     try {
       const event = String(payload.event || '').trim();
       const itemId = String(payload.itemId || payload.id || '').trim();
+
+      logger.info('pluggy_webhook_received', {
+        requestId,
+        event: event || '[empty]',
+        itemId: itemId || null,
+        accountId: payload.accountId || null,
+        hasCreatedLink: !!payload.createdTransactionsLink,
+        txIdsCount: Array.isArray(payload.transactionIds) ? payload.transactionIds.length : 0,
+      });
+
       if (itemId) await touchPluggyItemWebhook({ itemId, requestId });
 
       if (event === 'item/created' || event === 'item/updated') {
@@ -74,7 +84,10 @@ router.post('/pluggy/webhook', (req, res) => {
 
       if (event === 'transactions/created') {
         const link = String(payload.createdTransactionsLink || '').trim();
-        if (!itemId || !link) return;
+        if (!itemId || !link) {
+          logger.warn('pluggy_webhook_missing_created_link', { requestId, itemId: itemId || null });
+          return;
+        }
 
         const item = await getPluggyItem({ itemId });
         if (!item?.enabled) return;
@@ -99,7 +112,10 @@ router.post('/pluggy/webhook', (req, res) => {
       if (event === 'transactions/updated') {
         // best-effort: puxa detalhes dos ids e insere na inbox se não existir.
         const ids = Array.isArray(payload.transactionIds) ? payload.transactionIds : [];
-        if (!itemId || !ids.length) return;
+        if (!itemId || !ids.length) {
+          logger.warn('pluggy_webhook_missing_updated_ids', { requestId, itemId: itemId || null });
+          return;
+        }
         const item = await getPluggyItem({ itemId });
         if (!item?.enabled) return;
         const tx = await listTransactionsByIds({ requestId, ids });
