@@ -427,6 +427,25 @@ router.get('/pluggy/items', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// Força sync manual do Pluggy (best-effort): útil para testar rapidamente.
+router.post('/pluggy/sync', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const items = await listPluggyItems({ requestId: req.requestId });
+    const enabled = items.filter((i) => i.enabled);
+    let inserted = 0;
+    let seen = 0;
+
+    for (const it of enabled) {
+      // Sem um cursor persistido, o sync manual aqui só valida conexão e atualiza lastSyncAt.
+      // A ingestão principal vem via webhook transactions/created.
+      await touchPluggyItemSync({ itemId: it.itemId, requestId: req.requestId });
+    }
+
+    res.json({ ok: true, data: { items: enabled.length, inserted, seen } });
+  } catch (e) { next(e); }
+});
+
 async function updateTransactionById(id, req, res, next) {
   try {
     const p = req.body || {};
