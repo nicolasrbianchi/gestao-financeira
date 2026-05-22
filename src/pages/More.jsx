@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Download, Inbox, LogOut, Server, Tags, Target } from 'lucide-react';
+import { Download, Inbox, Link2, LogOut, Server, Tags, Target } from 'lucide-react';
+import { PluggyConnect } from 'pluggy-connect-sdk';
 import ManageTagsSheet from '../components/ManageTagsSheet';
 import ManageMonthlyGoalsSheet from '../components/ManageMonthlyGoalsSheet';
 import ExportSheet from '../components/ExportSheet';
@@ -20,7 +21,7 @@ function Row({ icon: Icon, title, description, action, children }) {
   );
 }
 
-export default function More({ api, metadata = {}, onLogout, onOpenInbox }) {
+export default function More({ api, metadata = {}, onLogout, onOpenInbox, onToast }) {
   const [status, setStatus] = useState('');
   const [meta, setMeta] = useState('');
   const [checking, setChecking] = useState(false);
@@ -28,6 +29,8 @@ export default function More({ api, metadata = {}, onLogout, onOpenInbox }) {
   const [goalsOpen, setGoalsOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [inboxCount, setInboxCount] = useState(null);
+  const [pluggyItems, setPluggyItems] = useState([]);
+  const [pluggyBusy, setPluggyBusy] = useState(false);
 
   const testConnection = async () => {
     try {
@@ -56,6 +59,52 @@ export default function More({ api, metadata = {}, onLogout, onOpenInbox }) {
   // best-effort ao abrir a tela
   React.useEffect(() => { loadInboxCount(); /* eslint-disable-next-line */ }, []);
 
+  const loadPluggy = async () => {
+    try {
+      const r = await api('/pluggy/items');
+      setPluggyItems(r.items || []);
+    } catch {
+      setPluggyItems([]);
+    }
+  };
+
+  React.useEffect(() => { loadPluggy(); /* eslint-disable-next-line */ }, []);
+
+  const openPluggy = async () => {
+    try {
+      setPluggyBusy(true);
+      const r = await api('/pluggy/connect-token', { method: 'POST', body: '{}' });
+      const connectToken = r.connectToken || r.accessToken;
+      if (!connectToken) throw new Error('Connect token ausente.');
+
+      const existing = pluggyItems?.[0]?.itemId;
+      const widget = new PluggyConnect({
+        connectToken,
+        theme: 'dark',
+        allowConnectInBackground: true,
+        updateItem: existing || undefined,
+        onSuccess: async (data) => {
+          const itemId = data?.item?.id;
+          if (!itemId) return;
+          await api('/pluggy/items', { method: 'POST', body: JSON.stringify({ itemId }) });
+          onToast?.('Banco conectado. Novas transações vão aparecer em Importações pendentes.');
+          await Promise.all([loadPluggy(), loadInboxCount()]);
+        },
+        onError: (err) => {
+          onToast?.(err?.message || 'Erro no Pluggy Connect.');
+        },
+        onClose: () => {
+          setPluggyBusy(false);
+        },
+      });
+
+      await widget.init();
+    } catch (e) {
+      setPluggyBusy(false);
+      onToast?.(e?.message || 'Erro ao abrir Pluggy Connect.');
+    }
+  };
+
   return (
     <div className='space-y-4'>
       <header className='px-1'>
@@ -69,6 +118,13 @@ export default function More({ api, metadata = {}, onLogout, onOpenInbox }) {
         title='Importações pendentes'
         description={inboxCount == null ? '—' : `${inboxCount} pendente(s) para aprovar`}
         action={<button type='button' onClick={onOpenInbox} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Abrir</button>}
+      />
+
+      <Row
+        icon={Link2}
+        title='Conectar banco (MeuPluggy)'
+        description={pluggyItems.length ? `${pluggyItems.length} conexão(ões) ativa(s)` : 'Conecte seus bancos via MeuPluggy para importar transações.'}
+        action={<button type='button' onClick={openPluggy} disabled={pluggyBusy} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>{pluggyBusy ? 'Abrindo…' : (pluggyItems.length ? 'Atualizar conexão' : 'Conectar')}</button>}
       />
 
       <Row

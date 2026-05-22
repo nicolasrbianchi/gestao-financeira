@@ -109,3 +109,20 @@ begin
 end $$;
 
 create index if not exists idx_import_inbox_status on import_inbox(status);
+
+-- Pluggy connections (single-user, mas suporta múltiplos itens)
+create table if not exists pluggy_items (
+  id bigserial primary key,
+  item_id uuid not null,
+  client_user_id text not null default '',
+  enabled boolean not null default true,
+  -- Evita inundar a inbox no primeiro sync: por padrão, só importa transações com date >= ignore_before.
+  ignore_before timestamptz not null default now(),
+  last_webhook_at timestamptz,
+  last_sync_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (item_id)
+);
+
+create index if not exists idx_pluggy_items_enabled on pluggy_items(enabled);

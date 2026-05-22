@@ -11,6 +11,8 @@ import { listSubcategories, createSubcategory, updateSubcategory } from './subca
 import { listMonthlyGoals, upsertMonthlyGoal, deleteMonthlyGoal } from './monthlyGoalsDb.js';
 import { buildExportPayload, buildTransactionsCsv } from './exporter.js';
 import { listPendingImports, rejectImport, approveImport } from './importInboxDb.js';
+import { createConnectToken, listAccounts, listTransactionsByUrl, listTransactionsByIds } from './pluggyClient.js';
+import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, getPluggyItem, insertImportsFromPluggy } from './pluggyDb.js';
 import pkg from '../package.json' with { type: 'json' };
 
 export const router = express.Router();
@@ -43,6 +45,71 @@ router.post('/auth/logout', (req, res) => {
   req.session = null;
   logger.info('auth_logout', { requestId: req.requestId });
   res.json({ ok: true });
+});
+
+// Webhook Pluggy (sem auth). Protegido por token simples opcional.
+router.post('/pluggy/webhook', (req, res) => {
+  const token = String(req.query.token || '').trim();
+  const expected = String(process.env.PLUGGY_WEBHOOK_TOKEN || '').trim();
+  if (expected && token !== expected) {
+    return res.status(401).json({ ok: false, error: 'Unauthorized' });
+  }
+
+  // ACK rápido (Pluggy pode retry se não receber 2xx)
+  res.status(204).end();
+
+  const payload = req.body || {};
+  const requestId = req.requestId;
+  void (async () => {
+    try {
+      const event = String(payload.event || '').trim();
+      const itemId = String(payload.itemId || payload.id || '').trim();
+      if (itemId) await touchPluggyItemWebhook({ itemId, requestId });
+
+      if (event === 'item/created' || event === 'item/updated') {
+        // Garante que o item exista na nossa base.
+        if (itemId) await upsertPluggyItem({ itemId, clientUserId: String(payload.clientUserId || ''), requestId });
+        return;
+      }
+
+      if (event === 'transactions/created') {
+        const link = String(payload.createdTransactionsLink || '').trim();
+        if (!itemId || !link) return;
+
+        const item = await getPluggyItem({ itemId });
+        if (!item?.enabled) return;
+
+        // accountHint best-effort
+        let accountHint = '';
+        try {
+          const accounts = await listAccounts({ requestId, itemId });
+          const accId = String(payload.accountId || '').trim();
+          const acc = accounts.find((a) => String(a?.id || '') === accId);
+          accountHint = String(acc?.name || acc?.number || acc?.type || accId || '');
+        } catch {
+          accountHint = String(payload.accountId || '').trim();
+        }
+
+        const tx = await listTransactionsByUrl({ requestId, url: link });
+        await insertImportsFromPluggy({ requestId, itemId, accountHint, transactions: tx, ignoreBefore: item.ignoreBefore });
+        await touchPluggyItemSync({ itemId, requestId });
+        return;
+      }
+
+      if (event === 'transactions/updated') {
+        // best-effort: puxa detalhes dos ids e insere na inbox se não existir.
+        const ids = Array.isArray(payload.transactionIds) ? payload.transactionIds : [];
+        if (!itemId || !ids.length) return;
+        const item = await getPluggyItem({ itemId });
+        if (!item?.enabled) return;
+        const tx = await listTransactionsByIds({ requestId, ids });
+        await insertImportsFromPluggy({ requestId, itemId, accountHint: String(payload.accountId || ''), transactions: tx, ignoreBefore: item.ignoreBefore });
+        await touchPluggyItemSync({ itemId, requestId });
+      }
+    } catch (e) {
+      logger.error('pluggy_webhook_failed', { requestId, error: e?.message || String(e) });
+    }
+  })();
 });
 
 router.use(requireAuth);
@@ -315,6 +382,48 @@ router.post('/imports/:id/reject', async (req, res, next) => {
     const importId = Number(req.params.id || 0);
     const result = await rejectImport(importId, { requestId: req.requestId });
     res.json({ ok: true, data: result });
+  } catch (e) { next(e); }
+});
+
+// Pluggy / MeuPluggy (DB-only)
+router.post('/pluggy/connect-token', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+
+    const baseUrl = String(process.env.PLUGGY_WEBHOOK_URL || '').trim() || `${req.protocol}://${req.get('host')}/api/pluggy/webhook`;
+    const token = String(process.env.PLUGGY_WEBHOOK_TOKEN || '').trim();
+    const webhookUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
+
+    const connectToken = await createConnectToken({
+      requestId: req.requestId,
+      options: {
+        webhookUrl,
+        clientUserId: 'nicco',
+        avoidDuplicates: true,
+      },
+    });
+
+    res.json({ ok: true, accessToken: connectToken, connectToken });
+  } catch (e) { next(e); }
+});
+
+router.post('/pluggy/items', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const itemId = String(req.body?.itemId || '').trim();
+    if (!itemId) return res.status(400).json({ ok: false, error: 'itemId obrigatório.', requestId: req.requestId });
+
+    // Por padrão, NÃO importamos histórico: só novas transações a partir de agora.
+    const item = await upsertPluggyItem({ itemId, clientUserId: 'nicco', requestId: req.requestId, ignoreBefore: new Date().toISOString() });
+    res.json({ ok: true, item });
+  } catch (e) { next(e); }
+});
+
+router.get('/pluggy/items', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const items = await listPluggyItems({ requestId: req.requestId });
+    res.json({ ok: true, items });
   } catch (e) { next(e); }
 });
 
