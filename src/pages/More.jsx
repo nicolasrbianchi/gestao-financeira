@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Inbox, Link2, LogOut, Server, Tags, Target } from 'lucide-react';
+import { Download, Link2, LogOut, Server, Tags, Target } from 'lucide-react';
 import { PluggyConnect } from 'pluggy-connect-sdk';
 import ManageTagsSheet from '../components/ManageTagsSheet';
 import ManageMonthlyGoalsSheet from '../components/ManageMonthlyGoalsSheet';
@@ -21,14 +21,13 @@ function Row({ icon: Icon, title, description, action, children }) {
   );
 }
 
-export default function More({ api, metadata = {}, onLogout, onOpenInbox, onToast }) {
+export default function More({ api, metadata = {}, onLogout, onToast }) {
   const [status, setStatus] = useState('');
   const [meta, setMeta] = useState('');
   const [checking, setChecking] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
-  const [inboxCount, setInboxCount] = useState(null);
   const [pluggyItems, setPluggyItems] = useState([]);
   const [pluggyBusy, setPluggyBusy] = useState(false);
 
@@ -46,18 +45,6 @@ export default function More({ api, metadata = {}, onLogout, onOpenInbox, onToas
       setChecking(false);
     }
   };
-
-  const loadInboxCount = async () => {
-    try {
-      const r = await api('/imports/pending');
-      setInboxCount((r.items || []).length);
-    } catch {
-      setInboxCount(null);
-    }
-  };
-
-  // best-effort ao abrir a tela
-  React.useEffect(() => { loadInboxCount(); /* eslint-disable-next-line */ }, []);
 
   const loadPluggy = async () => {
     try {
@@ -88,8 +75,8 @@ export default function More({ api, metadata = {}, onLogout, onOpenInbox, onToas
           const itemId = data?.item?.id;
           if (!itemId) return;
           await api('/pluggy/items', { method: 'POST', body: JSON.stringify({ itemId }) });
-          onToast?.('Banco conectado. Novas transações vão aparecer em Importações pendentes.');
-          await Promise.all([loadPluggy(), loadInboxCount()]);
+          onToast?.('Banco conectado. As transações novas vão aparecer na caixa de entrada.');
+          await Promise.all([loadPluggy()]);
         },
         onError: (err) => {
           onToast?.(err?.message || 'Erro no Pluggy Connect.');
@@ -113,13 +100,6 @@ export default function More({ api, metadata = {}, onLogout, onOpenInbox, onToas
         <h1 className='text-2xl font-bold text-slate-900'>Mais</h1>
         <p className='mt-1 text-sm text-slate-500'>Gestão do app e operação.</p>
       </header>
-
-      <Row
-        icon={Inbox}
-        title='Importações pendentes'
-        description={inboxCount == null ? '—' : `${inboxCount} pendente(s) para aprovar`}
-        action={<button type='button' onClick={onOpenInbox} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Abrir</button>}
-      />
 
       <Row
         icon={Link2}

@@ -3,6 +3,7 @@ import BottomNav from './BottomNav';
 import FilterSheet from './FilterSheet';
 import TransactionSheet from './TransactionSheet';
 import ImportInboxSheet from './ImportInboxSheet';
+import AddTransactionMenuSheet from './AddTransactionMenuSheet';
 import Home from '../pages/Home';
 import Transactions from '../pages/Transactions';
 import Categories from '../pages/Categories';
@@ -53,6 +54,7 @@ export default function AppShell(props) {
   const [aiResetKey, setAiResetKey] = useState(0);
   const [showInbox, setShowInbox] = useState(false);
   const [approveDraft, setApproveDraft] = useState(null);
+  const [showAddMenu, setShowAddMenu] = useState(false);
 
   const safeTab = ROUTES[tab] === undefined ? 'home' : tab;
   const route = useMemo(() => ROUTES[safeTab], [safeTab]);
@@ -181,7 +183,7 @@ export default function AppShell(props) {
     }
     if (safeTab === 'categories') return <Categories data={data} loading={loading} filters={filters} setFilters={setFilters} onGoTransactions={() => onTab('transactions')} />;
     if (safeTab === 'ai') return <Ai api={api} resetKey={aiResetKey} />;
-    return <More api={api} metadata={metadata || {}} onLogout={onLogout} onOpenInbox={() => setShowInbox(true)} onToast={onToast} />;
+    return <More api={api} metadata={metadata || {}} onLogout={onLogout} onToast={onToast} />;
   };
 
   return (
@@ -221,9 +223,7 @@ export default function AppShell(props) {
         tab={safeTab}
         onTab={onTab}
         onAdd={() => {
-          setEditingTx(null);
-          setTransactionSheetMode('add');
-          setShowTransactionSheet(true);
+          setShowAddMenu(true);
         }}
       />
       <FilterSheet open={showFilters} onClose={() => setShowFilters(false)} filters={filters} setFilters={setFilters} metadata={metadata || {}} />
@@ -237,6 +237,22 @@ export default function AppShell(props) {
         initialTransaction={editingTx}
         mode={transactionSheetMode}
         submitPath={approveDraft?.importId ? `/imports/${approveDraft.importId}/approve` : null}
+      />
+
+      <AddTransactionMenuSheet
+        open={showAddMenu}
+        onClose={() => setShowAddMenu(false)}
+        onOpenFinance={() => {
+          setShowAddMenu(false);
+          setShowInbox(true);
+        }}
+        onManual={() => {
+          setShowAddMenu(false);
+          setEditingTx(null);
+          setApproveDraft(null);
+          setTransactionSheetMode('add');
+          setShowTransactionSheet(true);
+        }}
       />
 
       <ImportInboxSheet
