@@ -11,8 +11,8 @@ import { listSubcategories, createSubcategory, updateSubcategory } from './subca
 import { listMonthlyGoals, upsertMonthlyGoal, deleteMonthlyGoal } from './monthlyGoalsDb.js';
 import { buildExportPayload, buildTransactionsCsv } from './exporter.js';
 import { listPendingImports, rejectImport, approveImport } from './importInboxDb.js';
-import { createConnectToken, listAccounts, listTransactionsByUrl, listTransactionsByIds, listTransactionsByAccount, updateItem, getItem as pluggyGetItem } from './pluggyClient.js';
-import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemUpdate, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy, disablePluggyItemUpdate } from './pluggyDb.js';
+import { createConnectToken, listAccounts, listTransactionsByUrl, listTransactionsByIds, listTransactionsByAccount, getItem as pluggyGetItem } from './pluggyClient.js';
+import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy } from './pluggyDb.js';
 import pkg from '../package.json' with { type: 'json' };
 
 export const router = express.Router();
@@ -467,15 +467,7 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
 
     const overlapMs = Number(process.env.PLUGGY_FETCH_OVERLAP_MS || 5 * 60 * 1000);
     const minIntervalMs = Number(process.env.PLUGGY_FETCH_MIN_INTERVAL_MS || 3 * 60 * 1000);
-    // Docs Pluggy: PATCH /items tem limitação (ex: 1x/h em alguns ambientes). Respeitamos via throttle.
-    const updateMinIntervalMs = Number(process.env.PLUGGY_UPDATE_MIN_INTERVAL_MS || 60 * 1000);
-    const updateEnabled = String(process.env.PLUGGY_UPDATE_ENABLED || 'true').toLowerCase() !== 'false';
-    // Se o update do item demorar, o fetch pode não ver as novas transações imediatamente.
-    // Usamos um overlap maior para não "perder" transações que chegaram atrasadas.
-    const lagOverlapMs = Number(process.env.PLUGGY_FETCH_LAG_OVERLAP_MS || 30 * 60 * 1000);
     const nowIso = new Date().toISOString();
-
-    const failures = [];
 
     logger.info('pluggy_manual_fetch_started', { requestId: req.requestId, mode: 'cursor', overlapMs, minIntervalMs });
 
@@ -491,57 +483,8 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
     let totalInserted = 0;
     let totalUpdated = 0;
     let skippedItems = 0;
-    let itemUpdatesTriggered = 0;
-    let itemUpdatesSkipped = 0;
-    let itemUpdatesFailed = 0;
 
     for (const it of enabled) {
-      // Best-effort: dispara um Update do Item no Pluggy para puxar novidades do banco.
-      // Não bloqueia o fetch; se falhar (MFA/credenciais/rate limit), a alternativa é o usuário rodar o update via widget.
-      if (updateEnabled) {
-        const lastUpdateAt = it.lastUpdateAt ? new Date(it.lastUpdateAt) : null;
-        const canUpdate = !lastUpdateAt || Number.isNaN(lastUpdateAt.getTime()) || (Date.now() - lastUpdateAt.getTime() >= updateMinIntervalMs);
-        if (it.canUpdate === false) {
-          itemUpdatesSkipped += 1;
-          logger.debug('pluggy_item_update_skipped', { requestId: req.requestId, itemId: it.itemId, reason: 'can_update=false' });
-        } else if (canUpdate) {
-          try {
-            await updateItem({ requestId: req.requestId, itemId: it.itemId });
-            await touchPluggyItemUpdate({ itemId: it.itemId, requestId: req.requestId });
-            itemUpdatesTriggered += 1;
-            logger.info('pluggy_item_update_triggered', { requestId: req.requestId, itemId: it.itemId, updateMinIntervalMs });
-          } catch (e) {
-            itemUpdatesFailed += 1;
-            // Se for um item MeuPluggy, a API não permite PATCH /items. Evita retry em loop.
-            if (String(e?.message || '').toLowerCase().includes('meupluggy item cant be updated')) {
-              try {
-                await touchPluggyItemUpdate({ itemId: it.itemId, requestId: req.requestId });
-              } catch {}
-              try {
-                await disablePluggyItemUpdate({ itemId: it.itemId, requestId: req.requestId });
-              } catch {}
-            }
-            failures.push({
-              phase: 'updateItem',
-              itemId: it.itemId,
-              status: e?.status || null,
-              pluggyRequestId: e?.pluggyRequestId || null,
-              error: e?.message || String(e),
-            });
-            logger.warn('pluggy_item_update_failed', {
-              requestId: req.requestId,
-              itemId: it.itemId,
-              status: e?.status || null,
-              pluggyRequestId: e?.pluggyRequestId || null,
-              error: e?.message || String(e),
-            });
-          }
-        } else {
-          itemUpdatesSkipped += 1;
-          logger.debug('pluggy_item_update_skipped', { requestId: req.requestId, itemId: it.itemId, lastUpdateAt: it.lastUpdateAt, updateMinIntervalMs });
-        }
-      }
-
       const lastFetchAt = it.lastFetchAt ? new Date(it.lastFetchAt) : null;
       if (lastFetchAt && !Number.isNaN(lastFetchAt.getTime()) && Date.now() - lastFetchAt.getTime() < minIntervalMs) {
         skippedItems += 1;
@@ -549,17 +492,11 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
         continue;
       }
 
-      // Se acabamos de pedir update do item, usamos overlap maior para tolerar sync lento.
-      // Heurística: se houve update "recente" (<= lagOverlapMs), volta mais no tempo.
-      const lastUpdateAt = it.lastUpdateAt ? new Date(it.lastUpdateAt) : null;
-      const updateWasRecent = lastUpdateAt && !Number.isNaN(lastUpdateAt.getTime()) && (Date.now() - lastUpdateAt.getTime() <= lagOverlapMs);
-      const effectiveOverlapMs = updateWasRecent ? Math.max(overlapMs, lagOverlapMs) : overlapMs;
-
       const createdAtFrom = lastFetchAt && !Number.isNaN(lastFetchAt.getTime())
-        ? new Date(lastFetchAt.getTime() - effectiveOverlapMs).toISOString()
+        ? new Date(lastFetchAt.getTime() - overlapMs).toISOString()
         : nowIso; // primeira vez: começa "daqui pra frente"
 
-      logger.info('pluggy_manual_fetch_item_started', { requestId: req.requestId, itemId: it.itemId, createdAtFrom, lastFetchAt: it.lastFetchAt || null, updateWasRecent, effectiveOverlapMs });
+      logger.info('pluggy_manual_fetch_item_started', { requestId: req.requestId, itemId: it.itemId, createdAtFrom, lastFetchAt: it.lastFetchAt || null });
 
       let accounts = [];
       let itemErrors = 0;
@@ -569,13 +506,6 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
         logger.debug('pluggy_manual_fetch_list_accounts_finished', { requestId: req.requestId, itemId: it.itemId, accounts: accounts.length });
       } catch (e) {
         itemErrors += 1;
-        failures.push({
-          phase: 'listAccounts',
-          itemId: it.itemId,
-          status: e?.status || null,
-          pluggyRequestId: e?.pluggyRequestId || null,
-          error: e?.message || String(e),
-        });
         logger.warn('pluggy_manual_fetch_list_accounts_failed', {
           requestId: req.requestId,
           itemId: it.itemId,
@@ -601,14 +531,6 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
           logger.debug('pluggy_manual_fetch_list_transactions_finished', { requestId: req.requestId, itemId: it.itemId, accountId, count: tx.length });
         } catch (e) {
           itemErrors += 1;
-          failures.push({
-            phase: 'listTransactions',
-            itemId: it.itemId,
-            accountId,
-            status: e?.status || null,
-            pluggyRequestId: e?.pluggyRequestId || null,
-            error: e?.message || String(e),
-          });
           logger.warn('pluggy_manual_fetch_list_transactions_failed', {
             requestId: req.requestId,
             itemId: it.itemId,
@@ -638,9 +560,6 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
       requestId: req.requestId,
       items: enabled.length,
       skippedItems,
-      itemUpdatesTriggered,
-      itemUpdatesSkipped,
-      itemUpdatesFailed,
       accounts: totalAccounts,
       seen: totalSeen,
       inserted: totalInserted,
@@ -652,14 +571,10 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
       data: {
         items: enabled.length,
         skippedItems,
-        itemUpdatesTriggered,
-        itemUpdatesSkipped,
-        itemUpdatesFailed,
         accounts: totalAccounts,
         seen: totalSeen,
         inserted: totalInserted,
         updated: totalUpdated,
-        failures,
       },
     });
   } catch (e) {
@@ -667,35 +582,12 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
   }
 });
 
-// Força sync manual do Pluggy (best-effort): útil para testar rapidamente.
+// Legado: antes tentávamos forçar update do item via API (PATCH /items), mas itens MeuPluggy não suportam.
+// Mantemos a rota por compatibilidade, mas ela não executa update.
 router.post('/pluggy/sync', async (req, res, next) => {
   try {
     if (!assertDbSource(req, res)) return;
-    const items = await listPluggyItems({ requestId: req.requestId });
-    const enabled = items.filter((i) => i.enabled);
-    const updateMinIntervalMs = Number(process.env.PLUGGY_UPDATE_MIN_INTERVAL_MS || 60 * 1000);
-    let updated = 0;
-    let skipped = 0;
-    let failed = 0;
-
-    for (const it of enabled) {
-      const lastUpdateAt = it.lastUpdateAt ? new Date(it.lastUpdateAt) : null;
-      const canUpdate = !lastUpdateAt || Number.isNaN(lastUpdateAt.getTime()) || (Date.now() - lastUpdateAt.getTime() >= updateMinIntervalMs);
-      if (!canUpdate) {
-        skipped += 1;
-        continue;
-      }
-      try {
-        await updateItem({ requestId: req.requestId, itemId: it.itemId });
-        await touchPluggyItemUpdate({ itemId: it.itemId, requestId: req.requestId });
-        updated += 1;
-      } catch (e) {
-        failed += 1;
-        logger.warn('pluggy_item_update_failed', { requestId: req.requestId, itemId: it.itemId, error: e?.message || String(e) });
-      }
-    }
-
-    res.json({ ok: true, data: { items: enabled.length, updated, skipped, failed, updateMinIntervalMs } });
+    res.json({ ok: true, data: { disabled: true, reason: 'MeuPluggy: update via API desabilitado. Atualize no painel e aguarde o fetch.' } });
   } catch (e) { next(e); }
 });
 
