@@ -79,6 +79,9 @@ router.post('/pluggy/webhook', (req, res) => {
       if (event === 'item/created' || event === 'item/updated') {
         // Garante que o item exista na nossa base.
         if (itemId) await upsertPluggyItem({ itemId, clientUserId: String(payload.clientUserId || ''), requestId });
+        // Observabilidade: o auto-sync diário do Pluggy (ou update manual no MeuPluggy) dispara item/updated.
+        // Marcamos last_sync_at para termos um "último sync observado" mesmo quando não vem transação no webhook.
+        if (event === 'item/updated' && itemId) await touchPluggyItemSync({ itemId, requestId });
         return;
       }
 
