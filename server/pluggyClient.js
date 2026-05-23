@@ -114,11 +114,11 @@ export async function listTransactionsByUrl({ requestId, url }) {
 
 export async function listTransactionsByAccount({ requestId, accountId, createdAtFrom } = {}) {
   if (!accountId) throw new Error('accountId obrigatório.');
-  const qs = new URLSearchParams({ accountId: String(accountId) });
-  if (createdAtFrom) qs.set('createdAtFrom', String(createdAtFrom));
+  const baseQs = new URLSearchParams({ accountId: String(accountId) });
+  if (createdAtFrom) baseQs.set('createdAtFrom', String(createdAtFrom));
 
   const out = [];
-  let nextUrl = `${API_BASE}/v2/transactions?${qs.toString()}`;
+  let nextUrl = `${API_BASE}/v2/transactions?${baseQs.toString()}`;
   let safety = 0;
   while (nextUrl && safety < 200) {
     safety += 1;
@@ -129,7 +129,10 @@ export async function listTransactionsByAccount({ requestId, accountId, createdA
     const next = String(data?.next || '').trim();
     if (!next) break;
     // next vem como query string (ex: ?accountId=...&after=...)
-    nextUrl = next.startsWith('http') ? next : `${API_BASE}/v2/transactions${next}`;
+    // Importante: o `next` pode não preservar filtros (ex: createdAtFrom), então re-anexamos.
+    const u = next.startsWith('http') ? new URL(next) : new URL(`${API_BASE}/v2/transactions${next}`);
+    if (createdAtFrom && !u.searchParams.has('createdAtFrom')) u.searchParams.set('createdAtFrom', String(createdAtFrom));
+    nextUrl = u.toString();
   }
 
   return out;
