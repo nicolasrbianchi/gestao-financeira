@@ -96,16 +96,17 @@ export default function ImportInboxSheet({ open, onClose, api, metadata, onAppro
                     type='button'
                     onClick={() => onApprove?.({
                       importId: it.id,
+                      prefill: it.prefill || null,
                       // pré-preenche o que dá
                       initialForm: {
                         data: isoToFormDate(it.occurredAt),
-                        nome: it.description || '',
-                        tipo: '',
+                        nome: it.prefill?.nome || it.description || '',
+                        tipo: it.prefill?.tipo || '',
                         reserva: '',
-                        conta: it.accountHint || '',
+                        conta: it.prefill?.conta || it.accountHint || '',
                         categoria: '',
                         subcategoria: '',
-                        forma: '',
+                        forma: it.prefill?.forma || '',
                         valor: String(Math.abs(it.amount || 0)).replace('.', ','),
                         status: '',
                         parcela: '',
