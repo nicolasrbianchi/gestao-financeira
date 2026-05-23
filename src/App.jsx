@@ -46,7 +46,7 @@ export default function App() {
     const id = setInterval(() => {
       if (stopped) return;
       void tick();
-    }, 30_000);
+    }, 3 * 60_000);
 
     return () => {
       stopped = true;
