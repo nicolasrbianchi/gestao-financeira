@@ -468,7 +468,7 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
     const overlapMs = Number(process.env.PLUGGY_FETCH_OVERLAP_MS || 5 * 60 * 1000);
     const minIntervalMs = Number(process.env.PLUGGY_FETCH_MIN_INTERVAL_MS || 3 * 60 * 1000);
     // Docs Pluggy: PATCH /items tem limitação (ex: 1x/h em alguns ambientes). Respeitamos via throttle.
-    const updateMinIntervalMs = Number(process.env.PLUGGY_UPDATE_MIN_INTERVAL_MS || 60 * 60 * 1000);
+    const updateMinIntervalMs = Number(process.env.PLUGGY_UPDATE_MIN_INTERVAL_MS || 60 * 1000);
     const updateEnabled = String(process.env.PLUGGY_UPDATE_ENABLED || 'true').toLowerCase() !== 'false';
     // Se o update do item demorar, o fetch pode não ver as novas transações imediatamente.
     // Usamos um overlap maior para não "perder" transações que chegaram atrasadas.
@@ -636,7 +636,7 @@ router.post('/pluggy/sync', async (req, res, next) => {
     if (!assertDbSource(req, res)) return;
     const items = await listPluggyItems({ requestId: req.requestId });
     const enabled = items.filter((i) => i.enabled);
-    const updateMinIntervalMs = Number(process.env.PLUGGY_UPDATE_MIN_INTERVAL_MS || 60 * 60 * 1000);
+    const updateMinIntervalMs = Number(process.env.PLUGGY_UPDATE_MIN_INTERVAL_MS || 60 * 1000);
     let updated = 0;
     let skipped = 0;
     let failed = 0;
