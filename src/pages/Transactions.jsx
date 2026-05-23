@@ -40,6 +40,17 @@ function keyOfTx(t, fallbackIndex = 0) {
   return String(t?.sheetRowNumber || `${t?.date || 'no-date'}:${t?.name || 'no-name'}:${fallbackIndex}`);
 }
 
+function formatTimeFromIso(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  try {
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return '';
+  }
+}
+
 export default function Transactions({ data, loading, filters, setFilters, onEdit, onDelete }) {
   const transactions = data?.transactions || [];
   const summary = data?.summary || { totalAmount: 0, count: transactions.length };
@@ -158,6 +169,12 @@ export default function Transactions({ data, loading, filters, setFilters, onEdi
                   const tone = toneByType[transaction.type] || 'text-slate-300 bg-slate-500/10 border-slate-300/20';
                   const amountTone = amountColorByType[transaction.type] || (isIncome ? 'pos' : 'neg');
                   const isOpen = openId === id;
+                  const isIntegration = transaction.source === 'integration';
+                  const sourceLabel = isIntegration ? 'Integração' : 'Manual';
+                  const sourceTone = isIntegration
+                    ? 'text-indigo-300 bg-indigo-500/10 border-indigo-300/20'
+                    : 'text-slate-300 bg-slate-500/10 border-slate-300/20';
+                  const timeLabel = formatTimeFromIso(transaction.occurredAt);
                   return (
                     <div key={id} className='relative overflow-hidden rounded-3xl'>
                       {/* Underlay actions */}
@@ -204,10 +221,11 @@ export default function Transactions({ data, loading, filters, setFilters, onEdi
                           <div className='min-w-0 flex-1'>
                             <div className='flex items-center gap-2'>
                               <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone}`}>{transaction.type || 'Sem tipo'}</span>
+                              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${sourceTone}`}>{sourceLabel}</span>
                               <p className='truncate text-sm font-bold text-slate-900'>{transaction.name || 'Sem nome'}</p>
                             </div>
                             <p className='mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500'>
-                              <CalendarDays size={12} /> {transaction.displayDate || transaction.date || 'Sem data'} · {transaction.account || 'Sem conta'}
+                              <CalendarDays size={12} /> {transaction.displayDate || transaction.date || 'Sem data'}{timeLabel ? ` · ${timeLabel}` : ''} · {transaction.account || 'Sem conta'}
                             </p>
                           </div>
                           <p className={`max-w-[8rem] shrink-0 break-words text-right text-sm font-extrabold ${amountTone}`}>

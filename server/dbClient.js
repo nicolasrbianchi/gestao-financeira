@@ -49,6 +49,9 @@ function rowToTx(row) {
     status: row.status || '',
     installment: row.installment || '',
     notes: row.notes || '',
+    source: row.import_provider ? 'integration' : 'manual',
+    integrationProvider: row.import_provider ? String(row.import_provider) : null,
+    occurredAt: row.import_occurred_at ? new Date(row.import_occurred_at).toISOString() : null,
   };
 }
 
@@ -82,10 +85,19 @@ export async function getTransactions(ctx = {}) {
     `select t.id, t.date, t.name, t.type, t.reserve, t.account,
             t.category_id, c.name as category_name,
             t.subcategory_id, s.name as subcategory_name,
-            t.payment_method, t.amount, t.status, t.installment, t.notes
+            t.payment_method, t.amount, t.status, t.installment, t.notes,
+            imp.provider as import_provider,
+            imp.occurred_at as import_occurred_at
        from transactions t
        left join categories c on c.id = t.category_id
        left join subcategories s on s.id = t.subcategory_id
+       left join lateral (
+         select provider, occurred_at
+           from import_inbox
+          where approved_transaction_id = t.id
+          order by occurred_at desc nulls last, id desc
+          limit 1
+       ) imp on true
       order by t.date desc, t.id desc`
   );
   const transactions = rows.map(rowToTx).filter((t) => t.date && t.type && Number.isFinite(t.amount) && t.amount > 0);

@@ -164,18 +164,7 @@ option {
       0 0 0 1px rgba(255, 255, 255, 0.10);
     opacity: 0.95;
   }
-  /* filete sutil no topo do card (separação no "preto absoluto") */
-  .card::before {
-    content: '';
-    position: absolute;
-    left: 16px;
-    right: 16px;
-    top: 10px;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(231, 220, 198, 0.20), transparent);
-    opacity: 0.9;
-    pointer-events: none;
-  }
+  /* filete no topo do card removido (poluição visual em listas) */
   .chip { @apply rounded-full px-3 py-2 text-xs; border: 1px solid var(--border-soft); background: rgba(4, 4, 8, 0.90); color: var(--muted-strong); box-shadow: 0 14px 44px rgba(0, 0, 0, 0.56); }
   /* Badge neutra: o champagne entra só em ações/seleção, não em tudo */
   .badge { @apply rounded-full px-2 py-1 text-[11px]; background: rgba(4, 4, 8, 0.86); color: var(--muted-strong); border: 1px solid var(--border-soft); }
