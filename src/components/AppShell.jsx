@@ -55,6 +55,7 @@ export default function AppShell(props) {
   const [showInbox, setShowInbox] = useState(false);
   const [approveDraft, setApproveDraft] = useState(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [pendingCount, setPendingCount] = useState(null);
 
   const safeTab = ROUTES[tab] === undefined ? 'home' : tab;
   const route = useMemo(() => ROUTES[safeTab], [safeTab]);
@@ -186,6 +187,23 @@ export default function AppShell(props) {
     return <More api={api} metadata={metadata || {}} onLogout={onLogout} onToast={onToast} />;
   };
 
+  useEffect(() => {
+    if (!showAddMenu) return;
+    let mounted = true;
+    api('/imports/pending')
+      .then((r) => {
+        if (!mounted) return;
+        setPendingCount((r.items || []).length);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setPendingCount(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [showAddMenu, api]);
+
   return (
     <div className={`app-frame ${safeTab === 'ai' ? 'app-frame-chat' : ''}`}>
       <div className='top-actions'>
@@ -242,6 +260,7 @@ export default function AppShell(props) {
       <AddTransactionMenuSheet
         open={showAddMenu}
         onClose={() => setShowAddMenu(false)}
+        pendingCount={pendingCount}
         onOpenFinance={() => {
           setShowAddMenu(false);
           setShowInbox(true);
