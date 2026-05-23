@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Landmark, Link2, LogOut, Server, Tags, Target } from 'lucide-react';
+import { Download, Landmark, Link2, LogOut, Server, Tags, Target, Trash2 } from 'lucide-react';
 import ManageTagsSheet from '../components/ManageTagsSheet';
 import ManageMonthlyGoalsSheet from '../components/ManageMonthlyGoalsSheet';
 import ExportSheet from '../components/ExportSheet';
@@ -70,6 +70,22 @@ export default function More({ api, metadata = {}, onLogout, onToast, onReload }
     onToast?.('Abra o Meu Pluggy e clique em atualizar conexão.');
   };
 
+  const pruneInboxToLastDays = async (days = 3) => {
+    const ok = window.confirm(
+      `Isso vai APAGAR da inbox (pendentes Pluggy) tudo que for mais antigo que ${days} dias.\n\n` +
+      `Use quando entrou uma leva grande no primeiro import.\n\nContinuar?`
+    );
+    if (!ok) return;
+    try {
+      await api('/imports/prune', { method: 'POST', body: JSON.stringify({ days, onlyPending: true }) });
+      await api('/pluggy/items/ignore-before/last-days', { method: 'POST', body: JSON.stringify({ days }) });
+      onToast?.(`Inbox limpa. Mantidas só pendências dos últimos ${days} dias.`);
+      onReload?.();
+    } catch (e) {
+      onToast?.(e?.message || 'Erro ao limpar inbox.');
+    }
+  };
+
   return (
     <div className='space-y-4'>
       <header className='px-1'>
@@ -83,6 +99,13 @@ export default function More({ api, metadata = {}, onLogout, onToast, onReload }
         title='Conectar banco (MeuPluggy)'
         description={pluggyItems.length ? `${pluggyItems.length} conexão(ões) ativa(s)` : 'Abra o MeuPluggy para conectar/atualizar seus bancos.'}
         action={<button type='button' onClick={openMeuPluggy} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Abrir Meu Pluggy</button>}
+      />
+
+      <Row
+        icon={Trash2}
+        title='Limpar inbox do Open Finance'
+        description='Se no primeiro import entrou histórico demais, limpe as pendências antigas agora.'
+        action={<button type='button' onClick={() => pruneInboxToLastDays(3)} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Manter só últimos 3 dias (agora)</button>}
       />
 
       <Row
