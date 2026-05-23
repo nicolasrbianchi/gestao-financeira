@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Download, Link2, LogOut, Server, Tags, Target } from 'lucide-react';
-import { PluggyConnect } from 'pluggy-connect-sdk';
 import ManageTagsSheet from '../components/ManageTagsSheet';
 import ManageMonthlyGoalsSheet from '../components/ManageMonthlyGoalsSheet';
 import ExportSheet from '../components/ExportSheet';
@@ -29,7 +28,6 @@ export default function More({ api, metadata = {}, onLogout, onToast }) {
   const [goalsOpen, setGoalsOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [pluggyItems, setPluggyItems] = useState([]);
-  const [pluggyBusy, setPluggyBusy] = useState(false);
 
   const testConnection = async () => {
     try {
@@ -57,46 +55,9 @@ export default function More({ api, metadata = {}, onLogout, onToast }) {
 
   React.useEffect(() => { loadPluggy(); /* eslint-disable-next-line */ }, []);
 
-
-  const openPluggy = async () => {
-    try {
-      setPluggyBusy(true);
-      const existing = pluggyItems?.[0]?.itemId;
-      const r = await api('/pluggy/connect-token', {
-        method: 'POST',
-        body: JSON.stringify(existing ? { itemId: existing } : {}),
-      });
-      const connectToken = r.connectToken || r.accessToken;
-      if (!connectToken) throw new Error('Connect token ausente.');
-      const widget = new PluggyConnect({
-        connectToken,
-        theme: 'dark',
-        allowConnectInBackground: true,
-        updateItem: existing || undefined,
-        onSuccess: async (data) => {
-          const itemId = data?.item?.id;
-          if (!itemId) return;
-          await api('/pluggy/items', { method: 'POST', body: JSON.stringify({ itemId }) });
-          // Best-effort: depois de atualizar/conectar o item no widget, tenta puxar transações novas.
-          // (Se o sync ainda estiver em andamento, o fetch pode vir vazio; o auto-fetch do app pega depois.)
-          await api('/pluggy/fetch-transactions', { method: 'POST', body: '{}' }).catch(() => {});
-          onToast?.('Banco conectado. As transações novas vão aparecer na caixa de entrada.');
-          await Promise.all([loadPluggy()]);
-        },
-        onError: (err) => {
-          const msg = err?.message || 'Erro no Pluggy Connect.';
-          onToast?.(msg);
-        },
-        onClose: () => {
-          setPluggyBusy(false);
-        },
-      });
-
-      await widget.init();
-    } catch (e) {
-      setPluggyBusy(false);
-      onToast?.(e?.message || 'Erro ao abrir Pluggy Connect.');
-    }
+  const openMeuPluggy = () => {
+    window.open('https://meu.pluggy.ai/connections', '_blank', 'noopener,noreferrer');
+    onToast?.('Abra o Meu Pluggy e clique em atualizar conexão.');
   };
 
   return (
@@ -110,8 +71,8 @@ export default function More({ api, metadata = {}, onLogout, onToast }) {
       <Row
         icon={Link2}
         title='Conectar banco (MeuPluggy)'
-        description={pluggyItems.length ? `${pluggyItems.length} conexão(ões) ativa(s)` : 'Conecte seus bancos via MeuPluggy para importar transações.'}
-        action={<button type='button' onClick={openPluggy} disabled={pluggyBusy} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>{pluggyBusy ? 'Abrindo…' : (pluggyItems.length ? 'Atualizar conexão' : 'Conectar')}</button>}
+        description={pluggyItems.length ? `${pluggyItems.length} conexão(ões) ativa(s)` : 'Abra o MeuPluggy para conectar/atualizar seus bancos.'}
+        action={<button type='button' onClick={openMeuPluggy} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Abrir Meu Pluggy</button>}
       />
 
       <Row
