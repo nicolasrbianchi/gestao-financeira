@@ -22,12 +22,12 @@ export default function AddTransactionMenuSheet({ open, onClose, onOpenFinance, 
 
   return (
     // Nota: este "sheet" é intencionalmente abaixo da bottom-nav (z-index menor)
-    // para não embaçar/sumir a barra inferior quando abrir o menu do botão "+".
+    // para manter blur/dimmer no app sem afetar a barra inferior.
     <div
       className='sheet'
       role='dialog'
       aria-modal='true'
-      style={{ zIndex: 35, backdropFilter: 'none' }}
+      style={{ zIndex: 35 }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose?.();
       }}
