@@ -120,6 +120,8 @@ create table if not exists pluggy_items (
   ignore_before timestamptz not null default now(),
   last_webhook_at timestamptz,
   last_sync_at timestamptz,
+  -- Última vez que pedimos um Update do Item via API (PATCH /items/{id}).
+  last_update_at timestamptz,
   -- Cursor para o fetch manual do app (evita re-buscar o que já foi ingerido).
   last_fetch_at timestamptz,
   created_at timestamptz not null default now(),
@@ -129,5 +131,8 @@ create table if not exists pluggy_items (
 
 alter table pluggy_items
   add column if not exists last_fetch_at timestamptz;
+
+alter table pluggy_items
+  add column if not exists last_update_at timestamptz;
 
 create index if not exists idx_pluggy_items_enabled on pluggy_items(enabled);

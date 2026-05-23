@@ -148,3 +148,11 @@ export async function listTransactionsByIds({ requestId, ids = [] } = {}) {
   const results = Array.isArray(data) ? data : (data?.results || []);
   return results;
 }
+
+export async function updateItem({ requestId, itemId, credentials } = {}) {
+  if (!itemId) throw new Error('itemId obrigatório.');
+  // PATCH /items/{id} dispara uma nova sincronização; credentials é opcional.
+  const body = credentials && typeof credentials === 'object' ? credentials : {};
+  const data = await pluggyFetch(`/items/${encodeURIComponent(String(itemId))}`, { requestId, method: 'PATCH', body });
+  return data;
+}

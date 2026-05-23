@@ -11,8 +11,8 @@ import { listSubcategories, createSubcategory, updateSubcategory } from './subca
 import { listMonthlyGoals, upsertMonthlyGoal, deleteMonthlyGoal } from './monthlyGoalsDb.js';
 import { buildExportPayload, buildTransactionsCsv } from './exporter.js';
 import { listPendingImports, rejectImport, approveImport } from './importInboxDb.js';
-import { createConnectToken, listAccounts, listTransactionsByUrl, listTransactionsByIds, listTransactionsByAccount } from './pluggyClient.js';
-import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy } from './pluggyDb.js';
+import { createConnectToken, listAccounts, listTransactionsByUrl, listTransactionsByIds, listTransactionsByAccount, updateItem } from './pluggyClient.js';
+import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemUpdate, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy } from './pluggyDb.js';
 import pkg from '../package.json' with { type: 'json' };
 
 export const router = express.Router();
@@ -451,6 +451,9 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
 
     const overlapMs = Number(process.env.PLUGGY_FETCH_OVERLAP_MS || 5 * 60 * 1000);
     const minIntervalMs = Number(process.env.PLUGGY_FETCH_MIN_INTERVAL_MS || 3 * 60 * 1000);
+    // Docs Pluggy: PATCH /items tem limitação (ex: 1x/h em alguns ambientes). Respeitamos via throttle.
+    const updateMinIntervalMs = Number(process.env.PLUGGY_UPDATE_MIN_INTERVAL_MS || 60 * 60 * 1000);
+    const updateEnabled = String(process.env.PLUGGY_UPDATE_ENABLED || 'true').toLowerCase() !== 'false';
     const nowIso = new Date().toISOString();
 
     logger.info('pluggy_manual_fetch_started', { requestId: req.requestId, mode: 'cursor', overlapMs, minIntervalMs });
@@ -469,6 +472,24 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
     let skippedItems = 0;
 
     for (const it of enabled) {
+      // Best-effort: dispara um Update do Item no Pluggy para puxar novidades do banco.
+      // Não bloqueia o fetch; se falhar (MFA/credenciais/rate limit), a alternativa é o usuário rodar o update via widget.
+      if (updateEnabled) {
+        const lastUpdateAt = it.lastUpdateAt ? new Date(it.lastUpdateAt) : null;
+        const canUpdate = !lastUpdateAt || Number.isNaN(lastUpdateAt.getTime()) || (Date.now() - lastUpdateAt.getTime() >= updateMinIntervalMs);
+        if (canUpdate) {
+          try {
+            await updateItem({ requestId: req.requestId, itemId: it.itemId });
+            await touchPluggyItemUpdate({ itemId: it.itemId, requestId: req.requestId });
+            logger.info('pluggy_item_update_triggered', { requestId: req.requestId, itemId: it.itemId, updateMinIntervalMs });
+          } catch (e) {
+            logger.warn('pluggy_item_update_failed', { requestId: req.requestId, itemId: it.itemId, error: e?.message || String(e) });
+          }
+        } else {
+          logger.debug('pluggy_item_update_skipped', { requestId: req.requestId, itemId: it.itemId, lastUpdateAt: it.lastUpdateAt, updateMinIntervalMs });
+        }
+      }
+
       const lastFetchAt = it.lastFetchAt ? new Date(it.lastFetchAt) : null;
       if (lastFetchAt && !Number.isNaN(lastFetchAt.getTime()) && Date.now() - lastFetchAt.getTime() < minIntervalMs) {
         skippedItems += 1;
@@ -544,16 +565,29 @@ router.post('/pluggy/sync', async (req, res, next) => {
     if (!assertDbSource(req, res)) return;
     const items = await listPluggyItems({ requestId: req.requestId });
     const enabled = items.filter((i) => i.enabled);
-    let inserted = 0;
-    let seen = 0;
+    const updateMinIntervalMs = Number(process.env.PLUGGY_UPDATE_MIN_INTERVAL_MS || 60 * 60 * 1000);
+    let updated = 0;
+    let skipped = 0;
+    let failed = 0;
 
     for (const it of enabled) {
-      // Sem um cursor persistido, o sync manual aqui só valida conexão e atualiza lastSyncAt.
-      // A ingestão principal vem via webhook transactions/created.
-      await touchPluggyItemSync({ itemId: it.itemId, requestId: req.requestId });
+      const lastUpdateAt = it.lastUpdateAt ? new Date(it.lastUpdateAt) : null;
+      const canUpdate = !lastUpdateAt || Number.isNaN(lastUpdateAt.getTime()) || (Date.now() - lastUpdateAt.getTime() >= updateMinIntervalMs);
+      if (!canUpdate) {
+        skipped += 1;
+        continue;
+      }
+      try {
+        await updateItem({ requestId: req.requestId, itemId: it.itemId });
+        await touchPluggyItemUpdate({ itemId: it.itemId, requestId: req.requestId });
+        updated += 1;
+      } catch (e) {
+        failed += 1;
+        logger.warn('pluggy_item_update_failed', { requestId: req.requestId, itemId: it.itemId, error: e?.message || String(e) });
+      }
     }
 
-    res.json({ ok: true, data: { items: enabled.length, inserted, seen } });
+    res.json({ ok: true, data: { items: enabled.length, updated, skipped, failed, updateMinIntervalMs } });
   } catch (e) { next(e); }
 });
 

@@ -43,7 +43,7 @@ export async function setPluggyItemIgnoreBefore({ itemId, ignoreBefore, requestI
 
 export async function listPluggyItems({ requestId } = {}) {
   const { rows } = await query(
-    `select id, item_id, client_user_id, enabled, ignore_before, last_webhook_at, last_sync_at, last_fetch_at, created_at, updated_at
+    `select id, item_id, client_user_id, enabled, ignore_before, last_webhook_at, last_sync_at, last_update_at, last_fetch_at, created_at, updated_at
        from pluggy_items
       order by id desc`
   );
@@ -56,6 +56,7 @@ export async function listPluggyItems({ requestId } = {}) {
     ignoreBefore: r.ignore_before ? new Date(r.ignore_before).toISOString() : null,
     lastWebhookAt: r.last_webhook_at ? new Date(r.last_webhook_at).toISOString() : null,
     lastSyncAt: r.last_sync_at ? new Date(r.last_sync_at).toISOString() : null,
+    lastUpdateAt: r.last_update_at ? new Date(r.last_update_at).toISOString() : null,
     lastFetchAt: r.last_fetch_at ? new Date(r.last_fetch_at).toISOString() : null,
     createdAt: r.created_at ? new Date(r.created_at).toISOString() : null,
     updatedAt: r.updated_at ? new Date(r.updated_at).toISOString() : null,
@@ -74,6 +75,12 @@ export async function touchPluggyItemSync({ itemId, requestId } = {}) {
   logger.debug('pluggy_item_sync_touched', { requestId, itemId: String(itemId) });
 }
 
+export async function touchPluggyItemUpdate({ itemId, requestId } = {}) {
+  if (!itemId) return;
+  await query(`update pluggy_items set last_update_at=now(), updated_at=now() where item_id=$1::uuid`, [String(itemId)]);
+  logger.debug('pluggy_item_update_touched', { requestId, itemId: String(itemId) });
+}
+
 export async function touchPluggyItemFetch({ itemId, requestId } = {}) {
   if (!itemId) return;
   await query(`update pluggy_items set last_fetch_at=now(), updated_at=now() where item_id=$1::uuid`, [String(itemId)]);
@@ -83,7 +90,7 @@ export async function touchPluggyItemFetch({ itemId, requestId } = {}) {
 export async function getPluggyItem({ itemId } = {}) {
   if (!itemId) throw new Error('itemId obrigatório.');
   const { rows } = await query(
-    `select id, item_id, client_user_id, enabled, ignore_before, last_webhook_at, last_sync_at, last_fetch_at
+    `select id, item_id, client_user_id, enabled, ignore_before, last_webhook_at, last_sync_at, last_update_at, last_fetch_at
        from pluggy_items
       where item_id=$1::uuid
       limit 1`,
@@ -99,6 +106,7 @@ export async function getPluggyItem({ itemId } = {}) {
     ignoreBefore: r.ignore_before ? new Date(r.ignore_before).toISOString() : null,
     lastWebhookAt: r.last_webhook_at ? new Date(r.last_webhook_at).toISOString() : null,
     lastSyncAt: r.last_sync_at ? new Date(r.last_sync_at).toISOString() : null,
+    lastUpdateAt: r.last_update_at ? new Date(r.last_update_at).toISOString() : null,
     lastFetchAt: r.last_fetch_at ? new Date(r.last_fetch_at).toISOString() : null,
   };
 }
