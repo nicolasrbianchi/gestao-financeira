@@ -21,7 +21,17 @@ export default function AddTransactionMenuSheet({ open, onClose, onOpenFinance, 
   const pendingLabel = pendingCount == null ? 'Pendências: —' : `${pendingCount} pendente(s)`;
 
   return (
-    <div className='sheet' role='dialog' aria-modal='true' onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+    // Nota: este "sheet" é intencionalmente abaixo da bottom-nav (z-index menor)
+    // para não embaçar/sumir a barra inferior quando abrir o menu do botão "+".
+    <div
+      className='sheet'
+      role='dialog'
+      aria-modal='true'
+      style={{ zIndex: 35, backdropFilter: 'none' }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose?.();
+      }}
+    >
       <div className='sheet-panel space-y-4' style={{ marginBottom: 'calc(6.5rem + env(safe-area-inset-bottom))', borderRadius: '2rem' }}>
         <div className='flex items-start justify-between gap-3'>
           <div className='min-w-0'>
@@ -41,6 +51,7 @@ export default function AddTransactionMenuSheet({ open, onClose, onOpenFinance, 
           <ActionButton
             icon={PlusCircle}
             title='Inserir transação manualmente'
+            description='Lançar no app'
             onClick={onManual}
           />
         </div>
