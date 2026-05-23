@@ -489,6 +489,9 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
     let totalInserted = 0;
     let totalUpdated = 0;
     let skippedItems = 0;
+    let itemUpdatesTriggered = 0;
+    let itemUpdatesSkipped = 0;
+    let itemUpdatesFailed = 0;
 
     for (const it of enabled) {
       // Best-effort: dispara um Update do Item no Pluggy para puxar novidades do banco.
@@ -500,11 +503,14 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
           try {
             await updateItem({ requestId: req.requestId, itemId: it.itemId });
             await touchPluggyItemUpdate({ itemId: it.itemId, requestId: req.requestId });
+            itemUpdatesTriggered += 1;
             logger.info('pluggy_item_update_triggered', { requestId: req.requestId, itemId: it.itemId, updateMinIntervalMs });
           } catch (e) {
+            itemUpdatesFailed += 1;
             logger.warn('pluggy_item_update_failed', { requestId: req.requestId, itemId: it.itemId, error: e?.message || String(e) });
           }
         } else {
+          itemUpdatesSkipped += 1;
           logger.debug('pluggy_item_update_skipped', { requestId: req.requestId, itemId: it.itemId, lastUpdateAt: it.lastUpdateAt, updateMinIntervalMs });
         }
       }
@@ -573,13 +579,29 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
       requestId: req.requestId,
       items: enabled.length,
       skippedItems,
+      itemUpdatesTriggered,
+      itemUpdatesSkipped,
+      itemUpdatesFailed,
       accounts: totalAccounts,
       seen: totalSeen,
       inserted: totalInserted,
       updated: totalUpdated,
     });
 
-    res.json({ ok: true, data: { items: enabled.length, skippedItems, accounts: totalAccounts, seen: totalSeen, inserted: totalInserted, updated: totalUpdated } });
+    res.json({
+      ok: true,
+      data: {
+        items: enabled.length,
+        skippedItems,
+        itemUpdatesTriggered,
+        itemUpdatesSkipped,
+        itemUpdatesFailed,
+        accounts: totalAccounts,
+        seen: totalSeen,
+        inserted: totalInserted,
+        updated: totalUpdated,
+      },
+    });
   } catch (e) {
     next(e);
   }
