@@ -198,8 +198,11 @@ export default function AppShell(props) {
       const list = Array.isArray(arr) ? arr : [];
       const lastSeen = Number(localStorage.getItem('gf_notifications_last_seen_at_ms') || 0) || 0;
       const unread = list.filter((n) => {
+        // novo esquema: readAt
+        if (n?.readAt) return false;
+        // compat: se não tiver readAt, usa lastSeen
         const t = n?.createdAt ? new Date(n.createdAt).getTime() : 0;
-        return t && t > lastSeen;
+        return t ? t > lastSeen : true;
       }).length;
       setUnreadNotifications(unread);
     } catch {
@@ -212,12 +215,13 @@ export default function AppShell(props) {
   }, [computeUnreadNotifications, insightTick]);
 
   useEffect(() => {
+    const onChanged = () => computeUnreadNotifications();
+    window.addEventListener('gf_notifications_changed', onChanged);
+    return () => window.removeEventListener('gf_notifications_changed', onChanged);
+  }, [computeUnreadNotifications]);
+
+  useEffect(() => {
     if (!showNotifications) return;
-    try {
-      localStorage.setItem('gf_notifications_last_seen_at_ms', String(Date.now()));
-    } catch {
-      // ignore
-    }
     computeUnreadNotifications();
   }, [showNotifications, computeUnreadNotifications]);
 

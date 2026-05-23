@@ -19,7 +19,16 @@ export default function App() {
     try {
       const raw = localStorage.getItem('gf_notifications_v1');
       const arr = raw ? JSON.parse(raw) : [];
-      return Array.isArray(arr) ? arr : [];
+      const list = Array.isArray(arr) ? arr : [];
+      // migração best-effort: garante shape
+      return list.map((n) => ({
+        id: String(n?.id || ''),
+        kind: n?.kind || 'Notificação',
+        title: n?.title || 'Atualização',
+        body: n?.body || '',
+        createdAt: n?.createdAt || null,
+        readAt: n?.readAt || null,
+      })).filter((n) => n.id);
     } catch {
       return [];
     }
@@ -161,6 +170,7 @@ export default function App() {
           title: 'Insight do Nicco IA',
           body: text,
           createdAt: new Date(now).toISOString(),
+          readAt: null,
         };
         const arr = [n, ...notificationsLoad()];
         notificationsSave(arr);
