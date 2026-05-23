@@ -84,7 +84,8 @@ export default function More({ api, metadata = {}, onLogout, onToast }) {
           await Promise.all([loadPluggy()]);
         },
         onError: (err) => {
-          onToast?.(err?.message || 'Erro no Pluggy Connect.');
+          const msg = err?.message || 'Erro no Pluggy Connect.';
+          onToast?.(msg);
         },
         onClose: () => {
           setPluggyBusy(false);
