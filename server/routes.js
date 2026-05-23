@@ -12,7 +12,7 @@ import { listMonthlyGoals, upsertMonthlyGoal, deleteMonthlyGoal } from './monthl
 import { buildExportPayload, buildTransactionsCsv } from './exporter.js';
 import { listPendingImports, rejectImport, approveImport } from './importInboxDb.js';
 import { createConnectToken, listAccounts, listTransactionsByUrl, listTransactionsByIds, listTransactionsByAccount, updateItem, getItem as pluggyGetItem } from './pluggyClient.js';
-import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemUpdate, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy } from './pluggyDb.js';
+import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemUpdate, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy, disablePluggyItemUpdate } from './pluggyDb.js';
 import pkg from '../package.json' with { type: 'json' };
 
 export const router = express.Router();
@@ -501,7 +501,10 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
       if (updateEnabled) {
         const lastUpdateAt = it.lastUpdateAt ? new Date(it.lastUpdateAt) : null;
         const canUpdate = !lastUpdateAt || Number.isNaN(lastUpdateAt.getTime()) || (Date.now() - lastUpdateAt.getTime() >= updateMinIntervalMs);
-        if (canUpdate) {
+        if (it.canUpdate === false) {
+          itemUpdatesSkipped += 1;
+          logger.debug('pluggy_item_update_skipped', { requestId: req.requestId, itemId: it.itemId, reason: 'can_update=false' });
+        } else if (canUpdate) {
           try {
             await updateItem({ requestId: req.requestId, itemId: it.itemId });
             await touchPluggyItemUpdate({ itemId: it.itemId, requestId: req.requestId });
@@ -513,6 +516,9 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
             if (String(e?.message || '').toLowerCase().includes('meupluggy item cant be updated')) {
               try {
                 await touchPluggyItemUpdate({ itemId: it.itemId, requestId: req.requestId });
+              } catch {}
+              try {
+                await disablePluggyItemUpdate({ itemId: it.itemId, requestId: req.requestId });
               } catch {}
             }
             failures.push({

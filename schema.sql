@@ -122,6 +122,8 @@ create table if not exists pluggy_items (
   last_sync_at timestamptz,
   -- Última vez que pedimos um Update do Item via API (PATCH /items/{id}).
   last_update_at timestamptz,
+  -- Alguns itens (ex: MeuPluggy) não suportam update via API. Quando false, pulamos PATCH /items.
+  can_update boolean not null default true,
   -- Cursor para o fetch manual do app (evita re-buscar o que já foi ingerido).
   last_fetch_at timestamptz,
   created_at timestamptz not null default now(),
@@ -134,5 +136,8 @@ alter table pluggy_items
 
 alter table pluggy_items
   add column if not exists last_update_at timestamptz;
+
+alter table pluggy_items
+  add column if not exists can_update boolean not null default true;
 
 create index if not exists idx_pluggy_items_enabled on pluggy_items(enabled);
