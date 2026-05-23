@@ -492,8 +492,10 @@ router.post('/pluggy/items', async (req, res, next) => {
     // Por padrão, limitamos o histórico inicial para evitar inundar a inbox.
     // OBS: createdAtFrom no Pluggy é "quando o Pluggy criou" a transação (sync), então em conexões novas pode vir tudo.
     // Usamos ignoreBefore (baseado no occurredAt/date) como corte real.
-    const initialDays = Number(process.env.PLUGGY_INITIAL_IMPORT_DAYS || 3);
-    const ignoreBefore = new Date(Date.now() - Math.max(0, initialDays) * 24 * 60 * 60 * 1000).toISOString();
+    const initialDays = Number(process.env.PLUGGY_INITIAL_IMPORT_DAYS || 0);
+    const ignoreBefore = initialDays > 0
+      ? new Date(Date.now() - Math.max(0, initialDays) * 24 * 60 * 60 * 1000).toISOString()
+      : new Date().toISOString();
     const item = await upsertPluggyItem({ itemId, clientUserId: 'nicco', requestId: req.requestId, ignoreBefore });
     res.json({ ok: true, item });
   } catch (e) { next(e); }
