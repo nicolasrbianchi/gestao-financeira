@@ -42,7 +42,7 @@ function ErrorState({ error, onRetry }) {
 }
 
 export default function AppShell(props) {
-  const { tab, onTab, filters, setFilters, metadata, initialDashboard, api, withQuery, onLogout, onToast, onReload } = props;
+  const { tab, onTab, filters, setFilters, metadata, initialDashboard, api, withQuery, onLogout, onToast, onReload, pendingImportsCount } = props;
   const [showFilters, setShowFilters] = useState(false);
   const [showTransactionSheet, setShowTransactionSheet] = useState(false);
   const [editingTx, setEditingTx] = useState(null);
@@ -55,7 +55,6 @@ export default function AppShell(props) {
   const [showInbox, setShowInbox] = useState(false);
   const [approveDraft, setApproveDraft] = useState(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
-  const [pendingCount, setPendingCount] = useState(null);
 
   const safeTab = ROUTES[tab] === undefined ? 'home' : tab;
   const route = useMemo(() => ROUTES[safeTab], [safeTab]);
@@ -187,22 +186,7 @@ export default function AppShell(props) {
     return <More api={api} metadata={metadata || {}} onLogout={onLogout} onToast={onToast} onReload={onReload} />;
   };
 
-  useEffect(() => {
-    if (!showAddMenu) return;
-    let mounted = true;
-    api('/imports/pending')
-      .then((r) => {
-        if (!mounted) return;
-        setPendingCount((r.items || []).length);
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setPendingCount(null);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, [showAddMenu, api]);
+  const pendingCount = Number.isFinite(Number(pendingImportsCount)) ? Number(pendingImportsCount) : 0;
 
   return (
     <div className={`app-frame ${safeTab === 'ai' ? 'app-frame-chat' : ''}`}>
@@ -240,6 +224,7 @@ export default function AppShell(props) {
       <BottomNav
         tab={safeTab}
         onTab={onTab}
+        pendingCount={pendingCount}
         onAdd={() => {
           setShowAddMenu(true);
         }}

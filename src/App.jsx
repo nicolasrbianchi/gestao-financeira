@@ -12,6 +12,7 @@ export default function App() {
   const [boot, setBoot] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [toast, setToast] = useState('');
+  const [pendingImportsCount, setPendingImportsCount] = useState(0);
 
   const getPluggyBoostUntilMs = () => {
     try {
@@ -53,6 +54,17 @@ export default function App() {
       }, everyMs);
     };
 
+    const refreshPendingCount = async () => {
+      try {
+        const r = await api('/imports/pending');
+        const count = (r.items || []).length;
+        setPendingImportsCount(count);
+        localStorage.setItem('gf_inbox_pending_count', String(count));
+      } catch {
+        // ignore
+      }
+    };
+
     const tick = async () => {
       try {
         const burst = isBoostActive();
@@ -60,6 +72,8 @@ export default function App() {
       } catch {
         // ignore (sem db/pluggy config, rate limit, etc). Logs ficam no backend.
       } finally {
+        // atualiza badge/contador (best-effort)
+        await refreshPendingCount();
         scheduleNext();
       }
     };
@@ -89,6 +103,7 @@ export default function App() {
     api('/imports/pending')
       .then((r) => {
         const count = (r.items || []).length;
+        setPendingImportsCount(count);
         const prev = Number(localStorage.getItem('gf_inbox_pending_count') || 0);
         if (count > prev) setToast(`${count} importação(ões) pendente(s) para aprovar.`);
         localStorage.setItem('gf_inbox_pending_count', String(count));
@@ -102,5 +117,5 @@ export default function App() {
   if (auth === null) return <div className='loading-state'>Carregando…</div>;
   if (!auth) return <LoginScreen onOk={() => setAuth(true)} />;
 
-  return <><AppShell tab={tab} onTab={setTab} filters={filters} setFilters={setFilters} metadata={metadata || {}} initialDashboard={boot?.dashboard || null} onReload={() => setReloadKey((v) => v + 1)} api={api} withQuery={withQuery} onToast={setToast} onLogout={async()=>{await api('/auth/logout',{method:'POST'});location.reload();}} />{toast&&<div className='toast'>{toast}</div>}</>;
+  return <><AppShell tab={tab} onTab={setTab} filters={filters} setFilters={setFilters} metadata={metadata || {}} initialDashboard={boot?.dashboard || null} onReload={() => setReloadKey((v) => v + 1)} api={api} withQuery={withQuery} onToast={setToast} pendingImportsCount={pendingImportsCount} onLogout={async()=>{await api('/auth/logout',{method:'POST'});location.reload();}} />{toast&&<div className='toast'>{toast}</div>}</>;
 }
