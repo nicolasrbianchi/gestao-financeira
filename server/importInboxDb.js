@@ -3,6 +3,13 @@ import { logger } from './logger.js';
 
 export async function listPendingImports(ctx = {}) {
   const requestId = ctx.requestId;
+  const pendingWindowDays = Number(process.env.IMPORT_INBOX_PENDING_WINDOW_DAYS || 3);
+
+  const whereWindow = Number.isFinite(pendingWindowDays) && pendingWindowDays > 0
+    ? ` and occurred_at >= (now() - ($1::int * interval '1 day'))`
+    : '';
+
+  const params = whereWindow ? [Math.floor(pendingWindowDays)] : [];
   const { rows } = await query(
     `select id, provider, external_id, occurred_at, description, account_hint, amount, currency, status, created_at,
             (raw->'transaction'->>'amount') as raw_amount,
@@ -11,8 +18,10 @@ export async function listPendingImports(ctx = {}) {
             (raw->'transaction'->'paymentData'->>'paymentMethod') as raw_payment_method,
             (raw->'transaction'->'merchant'->>'businessName') as raw_merchant_name
        from import_inbox
-      where status='pending'
+      where status='pending'${whereWindow}
       order by occurred_at desc nulls last, id desc`
+    ,
+    params
   );
   logger.debug('import_inbox_listed', { requestId, count: rows.length });
 
