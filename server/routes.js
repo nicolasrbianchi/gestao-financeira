@@ -457,6 +457,9 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
     // Docs Pluggy: PATCH /items tem limitação (ex: 1x/h em alguns ambientes). Respeitamos via throttle.
     const updateMinIntervalMs = Number(process.env.PLUGGY_UPDATE_MIN_INTERVAL_MS || 60 * 60 * 1000);
     const updateEnabled = String(process.env.PLUGGY_UPDATE_ENABLED || 'true').toLowerCase() !== 'false';
+    // Se o update do item demorar, o fetch pode não ver as novas transações imediatamente.
+    // Usamos um overlap maior para não "perder" transações que chegaram atrasadas.
+    const lagOverlapMs = Number(process.env.PLUGGY_FETCH_LAG_OVERLAP_MS || 30 * 60 * 1000);
     const nowIso = new Date().toISOString();
 
     logger.info('pluggy_manual_fetch_started', { requestId: req.requestId, mode: 'cursor', overlapMs, minIntervalMs });
@@ -499,11 +502,18 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
         logger.debug('pluggy_manual_fetch_item_skipped', { requestId: req.requestId, itemId: it.itemId, lastFetchAt: it.lastFetchAt, minIntervalMs });
         continue;
       }
+
+      // Se acabamos de pedir update do item, usamos overlap maior para tolerar sync lento.
+      // Heurística: se houve update "recente" (<= lagOverlapMs), volta mais no tempo.
+      const lastUpdateAt = it.lastUpdateAt ? new Date(it.lastUpdateAt) : null;
+      const updateWasRecent = lastUpdateAt && !Number.isNaN(lastUpdateAt.getTime()) && (Date.now() - lastUpdateAt.getTime() <= lagOverlapMs);
+      const effectiveOverlapMs = updateWasRecent ? Math.max(overlapMs, lagOverlapMs) : overlapMs;
+
       const createdAtFrom = lastFetchAt && !Number.isNaN(lastFetchAt.getTime())
-        ? new Date(lastFetchAt.getTime() - overlapMs).toISOString()
+        ? new Date(lastFetchAt.getTime() - effectiveOverlapMs).toISOString()
         : nowIso; // primeira vez: começa "daqui pra frente"
 
-      logger.info('pluggy_manual_fetch_item_started', { requestId: req.requestId, itemId: it.itemId, createdAtFrom, lastFetchAt: it.lastFetchAt || null });
+      logger.info('pluggy_manual_fetch_item_started', { requestId: req.requestId, itemId: it.itemId, createdAtFrom, lastFetchAt: it.lastFetchAt || null, updateWasRecent, effectiveOverlapMs });
 
       let accounts = [];
       let itemErrors = 0;
