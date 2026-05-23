@@ -114,7 +114,7 @@ export async function getMetadata(ctx = {}) {
     return rows.map((r) => String(r.v));
   };
 
-  const [types, reserves, accounts, paymentMethods, statuses, goals, categoriesRows, subcategoriesRows] = await Promise.all([
+  const [types, reserves, accountsDistinct, paymentMethods, statuses, goals, categoriesRows, subcategoriesRows, accountsRows] = await Promise.all([
     distinct('type'),
     distinct('reserve'),
     distinct('account'),
@@ -123,6 +123,8 @@ export async function getMetadata(ctx = {}) {
     query('select month, value from monthly_goals order by month asc').catch(() => ({ rows: [] })),
     query('select id, name, is_active from categories where is_active = true order by lower(name) asc').catch(() => ({ rows: [] })),
     query('select id, name, is_active from subcategories where is_active = true order by lower(name) asc').catch(() => ({ rows: [] })),
+    // contas/canais gerenciáveis
+    query('select name from accounts where is_active = true order by lower(name) asc').catch(() => ({ rows: [] })),
   ]);
 
   const monthlyGoals = Object.fromEntries((goals.rows || []).map((r) => [String(r.month), Number(r.value || 0)]).filter(([k, v]) => k && Number.isFinite(v)));
@@ -134,7 +136,11 @@ export async function getMetadata(ctx = {}) {
     ok: true,
     types: merge(types, TYPES_FALLBACK),
     reserves: merge(reserves, RESERVES_FALLBACK),
-    accounts: uniq(accounts),
+    // Contas/canais: se existe gestão, ela manda; senão usa fallback (distinct em transactions).
+    accounts: (() => {
+      const managed = uniq((accountsRows.rows || []).map((r) => String(r.name)));
+      return managed.length ? managed : uniq(accountsDistinct);
+    })(),
     // Mantém compat (arrays de string) e adiciona listas gerenciáveis (com id).
     // Importante: apenas opções ATIVAS devem aparecer nos selects.
     categories: merge((categoriesRows.rows || []).map((r) => r.name), CATEGORIES_FALLBACK),

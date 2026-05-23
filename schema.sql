@@ -39,6 +39,18 @@ create table if not exists transactions (
   updated_at timestamptz not null default now()
 );
 
+-- Contas/Canais (para selects e gestão). Em modo DB, preferimos esta tabela ao invés de deduzir de transações.
+create table if not exists accounts (
+  id bigserial primary key,
+  name text not null,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists uq_accounts_name_lower on accounts (lower(name));
+create index if not exists idx_accounts_active on accounts (is_active);
+
 -- Para bases já existentes: garante colunas novas.
 alter table transactions add column if not exists category_id bigint;
 alter table transactions add column if not exists subcategory_id bigint;

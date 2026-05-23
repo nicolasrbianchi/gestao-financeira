@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Download, Link2, LogOut, Server, Tags, Target } from 'lucide-react';
+import { Download, Landmark, Link2, LogOut, Server, Tags, Target } from 'lucide-react';
 import ManageTagsSheet from '../components/ManageTagsSheet';
 import ManageMonthlyGoalsSheet from '../components/ManageMonthlyGoalsSheet';
 import ExportSheet from '../components/ExportSheet';
+import ManageAccountsSheet from '../components/ManageAccountsSheet';
 
 function Row({ icon: Icon, title, description, action, children }) {
   return (
@@ -20,11 +21,12 @@ function Row({ icon: Icon, title, description, action, children }) {
   );
 }
 
-export default function More({ api, metadata = {}, onLogout, onToast }) {
+export default function More({ api, metadata = {}, onLogout, onToast, onReload }) {
   const [status, setStatus] = useState('');
   const [meta, setMeta] = useState('');
   const [checking, setChecking] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const [accountsOpen, setAccountsOpen] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [pluggyItems, setPluggyItems] = useState([]);
@@ -84,6 +86,13 @@ export default function More({ api, metadata = {}, onLogout, onToast }) {
       />
 
       <Row
+        icon={Landmark}
+        title='Canais'
+        description={`Gerenciar contas/canais do app. Ativos: ${(metadata.accounts || []).length}.`}
+        action={<button type='button' onClick={() => setAccountsOpen(true)} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Gerenciar</button>}
+      />
+
+      <Row
         icon={Tags}
         title='Categorias & classificações'
         description={`Gerenciar opções do app. Ativas: ${(metadata.categories || []).length} categorias · ${(metadata.subcategories || []).length} classificações.`}
@@ -123,6 +132,15 @@ export default function More({ api, metadata = {}, onLogout, onToast }) {
       </section>
 
       <ManageTagsSheet open={manageOpen} onClose={() => setManageOpen(false)} api={api} />
+      <ManageAccountsSheet
+        open={accountsOpen}
+        onClose={() => {
+          setAccountsOpen(false);
+          onReload?.();
+        }}
+        api={api}
+        onChanged={() => onReload?.()}
+      />
       <ManageMonthlyGoalsSheet open={goalsOpen} onClose={() => setGoalsOpen(false)} api={api} />
       <ExportSheet open={exportOpen} onClose={() => setExportOpen(false)} />
     </div>

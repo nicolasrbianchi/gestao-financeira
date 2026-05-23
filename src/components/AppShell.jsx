@@ -184,7 +184,7 @@ export default function AppShell(props) {
     }
     if (safeTab === 'categories') return <Categories data={data} loading={loading} filters={filters} setFilters={setFilters} onGoTransactions={() => onTab('transactions')} />;
     if (safeTab === 'ai') return <Ai api={api} resetKey={aiResetKey} />;
-    return <More api={api} metadata={metadata || {}} onLogout={onLogout} onToast={onToast} />;
+    return <More api={api} metadata={metadata || {}} onLogout={onLogout} onToast={onToast} onReload={onReload} />;
   };
 
   useEffect(() => {

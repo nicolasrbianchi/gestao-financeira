@@ -5,9 +5,11 @@ import { normalizeTransactions, parseMoneyBR } from './normalize.js';
 import { filterTx, buildDashboard } from './analytics.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
+import { query } from './db.js';
 import { openAiText } from './openaiClient.js';
 import { listCategories, createCategory, updateCategory } from './categoriesDb.js';
 import { listSubcategories, createSubcategory, updateSubcategory } from './subcategoriesDb.js';
+import { listAccounts as listManagedAccounts, createAccount, updateAccount } from './accountsDb.js';
 import { listMonthlyGoals, upsertMonthlyGoal, deleteMonthlyGoal } from './monthlyGoalsDb.js';
 import { buildExportPayload, buildTransactionsCsv } from './exporter.js';
 import { listPendingImports, rejectImport, approveImport } from './importInboxDb.js';
@@ -226,6 +228,58 @@ router.put('/subcategories/manage/:id', async (req, res, next) => {
     if (!assertDbSource(req, res)) return;
     const updated = await updateSubcategory(req.params.id, { name: req.body?.name, isActive: req.body?.isActive });
     res.json({ ok: true, subcategory: updated });
+  } catch (e) { next(e); }
+});
+
+// Gestão de contas/canais (DB-only)
+router.get('/accounts/manage', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const includeInactive = String(req.query.includeInactive || '') === 'true';
+    const accounts = await listManagedAccounts({ includeInactive });
+    res.json({ ok: true, accounts });
+  } catch (e) { next(e); }
+});
+
+router.post('/accounts/manage', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const account = await createAccount({ name: req.body?.name });
+    res.json({ ok: true, account });
+  } catch (e) { next(e); }
+});
+
+router.put('/accounts/manage/:id', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const account = await updateAccount(req.params.id, { name: req.body?.name, isActive: req.body?.isActive });
+    res.json({ ok: true, account });
+  } catch (e) { next(e); }
+});
+
+// Seed inicial: cria accounts a partir do histórico de transactions (sem duplicar case-insensitive).
+router.post('/accounts/manage/seed', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    // Insere todas as contas distintas que já existem em transactions.
+    // Evita duplicatas por lower(name).
+    const { rows } = await query(
+      `with distinct_accounts as (
+         select distinct account as name
+           from transactions
+          where account is not null and account <> ''
+       ),
+       to_insert as (
+         select d.name
+           from distinct_accounts d
+           left join accounts a on lower(a.name) = lower(d.name)
+          where a.id is null
+       )
+       insert into accounts (name)
+       select name from to_insert
+       returning id, name, is_active as "isActive"`
+    );
+    res.json({ ok: true, inserted: rows.length, accounts: rows });
   } catch (e) { next(e); }
 });
 
