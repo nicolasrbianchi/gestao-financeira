@@ -442,7 +442,7 @@ router.get('/pluggy/items', async (req, res, next) => {
   try {
     if (!assertDbSource(req, res)) return;
     const items = await listPluggyItems({ requestId: req.requestId });
-    res.json({ ok: true, items });
+    res.json({ ok: true, items: items.filter((i) => i.enabled) });
   } catch (e) { next(e); }
 });
 
