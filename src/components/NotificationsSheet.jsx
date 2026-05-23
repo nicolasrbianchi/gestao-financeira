@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Bell, ChevronLeft, MailOpen, MailPlus } from 'lucide-react';
 
 function normalizeNotifications(list) {
@@ -44,118 +44,39 @@ function snippet(text, max = 90) {
   return t.length > max ? `${t.slice(0, max - 1)}…` : t;
 }
 
-function SwipeNotificationRow({ n, onOpen, onToggleRead }) {
-  const ACTION_W = 104;
-  const [dx, setDx] = useState(0);
-  const [open, setOpen] = useState(false);
-  const [dragging, setDragging] = useState(false);
-  const start = useRef({ x: 0, y: 0, active: false });
-
-  const onPointerDown = (e) => {
-    start.current = { x: e.clientX, y: e.clientY, active: true };
-    setDragging(false);
-  };
-
-  const onPointerMove = (e) => {
-    if (!start.current.active) return;
-    const ddx = e.clientX - start.current.x;
-    const ddy = e.clientY - start.current.y;
-    if (!dragging) {
-      if (Math.abs(ddx) < 8) return;
-      if (Math.abs(ddy) > Math.abs(ddx)) {
-        start.current.active = false;
-        return;
-      }
-      setDragging(true);
-    }
-
-    const base = open ? -ACTION_W : 0;
-    let next = base + ddx;
-    next = Math.min(24, Math.max(next, -ACTION_W - 24));
-    setDx(next);
-  };
-
-  const endDrag = () => {
-    if (!start.current.active) return;
-    start.current.active = false;
-    if (!dragging) {
-      // click
-      if (open) {
-        setOpen(false);
-        setDx(0);
-      } else {
-        onOpen?.();
-      }
-      return;
-    }
-    setDragging(false);
-    const shouldOpen = dx < -ACTION_W / 2;
-    setOpen(shouldOpen);
-    setDx(shouldOpen ? -ACTION_W : 0);
-  };
-
+function NotificationRow({ n, onOpen }) {
   const isUnread = !n.readAt;
-  const actionLabel = isUnread ? 'Marcar como lida' : 'Marcar como não lida';
 
   return (
-    <div className='relative'>
-      <div className='pointer-events-none absolute inset-0 flex items-center justify-end pr-2'>
-        <button
-          type='button'
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onToggleRead?.();
-            setOpen(false);
-            setDx(0);
-          }}
-          className='pointer-events-auto flex h-12 items-center gap-2 rounded-3xl bg-slate-950 px-4 text-sm font-extrabold text-white ring-1 ring-white/10'
-          aria-label={actionLabel}
-        >
-          {isUnread ? <MailOpen size={16} /> : <MailPlus size={16} />}
-          {isUnread ? 'Lida' : 'Não lida'}
-        </button>
-      </div>
-
-      <div
-        role='button'
-        tabIndex={0}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
-        onPointerLeave={() => { if (dragging) endDrag(); }}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpen?.(); }}
-        className={`relative select-none rounded-4xl border px-4 py-3 ${isUnread ? 'border-white/20 bg-white/95' : 'border-white/10 bg-slate-950/40'}`}
-        style={{
-          transform: `translateX(${dx}px)`,
-          transition: dragging ? 'none' : 'transform 160ms ease',
-        }}
-      >
-        <div className='flex items-start gap-3'>
-          <div className='mt-1'>
-            <span className={`block h-2.5 w-2.5 rounded-full ${isUnread ? 'bg-rose-500' : 'bg-white/10'}`} aria-hidden='true' />
+    <button
+      type='button'
+      onClick={onOpen}
+      className={`w-full text-left rounded-4xl border px-4 py-3 ${isUnread ? 'border-white/20 bg-white/95' : 'border-white/10 bg-slate-950/40'}`}
+      aria-label={isUnread ? 'Notificação não lida' : 'Notificação lida'}
+    >
+      <div className='flex items-start gap-3'>
+        <div className='mt-1'>
+          <span className={`block h-2.5 w-2.5 rounded-full ${isUnread ? 'bg-rose-500' : 'bg-white/10'}`} aria-hidden='true' />
+        </div>
+        <div className='min-w-0 flex-1'>
+          <div className='flex items-center justify-between gap-3'>
+            <p className={`truncate text-sm font-extrabold ${isUnread ? 'text-slate-100' : 'text-slate-200'}`}>{n.title}</p>
+            {n.createdAt && <p className='shrink-0 text-[11px] font-semibold text-slate-400'>{new Date(n.createdAt).toLocaleDateString()}</p>}
           </div>
-          <div className='min-w-0 flex-1'>
-            <div className='flex items-center justify-between gap-3'>
-              <p className={`truncate text-sm font-extrabold ${isUnread ? 'text-slate-100' : 'text-slate-200'}`}>{n.title}</p>
-              {n.createdAt && <p className='shrink-0 text-[11px] font-semibold text-slate-400'>{new Date(n.createdAt).toLocaleDateString()}</p>}
-            </div>
-            <p
-              className='mt-0.5 text-sm text-slate-400'
-              style={{
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-              }}
-            >
-              {snippet(n.body || n.kind, 140) || n.kind}
-            </p>
-          </div>
+          <p
+            className='mt-0.5 text-sm text-slate-400'
+            style={{
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+          >
+            {snippet(n.body || n.kind, 140) || n.kind}
+          </p>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -231,14 +152,13 @@ export default function NotificationsSheet({ open, onClose }) {
         ) : notifications.length ? (
           <div className='space-y-2'>
             {notifications.map((n) => (
-              <SwipeNotificationRow
+              <NotificationRow
                 key={n.id}
                 n={n}
                 onOpen={() => {
                   setSelectedId(n.id);
                   markRead(n.id);
                 }}
-                onToggleRead={() => toggleRead(n.id)}
               />
             ))}
           </div>
