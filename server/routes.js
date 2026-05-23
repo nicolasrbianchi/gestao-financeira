@@ -14,7 +14,7 @@ import { listMonthlyGoals, upsertMonthlyGoal, deleteMonthlyGoal } from './monthl
 import { buildExportPayload, buildTransactionsCsv, buildInboxCsv } from './exporter.js';
 import { listPendingImports, rejectImport, approveImport } from './importInboxDb.js';
 import { createConnectToken, listAccounts, listTransactionsByUrl, listTransactionsByIds, listTransactionsByAccount, getItem as pluggyGetItem } from './pluggyClient.js';
-import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy } from './pluggyDb.js';
+import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy, setPluggyItemIgnoreBefore } from './pluggyDb.js';
 import pkg from '../package.json' with { type: 'json' };
 
 export const router = express.Router();
@@ -489,10 +489,60 @@ router.post('/pluggy/items', async (req, res, next) => {
     const itemId = String(req.body?.itemId || '').trim();
     if (!itemId) return res.status(400).json({ ok: false, error: 'itemId obrigatório.', requestId: req.requestId });
 
-    // Por padrão, NÃO importamos histórico: só novas transações a partir de agora.
-    const item = await upsertPluggyItem({ itemId, clientUserId: 'nicco', requestId: req.requestId, ignoreBefore: new Date().toISOString() });
+    // Por padrão, limitamos o histórico inicial para evitar inundar a inbox.
+    // OBS: createdAtFrom no Pluggy é "quando o Pluggy criou" a transação (sync), então em conexões novas pode vir tudo.
+    // Usamos ignoreBefore (baseado no occurredAt/date) como corte real.
+    const initialDays = Number(process.env.PLUGGY_INITIAL_IMPORT_DAYS || 3);
+    const ignoreBefore = new Date(Date.now() - Math.max(0, initialDays) * 24 * 60 * 60 * 1000).toISOString();
+    const item = await upsertPluggyItem({ itemId, clientUserId: 'nicco', requestId: req.requestId, ignoreBefore });
     res.json({ ok: true, item });
   } catch (e) { next(e); }
+});
+
+// Utilitário: ajusta ignoreBefore de todos os itens Pluggy para "agora - N dias".
+router.post('/pluggy/items/ignore-before/last-days', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const days = Number(req.body?.days ?? 2);
+    if (!Number.isFinite(days) || days < 0 || days > 365) {
+      return res.status(400).json({ ok: false, error: 'days inválido.', requestId: req.requestId });
+    }
+
+    const ignoreBefore = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const items = await listPluggyItems({ requestId: req.requestId });
+    const enabled = items.filter((i) => i.enabled);
+    for (const it of enabled) {
+      await setPluggyItemIgnoreBefore({ itemId: it.itemId, ignoreBefore, requestId: req.requestId });
+    }
+    res.json({ ok: true, data: { days, ignoreBefore, items: enabled.length } });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Utilitário: remove pendências antigas da inbox (Pluggy) para evitar listas enormes.
+router.post('/imports/prune', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const days = Number(req.body?.days ?? 2);
+    const onlyPending = req.body?.onlyPending !== false;
+    if (!Number.isFinite(days) || days < 0 || days > 365) {
+      return res.status(400).json({ ok: false, error: 'days inválido.', requestId: req.requestId });
+    }
+
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const { rowCount } = await query(
+      onlyPending
+        ? `delete from import_inbox where provider='pluggy' and status='pending' and occurred_at < $1::timestamptz`
+        : `delete from import_inbox where provider='pluggy' and occurred_at < $1::timestamptz`,
+      [cutoff]
+    );
+
+    logger.info('import_inbox_pruned', { requestId: req.requestId, provider: 'pluggy', days, onlyPending, deleted: rowCount });
+    res.json({ ok: true, data: { days, onlyPending, cutoff, deleted: rowCount } });
+  } catch (e) {
+    next(e);
+  }
 });
 
 router.get('/pluggy/items', async (req, res, next) => {
@@ -601,7 +651,7 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
           continue;
         }
 
-        const r = await insertImportsFromPluggy({ requestId: req.requestId, itemId: it.itemId, accountHint, transactions: tx });
+        const r = await insertImportsFromPluggy({ requestId: req.requestId, itemId: it.itemId, accountHint, transactions: tx, ignoreBefore: it.ignoreBefore });
         totalSeen += r.seen || 0;
         totalInserted += r.inserted || 0;
         totalUpdated += r.updated || 0;
