@@ -4,12 +4,13 @@ import FilterSheet from './FilterSheet';
 import TransactionSheet from './TransactionSheet';
 import ImportInboxSheet from './ImportInboxSheet';
 import AddTransactionMenuSheet from './AddTransactionMenuSheet';
+import NotificationsSheet from './NotificationsSheet';
 import Home from '../pages/Home';
 import Transactions from '../pages/Transactions';
 import Categories from '../pages/Categories';
 import More from '../pages/More';
 import Ai from '../pages/Ai';
-import { Filter, Settings, SquarePen } from 'lucide-react';
+import { Bell, Filter, Settings, SquarePen } from 'lucide-react';
 
 const ROUTES = {
   home: '/dashboard',
@@ -55,6 +56,7 @@ export default function AppShell(props) {
   const [showInbox, setShowInbox] = useState(false);
   const [approveDraft, setApproveDraft] = useState(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const safeTab = ROUTES[tab] === undefined ? 'home' : tab;
   const route = useMemo(() => ROUTES[safeTab], [safeTab]);
@@ -210,6 +212,15 @@ export default function AppShell(props) {
             <Filter size={18} />
           </button>
         )}
+
+        <button
+          type='button'
+          onClick={() => setShowNotifications(true)}
+          className='icon-btn'
+          aria-label='Notificações'
+        >
+          <Bell size={18} />
+        </button>
         <button
           type='button'
           onClick={() => onTab('more')}
@@ -229,6 +240,8 @@ export default function AppShell(props) {
           setShowAddMenu(true);
         }}
       />
+
+      <NotificationsSheet open={showNotifications} onClose={() => setShowNotifications(false)} />
       <FilterSheet open={showFilters} onClose={() => setShowFilters(false)} filters={filters} setFilters={setFilters} metadata={metadata || {}} />
       <TransactionSheet
         open={showTransactionSheet}
