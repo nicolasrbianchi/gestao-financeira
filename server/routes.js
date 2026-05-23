@@ -11,7 +11,7 @@ import { listCategories, createCategory, updateCategory } from './categoriesDb.j
 import { listSubcategories, createSubcategory, updateSubcategory } from './subcategoriesDb.js';
 import { listAccounts as listManagedAccounts, createAccount, updateAccount } from './accountsDb.js';
 import { listMonthlyGoals, upsertMonthlyGoal, deleteMonthlyGoal } from './monthlyGoalsDb.js';
-import { buildExportPayload, buildTransactionsCsv } from './exporter.js';
+import { buildExportPayload, buildTransactionsCsv, buildInboxCsv } from './exporter.js';
 import { listPendingImports, rejectImport, approveImport } from './importInboxDb.js';
 import { createConnectToken, listAccounts, listTransactionsByUrl, listTransactionsByIds, listTransactionsByAccount, getItem as pluggyGetItem } from './pluggyClient.js';
 import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy } from './pluggyDb.js';
@@ -714,6 +714,18 @@ router.get('/export/transactions.csv', async (req, res, next) => {
   try {
     const csv = await buildTransactionsCsv({ requestId: req.requestId });
     const filename = `nicco-finance-transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+    res.set('Content-Type', 'text/csv; charset=utf-8');
+    res.set('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csv);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/export/inbox.csv', async (req, res, next) => {
+  try {
+    const csv = await buildInboxCsv({ requestId: req.requestId });
+    const filename = `nicco-finance-inbox-${new Date().toISOString().slice(0, 10)}.csv`;
     res.set('Content-Type', 'text/csv; charset=utf-8');
     res.set('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(csv);

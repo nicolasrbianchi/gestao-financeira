@@ -51,9 +51,23 @@ export default function ExportSheet({ open, onClose }) {
             </div>
             <Download size={18} className='text-slate-400' />
           </button>
+
+          <button
+            type='button'
+            onClick={() => openDownload('/export/inbox.csv')}
+            className='card flex items-center justify-between gap-3'
+          >
+            <div className='flex items-center gap-3'>
+              <span className='grid h-11 w-11 place-items-center rounded-2xl bg-slate-50 text-amber-600'><SheetIcon size={18} /></span>
+              <div className='text-left'>
+                <p className='font-bold text-slate-900'>Inbox (CSV)</p>
+                <p className='text-sm text-slate-500'>pendentes + aprovadas/rejeitadas</p>
+              </div>
+            </div>
+            <Download size={18} className='text-slate-400' />
+          </button>
         </section>
       </div>
     </div>
   );
 }
-
