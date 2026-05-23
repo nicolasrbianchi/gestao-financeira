@@ -13,13 +13,21 @@ export default function ImportInboxSheet({ open, onClose, api, metadata, onAppro
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [items, setItems] = useState([]);
+  const [lastUpdate, setLastUpdate] = useState(null);
 
   const load = async () => {
     try {
       setLoading(true);
       setError('');
-      const r = await api('/imports/pending');
+      const [r, pluggy] = await Promise.all([
+        api('/imports/pending'),
+        api('/pluggy/items').catch(() => ({ items: [] })),
+      ]);
       setItems(r.items || []);
+      const enabled = (pluggy.items || []).filter((it) => it.enabled);
+      const dates = enabled.map((it) => it.lastFetchAt).filter(Boolean).map((x) => new Date(x)).filter((d) => !Number.isNaN(d.getTime()));
+      const max = dates.length ? new Date(Math.max(...dates.map((d) => d.getTime()))) : null;
+      setLastUpdate(max ? max.toISOString() : null);
     } catch (e) {
       setError(e.message || 'Erro ao carregar importações.');
     } finally {
@@ -35,6 +43,14 @@ export default function ImportInboxSheet({ open, onClose, api, metadata, onAppro
 
   const count = items.length;
   const subtitle = useMemo(() => (count ? `${count} pendente(s)` : 'Nenhuma pendência'), [count]);
+  const lastUpdateLabel = useMemo(() => {
+    if (!lastUpdate) return 'Última atualização: —';
+    try {
+      return `Última atualização: ${new Date(lastUpdate).toLocaleString()}`;
+    } catch {
+      return 'Última atualização: —';
+    }
+  }, [lastUpdate]);
 
   if (!open) return null;
 
@@ -54,9 +70,10 @@ export default function ImportInboxSheet({ open, onClose, api, metadata, onAppro
       <div className='sheet-panel space-y-4'>
         <div className='flex items-start justify-between gap-3'>
           <div className='min-w-0'>
-            <p className='text-xs font-semibold uppercase tracking-[0.18em] text-indigo-500'>Importação</p>
+            <p className='text-xs font-semibold uppercase tracking-[0.18em] text-indigo-500'>Transações</p>
             <h2 className='mt-1 truncate text-xl font-bold text-slate-900'>Caixa de entrada</h2>
             <p className='mt-1 text-sm text-slate-500'>{subtitle}</p>
+            <p className='mt-1 text-xs text-slate-400'>{lastUpdateLabel}</p>
           </div>
           <button type='button' onClick={onClose} className='shrink-0 rounded-2xl bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-500'>Fechar</button>
         </div>
@@ -122,4 +139,3 @@ export default function ImportInboxSheet({ open, onClose, api, metadata, onAppro
     </div>
   );
 }
-

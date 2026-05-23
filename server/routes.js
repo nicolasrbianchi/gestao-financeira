@@ -450,9 +450,10 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
     if (!assertDbSource(req, res)) return;
 
     const overlapMs = Number(process.env.PLUGGY_FETCH_OVERLAP_MS || 5 * 60 * 1000);
+    const minIntervalMs = Number(process.env.PLUGGY_FETCH_MIN_INTERVAL_MS || 2 * 60 * 1000);
     const nowIso = new Date().toISOString();
 
-    logger.info('pluggy_manual_fetch_started', { requestId: req.requestId, mode: 'cursor', overlapMs });
+    logger.info('pluggy_manual_fetch_started', { requestId: req.requestId, mode: 'cursor', overlapMs, minIntervalMs });
 
     const items = await listPluggyItems({ requestId: req.requestId });
     const enabled = items.filter((i) => i.enabled);
@@ -465,9 +466,15 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
     let totalSeen = 0;
     let totalInserted = 0;
     let totalUpdated = 0;
+    let skippedItems = 0;
 
     for (const it of enabled) {
       const lastFetchAt = it.lastFetchAt ? new Date(it.lastFetchAt) : null;
+      if (lastFetchAt && !Number.isNaN(lastFetchAt.getTime()) && Date.now() - lastFetchAt.getTime() < minIntervalMs) {
+        skippedItems += 1;
+        logger.debug('pluggy_manual_fetch_item_skipped', { requestId: req.requestId, itemId: it.itemId, lastFetchAt: it.lastFetchAt, minIntervalMs });
+        continue;
+      }
       const createdAtFrom = lastFetchAt && !Number.isNaN(lastFetchAt.getTime())
         ? new Date(lastFetchAt.getTime() - overlapMs).toISOString()
         : nowIso; // primeira vez: começa "daqui pra frente"
@@ -518,13 +525,14 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
     logger.info('pluggy_manual_fetch_finished', {
       requestId: req.requestId,
       items: enabled.length,
+      skippedItems,
       accounts: totalAccounts,
       seen: totalSeen,
       inserted: totalInserted,
       updated: totalUpdated,
     });
 
-    res.json({ ok: true, data: { items: enabled.length, accounts: totalAccounts, seen: totalSeen, inserted: totalInserted, updated: totalUpdated } });
+    res.json({ ok: true, data: { items: enabled.length, skippedItems, accounts: totalAccounts, seen: totalSeen, inserted: totalInserted, updated: totalUpdated } });
   } catch (e) {
     next(e);
   }

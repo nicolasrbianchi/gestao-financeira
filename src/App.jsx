@@ -27,6 +27,33 @@ export default function App() {
       });
   }, [auth, reloadKey]);
 
+  // Pluggy auto-fetch (MVP): roda periodicamente quando app estiver aberto.
+  // O backend tem throttle (PLUGGY_FETCH_MIN_INTERVAL_MS) para evitar excesso.
+  useEffect(() => {
+    if (!auth) return;
+    let stopped = false;
+
+    const tick = async () => {
+      try {
+        await api('/pluggy/fetch-transactions', { method: 'POST', body: '{}' });
+      } catch {
+        // ignore (sem db/pluggy config, rate limit, etc). Logs ficam no backend.
+      }
+    };
+
+    // primeiro tick (best-effort)
+    void tick();
+    const id = setInterval(() => {
+      if (stopped) return;
+      void tick();
+    }, 30_000);
+
+    return () => {
+      stopped = true;
+      clearInterval(id);
+    };
+  }, [auth]);
+
   // Notificação best-effort: importações pendentes
   useEffect(() => {
     if (!auth) return;
