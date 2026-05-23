@@ -54,6 +54,42 @@ export default function ImportInboxSheet({ open, onClose, api, metadata, onAppro
 
   if (!open) return null;
 
+  const normalize = (s) => String(s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+  const suggestAccount = (hint, accounts = []) => {
+    const h = normalize(hint);
+    if (!h) return '';
+
+    // match direto (contém)
+    for (const acc of accounts) {
+      const a = normalize(acc);
+      if (!a) continue;
+      if (h.includes(a) || a.includes(h)) return acc;
+    }
+
+    // sinônimos comuns (Pluggy vs nome curto no app)
+    const synonyms = [
+      { test: ['nu pagamentos', 'nubank', 'nu'], pick: ['nubank'] },
+      { test: ['santander'], pick: ['santander'] },
+      { test: ['recargapay', 'recarga pay'], pick: ['recargapay'] },
+    ];
+
+    for (const rule of synonyms) {
+      if (!rule.test.some((t) => h.includes(normalize(t)))) continue;
+      for (const acc of accounts) {
+        const a = normalize(acc);
+        if (rule.pick.some((p) => a.includes(normalize(p)))) return acc;
+      }
+    }
+
+    return '';
+  };
+
   const reject = async (id) => {
     if (!window.confirm('Excluir esta importação?')) return;
     try {
@@ -103,7 +139,7 @@ export default function ImportInboxSheet({ open, onClose, api, metadata, onAppro
                         nome: it.prefill?.nome || it.description || '',
                         tipo: it.prefill?.tipo || '',
                         reserva: '',
-                        conta: it.prefill?.conta || it.accountHint || '',
+                        conta: suggestAccount(it.accountHint, metadata?.accounts || []) || it.prefill?.conta || it.accountHint || '',
                         categoria: '',
                         subcategoria: '',
                         forma: it.prefill?.forma || '',
