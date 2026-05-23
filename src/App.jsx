@@ -13,6 +13,11 @@ export default function App() {
   const [reloadKey, setReloadKey] = useState(0);
   const [toast, setToast] = useState('');
 
+  const getPluggyBoostUntilMs = () => {
+    const v = Number(localStorage.getItem('gf_pluggy_fetch_boost_until_ms') || 0);
+    return Number.isFinite(v) ? v : 0;
+  };
+
   useEffect(() => { api('/auth/status').then((d) => setAuth(d.authenticated)).catch(() => setAuth(false)); }, []);
   useEffect(() => {
     if (!auth) return;
@@ -28,29 +33,49 @@ export default function App() {
   }, [auth, reloadKey]);
 
   // Pluggy auto-fetch (MVP): roda periodicamente quando app estiver aberto.
-  // O backend tem throttle (PLUGGY_FETCH_MIN_INTERVAL_MS) para evitar excesso.
+  // Normal: 3min. Ao abrir o painel do MeuPluggy, fazemos um "boost" temporário para 30s por alguns minutos.
   useEffect(() => {
     if (!auth) return;
     let stopped = false;
+    let timeoutId = null;
+
+    const isBoostActive = () => Date.now() < getPluggyBoostUntilMs();
+
+    const scheduleNext = () => {
+      if (stopped) return;
+      const everyMs = isBoostActive() ? 30_000 : 3 * 60_000;
+      timeoutId = setTimeout(() => {
+        void tick();
+      }, everyMs);
+    };
 
     const tick = async () => {
       try {
-        await api('/pluggy/fetch-transactions', { method: 'POST', body: '{}' });
+        const burst = isBoostActive();
+        await api('/pluggy/fetch-transactions', { method: 'POST', body: JSON.stringify(burst ? { burst: true } : {}) });
       } catch {
         // ignore (sem db/pluggy config, rate limit, etc). Logs ficam no backend.
+      } finally {
+        scheduleNext();
       }
     };
 
+    const onBoost = () => {
+      if (stopped) return;
+      try { if (timeoutId) clearTimeout(timeoutId); } catch {}
+      // dispara já e reprograma com o intervalo novo
+      void tick();
+    };
+
+    window.addEventListener('gf_pluggy_boost', onBoost);
+
     // primeiro tick (best-effort)
     void tick();
-    const id = setInterval(() => {
-      if (stopped) return;
-      void tick();
-    }, 3 * 60_000);
 
     return () => {
       stopped = true;
-      clearInterval(id);
+      window.removeEventListener('gf_pluggy_boost', onBoost);
+      try { if (timeoutId) clearTimeout(timeoutId); } catch {}
     };
   }, [auth]);
 

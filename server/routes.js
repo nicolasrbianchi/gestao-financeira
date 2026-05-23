@@ -466,10 +466,12 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
     if (!assertDbSource(req, res)) return;
 
     const overlapMs = Number(process.env.PLUGGY_FETCH_OVERLAP_MS || 5 * 60 * 1000);
-    const minIntervalMs = Number(process.env.PLUGGY_FETCH_MIN_INTERVAL_MS || 3 * 60 * 1000);
+    const normalMinIntervalMs = Number(process.env.PLUGGY_FETCH_MIN_INTERVAL_MS || 3 * 60 * 1000);
+    const burst = req.body?.burst === true;
+    const minIntervalMs = burst ? 30 * 1000 : normalMinIntervalMs;
     const nowIso = new Date().toISOString();
 
-    logger.info('pluggy_manual_fetch_started', { requestId: req.requestId, mode: 'cursor', overlapMs, minIntervalMs });
+    logger.info('pluggy_manual_fetch_started', { requestId: req.requestId, mode: 'cursor', overlapMs, minIntervalMs, burst });
 
     const items = await listPluggyItems({ requestId: req.requestId });
     const enabled = items.filter((i) => i.enabled);

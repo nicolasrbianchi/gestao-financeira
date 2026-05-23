@@ -56,6 +56,14 @@ export default function More({ api, metadata = {}, onLogout, onToast }) {
   React.useEffect(() => { loadPluggy(); /* eslint-disable-next-line */ }, []);
 
   const openMeuPluggy = () => {
+    // Ao abrir o painel manual do MeuPluggy, aumentamos temporariamente o ritmo do fetch
+    // para capturar as novidades mais rápido enquanto o usuário clica em "Atualizar".
+    try {
+      localStorage.setItem('gf_pluggy_fetch_boost_until_ms', String(Date.now() + 6 * 60 * 1000));
+      window.dispatchEvent(new Event('gf_pluggy_boost'));
+    } catch {
+      // ignore
+    }
     window.open('https://meu.pluggy.ai/connections', '_blank', 'noopener,noreferrer');
     onToast?.('Abra o Meu Pluggy e clique em atualizar conexão.');
   };
