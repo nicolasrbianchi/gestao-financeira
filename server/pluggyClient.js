@@ -71,6 +71,12 @@ async function pluggyFetch(pathOrUrl, { requestId, method = 'GET', body } = {}) 
   return res.json();
 }
 
+export async function getItem({ requestId, itemId } = {}) {
+  if (!itemId) throw new Error('itemId obrigatório.');
+  const data = await pluggyFetch(`/items/${encodeURIComponent(String(itemId))}`, { requestId, method: 'GET' });
+  return data;
+}
+
 export async function createConnectToken({ requestId, options = {} } = {}) {
   const payload = { ...options };
   const data = await pluggyFetch('/connect_token', { requestId, method: 'POST', body: payload });

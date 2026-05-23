@@ -11,7 +11,7 @@ import { listSubcategories, createSubcategory, updateSubcategory } from './subca
 import { listMonthlyGoals, upsertMonthlyGoal, deleteMonthlyGoal } from './monthlyGoalsDb.js';
 import { buildExportPayload, buildTransactionsCsv } from './exporter.js';
 import { listPendingImports, rejectImport, approveImport } from './importInboxDb.js';
-import { createConnectToken, listAccounts, listTransactionsByUrl, listTransactionsByIds, listTransactionsByAccount, updateItem } from './pluggyClient.js';
+import { createConnectToken, listAccounts, listTransactionsByUrl, listTransactionsByIds, listTransactionsByAccount, updateItem, getItem as pluggyGetItem } from './pluggyClient.js';
 import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemUpdate, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy } from './pluggyDb.js';
 import pkg from '../package.json' with { type: 'json' };
 
@@ -444,6 +444,19 @@ router.get('/pluggy/items', async (req, res, next) => {
     const items = await listPluggyItems({ requestId: req.requestId });
     res.json({ ok: true, items });
   } catch (e) { next(e); }
+});
+
+// Debug/observability: consulta status do Item diretamente no Pluggy.
+router.get('/pluggy/items/:itemId', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const itemId = String(req.params.itemId || '').trim();
+    if (!itemId) return res.status(400).json({ ok: false, error: 'itemId obrigatório.', requestId: req.requestId });
+    const data = await pluggyGetItem({ requestId: req.requestId, itemId });
+    res.json({ ok: true, item: data });
+  } catch (e) {
+    next(e);
+  }
 });
 
 // MVP: buscar transações manualmente (últimas 24h por createdAtFrom) e jogar na inbox.
