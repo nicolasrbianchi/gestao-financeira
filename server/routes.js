@@ -503,7 +503,7 @@ router.post('/pluggy/items', async (req, res, next) => {
 router.post('/pluggy/items/ignore-before/last-days', async (req, res, next) => {
   try {
     if (!assertDbSource(req, res)) return;
-    const days = Number(req.body?.days ?? 2);
+    const days = Number(req.body?.days ?? 3);
     if (!Number.isFinite(days) || days < 0 || days > 365) {
       return res.status(400).json({ ok: false, error: 'days inválido.', requestId: req.requestId });
     }
@@ -524,7 +524,7 @@ router.post('/pluggy/items/ignore-before/last-days', async (req, res, next) => {
 router.post('/imports/prune', async (req, res, next) => {
   try {
     if (!assertDbSource(req, res)) return;
-    const days = Number(req.body?.days ?? 2);
+    const days = Number(req.body?.days ?? 3);
     const onlyPending = req.body?.onlyPending !== false;
     if (!Number.isFinite(days) || days < 0 || days > 365) {
       return res.status(400).json({ ok: false, error: 'days inválido.', requestId: req.requestId });
