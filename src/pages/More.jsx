@@ -77,6 +77,9 @@ export default function More({ api, metadata = {}, onLogout, onToast }) {
           const itemId = data?.item?.id;
           if (!itemId) return;
           await api('/pluggy/items', { method: 'POST', body: JSON.stringify({ itemId }) });
+          // Best-effort: depois de atualizar/conectar o item no widget, tenta puxar transações novas.
+          // (Se o sync ainda estiver em andamento, o fetch pode vir vazio; o auto-fetch do app pega depois.)
+          await api('/pluggy/fetch-transactions', { method: 'POST', body: '{}' }).catch(() => {});
           onToast?.('Banco conectado. As transações novas vão aparecer na caixa de entrada.');
           await Promise.all([loadPluggy()]);
         },
