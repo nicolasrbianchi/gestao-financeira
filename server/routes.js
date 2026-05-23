@@ -410,12 +410,15 @@ router.post('/pluggy/connect-token', async (req, res, next) => {
     const token = String(process.env.PLUGGY_WEBHOOK_TOKEN || '').trim();
     const webhookUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
 
+    const itemId = String(req.body?.itemId || '').trim();
+
     const connectToken = await createConnectToken({
       requestId: req.requestId,
       options: {
         webhookUrl,
         clientUserId: 'nicco',
         avoidDuplicates: true,
+        ...(itemId ? { itemId } : {}),
       },
     });
 

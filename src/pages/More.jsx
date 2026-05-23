@@ -61,11 +61,13 @@ export default function More({ api, metadata = {}, onLogout, onToast }) {
   const openPluggy = async () => {
     try {
       setPluggyBusy(true);
-      const r = await api('/pluggy/connect-token', { method: 'POST', body: '{}' });
+      const existing = pluggyItems?.[0]?.itemId;
+      const r = await api('/pluggy/connect-token', {
+        method: 'POST',
+        body: JSON.stringify(existing ? { itemId: existing } : {}),
+      });
       const connectToken = r.connectToken || r.accessToken;
       if (!connectToken) throw new Error('Connect token ausente.');
-
-      const existing = pluggyItems?.[0]?.itemId;
       const widget = new PluggyConnect({
         connectToken,
         theme: 'dark',
