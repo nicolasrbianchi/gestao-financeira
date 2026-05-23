@@ -148,7 +148,7 @@ export default function More({ api, metadata = {}, onLogout, onOpenInbox, onToas
       <Row
         icon={RefreshCcw}
         title='Buscar transações (Pluggy)'
-        description='Puxa as transações criadas nas últimas 24h e envia para Importações pendentes.'
+        description='Puxa as transações novas desde a última busca e envia para Importações pendentes.'
         action={<button type='button' onClick={fetchPluggyTransactions} disabled={fetchBusy} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>{fetchBusy ? 'Buscando…' : 'Buscar transações'}</button>}
       />
 

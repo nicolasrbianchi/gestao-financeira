@@ -120,9 +120,14 @@ create table if not exists pluggy_items (
   ignore_before timestamptz not null default now(),
   last_webhook_at timestamptz,
   last_sync_at timestamptz,
+  -- Cursor para o fetch manual do app (evita re-buscar o que já foi ingerido).
+  last_fetch_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (item_id)
 );
+
+alter table pluggy_items
+  add column if not exists last_fetch_at timestamptz;
 
 create index if not exists idx_pluggy_items_enabled on pluggy_items(enabled);

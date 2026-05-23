@@ -12,7 +12,7 @@ import { listMonthlyGoals, upsertMonthlyGoal, deleteMonthlyGoal } from './monthl
 import { buildExportPayload, buildTransactionsCsv } from './exporter.js';
 import { listPendingImports, rejectImport, approveImport } from './importInboxDb.js';
 import { createConnectToken, listAccounts, listTransactionsByUrl, listTransactionsByIds, listTransactionsByAccount } from './pluggyClient.js';
-import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, getPluggyItem, insertImportsFromPluggy } from './pluggyDb.js';
+import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy } from './pluggyDb.js';
 import pkg from '../package.json' with { type: 'json' };
 
 export const router = express.Router();
@@ -449,17 +449,16 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
   try {
     if (!assertDbSource(req, res)) return;
 
-    const requestedHours = Number(req.body?.hours || 24);
-    const hours = Number.isFinite(requestedHours) && requestedHours > 0 && requestedHours <= 168 ? requestedHours : 24;
-    const createdAtFrom = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+    const overlapMs = Number(process.env.PLUGGY_FETCH_OVERLAP_MS || 5 * 60 * 1000);
+    const nowIso = new Date().toISOString();
 
-    logger.info('pluggy_manual_fetch_started', { requestId: req.requestId, hours, createdAtFrom });
+    logger.info('pluggy_manual_fetch_started', { requestId: req.requestId, mode: 'cursor', overlapMs });
 
     const items = await listPluggyItems({ requestId: req.requestId });
     const enabled = items.filter((i) => i.enabled);
     if (!enabled.length) {
-      logger.info('pluggy_manual_fetch_finished', { requestId: req.requestId, hours, createdAtFrom, items: 0, accounts: 0, seen: 0, inserted: 0, updated: 0 });
-      return res.json({ ok: true, data: { hours, createdAtFrom, items: 0, accounts: 0, seen: 0, inserted: 0, updated: 0 } });
+      logger.info('pluggy_manual_fetch_finished', { requestId: req.requestId, items: 0, accounts: 0, seen: 0, inserted: 0, updated: 0 });
+      return res.json({ ok: true, data: { items: 0, accounts: 0, seen: 0, inserted: 0, updated: 0 } });
     }
 
     let totalAccounts = 0;
@@ -468,10 +467,19 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
     let totalUpdated = 0;
 
     for (const it of enabled) {
+      const lastFetchAt = it.lastFetchAt ? new Date(it.lastFetchAt) : null;
+      const createdAtFrom = lastFetchAt && !Number.isNaN(lastFetchAt.getTime())
+        ? new Date(lastFetchAt.getTime() - overlapMs).toISOString()
+        : nowIso; // primeira vez: começa "daqui pra frente"
+
+      logger.info('pluggy_manual_fetch_item_started', { requestId: req.requestId, itemId: it.itemId, createdAtFrom, lastFetchAt: it.lastFetchAt || null });
+
       let accounts = [];
+      let itemErrors = 0;
       try {
         accounts = await listAccounts({ requestId: req.requestId, itemId: it.itemId });
       } catch (e) {
+        itemErrors += 1;
         logger.warn('pluggy_manual_fetch_list_accounts_failed', { requestId: req.requestId, itemId: it.itemId, error: e?.message || String(e) });
         continue;
       }
@@ -488,6 +496,7 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
         try {
           tx = await listTransactionsByAccount({ requestId: req.requestId, accountId, createdAtFrom });
         } catch (e) {
+          itemErrors += 1;
           logger.warn('pluggy_manual_fetch_list_transactions_failed', { requestId: req.requestId, itemId: it.itemId, accountId, error: e?.message || String(e) });
           continue;
         }
@@ -498,13 +507,16 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
         totalUpdated += r.updated || 0;
       }
 
-      await touchPluggyItemSync({ itemId: it.itemId, requestId: req.requestId });
+      // Só avança o cursor se conseguimos processar o item sem erros.
+      if (!itemErrors) {
+        await touchPluggyItemFetch({ itemId: it.itemId, requestId: req.requestId });
+      } else {
+        logger.warn('pluggy_manual_fetch_item_partial_failure', { requestId: req.requestId, itemId: it.itemId, errors: itemErrors });
+      }
     }
 
     logger.info('pluggy_manual_fetch_finished', {
       requestId: req.requestId,
-      hours,
-      createdAtFrom,
       items: enabled.length,
       accounts: totalAccounts,
       seen: totalSeen,
@@ -512,7 +524,7 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
       updated: totalUpdated,
     });
 
-    res.json({ ok: true, data: { hours, createdAtFrom, items: enabled.length, accounts: totalAccounts, seen: totalSeen, inserted: totalInserted, updated: totalUpdated } });
+    res.json({ ok: true, data: { items: enabled.length, accounts: totalAccounts, seen: totalSeen, inserted: totalInserted, updated: totalUpdated } });
   } catch (e) {
     next(e);
   }
