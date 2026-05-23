@@ -475,6 +475,8 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
     const lagOverlapMs = Number(process.env.PLUGGY_FETCH_LAG_OVERLAP_MS || 30 * 60 * 1000);
     const nowIso = new Date().toISOString();
 
+    const failures = [];
+
     logger.info('pluggy_manual_fetch_started', { requestId: req.requestId, mode: 'cursor', overlapMs, minIntervalMs });
 
     const items = await listPluggyItems({ requestId: req.requestId });
@@ -507,6 +509,13 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
             logger.info('pluggy_item_update_triggered', { requestId: req.requestId, itemId: it.itemId, updateMinIntervalMs });
           } catch (e) {
             itemUpdatesFailed += 1;
+            failures.push({
+              phase: 'updateItem',
+              itemId: it.itemId,
+              status: e?.status || null,
+              pluggyRequestId: e?.pluggyRequestId || null,
+              error: e?.message || String(e),
+            });
             logger.warn('pluggy_item_update_failed', {
               requestId: req.requestId,
               itemId: it.itemId,
@@ -548,6 +557,13 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
         logger.debug('pluggy_manual_fetch_list_accounts_finished', { requestId: req.requestId, itemId: it.itemId, accounts: accounts.length });
       } catch (e) {
         itemErrors += 1;
+        failures.push({
+          phase: 'listAccounts',
+          itemId: it.itemId,
+          status: e?.status || null,
+          pluggyRequestId: e?.pluggyRequestId || null,
+          error: e?.message || String(e),
+        });
         logger.warn('pluggy_manual_fetch_list_accounts_failed', {
           requestId: req.requestId,
           itemId: it.itemId,
@@ -573,6 +589,14 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
           logger.debug('pluggy_manual_fetch_list_transactions_finished', { requestId: req.requestId, itemId: it.itemId, accountId, count: tx.length });
         } catch (e) {
           itemErrors += 1;
+          failures.push({
+            phase: 'listTransactions',
+            itemId: it.itemId,
+            accountId,
+            status: e?.status || null,
+            pluggyRequestId: e?.pluggyRequestId || null,
+            error: e?.message || String(e),
+          });
           logger.warn('pluggy_manual_fetch_list_transactions_failed', {
             requestId: req.requestId,
             itemId: it.itemId,
@@ -623,6 +647,7 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
         seen: totalSeen,
         inserted: totalInserted,
         updated: totalUpdated,
+        failures,
       },
     });
   } catch (e) {
