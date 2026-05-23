@@ -30,10 +30,10 @@ export default function BottomNav({ tab, onTab, onAdd, pendingCount = 0 }) {
         <Plus size={26} strokeWidth={2.5} />
         {pendingCount > 0 && (
           <span
-            className='absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-rose-500 px-1 text-[11px] font-extrabold text-white ring-2 ring-[rgba(0,0,0,0.72)]'
+            className='absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-rose-500 px-1.5 text-[10px] font-extrabold text-white ring-2 ring-[rgba(0,0,0,0.72)]'
             aria-label={`${pendingCount} pendência(s) para aprovar`}
           >
-            {pendingCount > 9 ? '9+' : pendingCount}
+            {pendingCount}
           </span>
         )}
       </button>
