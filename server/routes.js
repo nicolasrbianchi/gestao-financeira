@@ -11,7 +11,7 @@ import { listSubcategories, createSubcategory, updateSubcategory } from './subca
 import { listMonthlyGoals, upsertMonthlyGoal, deleteMonthlyGoal } from './monthlyGoalsDb.js';
 import { buildExportPayload, buildTransactionsCsv } from './exporter.js';
 import { listPendingImports, rejectImport, approveImport } from './importInboxDb.js';
-import { createConnectToken, listAccounts, listTransactionsByUrl, listTransactionsByIds } from './pluggyClient.js';
+import { createConnectToken, listAccounts, listTransactionsByUrl, listTransactionsByIds, listTransactionsByAccount } from './pluggyClient.js';
 import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, getPluggyItem, insertImportsFromPluggy } from './pluggyDb.js';
 import pkg from '../package.json' with { type: 'json' };
 
@@ -441,6 +441,81 @@ router.get('/pluggy/items', async (req, res, next) => {
     const items = await listPluggyItems({ requestId: req.requestId });
     res.json({ ok: true, items });
   } catch (e) { next(e); }
+});
+
+// MVP: buscar transações manualmente (últimas 24h por createdAtFrom) e jogar na inbox.
+// Premissa: o usuário atualiza/sincroniza no MeuPluggy e o Nicco só puxa os dados via API.
+router.post('/pluggy/fetch-transactions', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+
+    const requestedHours = Number(req.body?.hours || 24);
+    const hours = Number.isFinite(requestedHours) && requestedHours > 0 && requestedHours <= 168 ? requestedHours : 24;
+    const createdAtFrom = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+
+    logger.info('pluggy_manual_fetch_started', { requestId: req.requestId, hours, createdAtFrom });
+
+    const items = await listPluggyItems({ requestId: req.requestId });
+    const enabled = items.filter((i) => i.enabled);
+    if (!enabled.length) {
+      logger.info('pluggy_manual_fetch_finished', { requestId: req.requestId, hours, createdAtFrom, items: 0, accounts: 0, seen: 0, inserted: 0, updated: 0 });
+      return res.json({ ok: true, data: { hours, createdAtFrom, items: 0, accounts: 0, seen: 0, inserted: 0, updated: 0 } });
+    }
+
+    let totalAccounts = 0;
+    let totalSeen = 0;
+    let totalInserted = 0;
+    let totalUpdated = 0;
+
+    for (const it of enabled) {
+      let accounts = [];
+      try {
+        accounts = await listAccounts({ requestId: req.requestId, itemId: it.itemId });
+      } catch (e) {
+        logger.warn('pluggy_manual_fetch_list_accounts_failed', { requestId: req.requestId, itemId: it.itemId, error: e?.message || String(e) });
+        continue;
+      }
+
+      totalAccounts += accounts.length;
+
+      for (const acc of accounts) {
+        const accountId = String(acc?.id || '').trim();
+        if (!accountId) continue;
+
+        const accountHint = String(acc?.name || acc?.number || acc?.type || accountId || '').trim();
+
+        let tx = [];
+        try {
+          tx = await listTransactionsByAccount({ requestId: req.requestId, accountId, createdAtFrom });
+        } catch (e) {
+          logger.warn('pluggy_manual_fetch_list_transactions_failed', { requestId: req.requestId, itemId: it.itemId, accountId, error: e?.message || String(e) });
+          continue;
+        }
+
+        const r = await insertImportsFromPluggy({ requestId: req.requestId, itemId: it.itemId, accountHint, transactions: tx });
+        totalSeen += r.seen || 0;
+        totalInserted += r.inserted || 0;
+        totalUpdated += r.updated || 0;
+      }
+
+      await touchPluggyItemSync({ itemId: it.itemId, requestId: req.requestId });
+    }
+
+    logger.info('pluggy_manual_fetch_finished', {
+      requestId: req.requestId,
+      hours,
+      createdAtFrom,
+      items: enabled.length,
+      accounts: totalAccounts,
+      seen: totalSeen,
+      inserted: totalInserted,
+      updated: totalUpdated,
+    });
+
+    res.json({ ok: true, data: { hours, createdAtFrom, items: enabled.length, accounts: totalAccounts, seen: totalSeen, inserted: totalInserted, updated: totalUpdated } });
+  } catch (e) {
+    next(e);
+  }
 });
 
 // Força sync manual do Pluggy (best-effort): útil para testar rapidamente.

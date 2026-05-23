@@ -100,6 +100,7 @@ export async function insertImportsFromPluggy({ requestId, itemId, accountHint =
   const ignoreMs = ignore && !Number.isNaN(ignore.getTime()) ? ignore.getTime() : null;
 
   let inserted = 0;
+  let updated = 0;
   for (const t of transactions) {
     const externalId = String(t?.id || '').trim();
     if (!externalId) continue;
@@ -120,7 +121,10 @@ export async function insertImportsFromPluggy({ requestId, itemId, accountHint =
       transaction: t,
     };
 
-    const { rowCount } = await query(
+    // Upsert seguro:
+    // - Se já existe e está pending: atualiza campos (para refletir merge/ajustes do Pluggy)
+    // - Se já foi approved/rejected: não mexe
+    const insertResult = await query(
       `insert into import_inbox (provider, external_id, occurred_at, description, account_hint, amount, currency, raw, status)
        values ('pluggy', $1, $2, $3, $4, $5, $6, $7::jsonb, 'pending')
        on conflict (provider, external_id) do nothing`,
@@ -134,10 +138,35 @@ export async function insertImportsFromPluggy({ requestId, itemId, accountHint =
         JSON.stringify(raw),
       ]
     );
-    inserted += rowCount ? 1 : 0;
+
+    if (insertResult.rowCount) {
+      inserted += 1;
+      continue;
+    }
+
+    const updateResult = await query(
+      `update import_inbox
+          set occurred_at=$2,
+              description=$3,
+              account_hint=$4,
+              amount=$5,
+              currency=$6,
+              raw=$7::jsonb,
+              updated_at=now()
+        where provider='pluggy' and external_id=$1 and status='pending'`,
+      [
+        externalId,
+        occurredAt ? occurredAt.toISOString() : null,
+        description,
+        String(accountHint || ''),
+        amount,
+        currency,
+        JSON.stringify(raw),
+      ]
+    );
+    updated += updateResult.rowCount ? 1 : 0;
   }
 
-  logger.info('pluggy_imports_inserted', { requestId, itemId: itemId || null, inserted, seen: transactions.length });
-  return { inserted, seen: transactions.length };
+  logger.info('pluggy_imports_upserted', { requestId, itemId: itemId || null, inserted, updated, seen: transactions.length });
+  return { inserted, updated, seen: transactions.length };
 }
-

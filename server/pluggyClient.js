@@ -112,6 +112,29 @@ export async function listTransactionsByUrl({ requestId, url }) {
   return out;
 }
 
+export async function listTransactionsByAccount({ requestId, accountId, createdAtFrom } = {}) {
+  if (!accountId) throw new Error('accountId obrigatório.');
+  const qs = new URLSearchParams({ accountId: String(accountId) });
+  if (createdAtFrom) qs.set('createdAtFrom', String(createdAtFrom));
+
+  const out = [];
+  let nextUrl = `${API_BASE}/v2/transactions?${qs.toString()}`;
+  let safety = 0;
+  while (nextUrl && safety < 200) {
+    safety += 1;
+    const data = await pluggyFetch(nextUrl, { requestId });
+    const results = Array.isArray(data) ? data : (data?.results || []);
+    out.push(...results);
+
+    const next = String(data?.next || '').trim();
+    if (!next) break;
+    // next vem como query string (ex: ?accountId=...&after=...)
+    nextUrl = next.startsWith('http') ? next : `${API_BASE}/v2/transactions${next}`;
+  }
+
+  return out;
+}
+
 export async function listTransactionsByIds({ requestId, ids = [] } = {}) {
   const clean = ids.map((x) => String(x).trim()).filter(Boolean);
   if (!clean.length) return [];
@@ -122,4 +145,3 @@ export async function listTransactionsByIds({ requestId, ids = [] } = {}) {
   const results = Array.isArray(data) ? data : (data?.results || []);
   return results;
 }
-

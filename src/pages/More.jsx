@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Inbox, Link2, LogOut, Server, Tags, Target } from 'lucide-react';
+import { Download, Inbox, Link2, LogOut, RefreshCcw, Server, Tags, Target } from 'lucide-react';
 import { PluggyConnect } from 'pluggy-connect-sdk';
 import ManageTagsSheet from '../components/ManageTagsSheet';
 import ManageMonthlyGoalsSheet from '../components/ManageMonthlyGoalsSheet';
@@ -31,6 +31,7 @@ export default function More({ api, metadata = {}, onLogout, onOpenInbox, onToas
   const [inboxCount, setInboxCount] = useState(null);
   const [pluggyItems, setPluggyItems] = useState([]);
   const [pluggyBusy, setPluggyBusy] = useState(false);
+  const [fetchBusy, setFetchBusy] = useState(false);
 
   const testConnection = async () => {
     try {
@@ -69,6 +70,23 @@ export default function More({ api, metadata = {}, onLogout, onOpenInbox, onToas
   };
 
   React.useEffect(() => { loadPluggy(); /* eslint-disable-next-line */ }, []);
+
+  const fetchPluggyTransactions = async () => {
+    try {
+      setFetchBusy(true);
+      const r = await api('/pluggy/fetch-transactions', { method: 'POST', body: '{}' });
+      const d = r.data || {};
+      const inserted = Number(d.inserted || 0);
+      const updated = Number(d.updated || 0);
+      const seen = Number(d.seen || 0);
+      onToast?.(`Pluggy: ${inserted} novas, ${updated} atualizadas (scan: ${seen}).`);
+      await Promise.all([loadInboxCount(), loadPluggy()]);
+    } catch (e) {
+      onToast?.(e?.message || 'Erro ao buscar transações.');
+    } finally {
+      setFetchBusy(false);
+    }
+  };
 
   const openPluggy = async () => {
     try {
@@ -125,6 +143,13 @@ export default function More({ api, metadata = {}, onLogout, onOpenInbox, onToas
         title='Conectar banco (MeuPluggy)'
         description={pluggyItems.length ? `${pluggyItems.length} conexão(ões) ativa(s)` : 'Conecte seus bancos via MeuPluggy para importar transações.'}
         action={<button type='button' onClick={openPluggy} disabled={pluggyBusy} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>{pluggyBusy ? 'Abrindo…' : (pluggyItems.length ? 'Atualizar conexão' : 'Conectar')}</button>}
+      />
+
+      <Row
+        icon={RefreshCcw}
+        title='Buscar transações (Pluggy)'
+        description='Puxa as transações criadas nas últimas 24h e envia para Importações pendentes.'
+        action={<button type='button' onClick={fetchPluggyTransactions} disabled={fetchBusy} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>{fetchBusy ? 'Buscando…' : 'Buscar transações'}</button>}
       />
 
       <Row
