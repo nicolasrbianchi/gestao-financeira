@@ -14,8 +14,12 @@ export default function App() {
   const [toast, setToast] = useState('');
 
   const getPluggyBoostUntilMs = () => {
-    const v = Number(localStorage.getItem('gf_pluggy_fetch_boost_until_ms') || 0);
-    return Number.isFinite(v) ? v : 0;
+    try {
+      const v = Number(localStorage.getItem('gf_pluggy_fetch_boost_until_ms') || 0);
+      return Number.isFinite(v) ? v : 0;
+    } catch {
+      return 0;
+    }
   };
 
   useEffect(() => { api('/auth/status').then((d) => setAuth(d.authenticated)).catch(() => setAuth(false)); }, []);
