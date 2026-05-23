@@ -43,7 +43,7 @@ function ErrorState({ error, onRetry }) {
 }
 
 export default function AppShell(props) {
-  const { tab, onTab, filters, setFilters, metadata, initialDashboard, api, withQuery, onLogout, onToast, onReload, pendingImportsCount } = props;
+  const { tab, onTab, filters, setFilters, metadata, initialDashboard, api, withQuery, onLogout, onToast, onReload, pendingImportsCount, insightTick } = props;
   const [showFilters, setShowFilters] = useState(false);
   const [showTransactionSheet, setShowTransactionSheet] = useState(false);
   const [editingTx, setEditingTx] = useState(null);
@@ -241,7 +241,7 @@ export default function AppShell(props) {
         }}
       />
 
-      <NotificationsSheet open={showNotifications} onClose={() => setShowNotifications(false)} />
+      <NotificationsSheet key={String(insightTick || 0)} open={showNotifications} onClose={() => setShowNotifications(false)} />
       <FilterSheet open={showFilters} onClose={() => setShowFilters(false)} filters={filters} setFilters={setFilters} metadata={metadata || {}} />
       <TransactionSheet
         open={showTransactionSheet}

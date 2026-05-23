@@ -838,6 +838,86 @@ router.post('/ai/chat', async (req, res, next) => {
   }
 });
 
+// Insight periódico (Nicco IA)
+router.get('/ai/insight', async (req, res, next) => {
+  try {
+    const requestId = req.requestId;
+    const normalized = await loadNormalizedTx(req);
+
+    // janela padrão: últimos 30 dias
+    const now = new Date();
+    const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const fromIso = from.toISOString().slice(0, 10);
+    const recent = normalized.filter((t) => String(t.date || '') >= fromIso);
+
+    const sum = (arr) => arr.reduce((a, n) => a + (Number(n) || 0), 0);
+    const expenses = recent.filter((t) => t.type === 'Despesa');
+    const incomes = recent.filter((t) => t.type === 'Receita');
+
+    const totalExpense = sum(expenses.map((t) => Number(t.amount || 0)));
+    const totalIncome = sum(incomes.map((t) => Number(t.amount || 0)));
+
+    const groupSum = (items, keyFn) => {
+      const m = new Map();
+      for (const it of items) {
+        const k = String(keyFn(it) || '').trim() || 'Sem';
+        m.set(k, (m.get(k) || 0) + Number(it.amount || 0));
+      }
+      return [...m.entries()].sort((a, b) => b[1] - a[1]);
+    };
+
+    const byCategory = groupSum(expenses, (t) => t.category || 'Sem categoria').slice(0, 5);
+    const byAccount = groupSum(expenses, (t) => t.account || 'Sem conta').slice(0, 4);
+
+    const sample = recent
+      .slice()
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+      .slice(0, 40)
+      .map((t) => ({
+        date: t.date,
+        name: t.name,
+        type: t.type,
+        account: t.account,
+        category: t.category,
+        paymentMethod: t.paymentMethod,
+        amount: Number(t.amount || 0),
+      }));
+
+    const apiKey = process.env.OPENAI_KEY;
+    if (!apiKey) return res.status(409).json({ ok: false, error: 'OPENAI_KEY não configurada.', requestId });
+
+    const prompt = [
+      'Você é o Nicco IA, assistente financeiro do usuário.',
+      'Gere UM insight curto e útil em português (1 a 3 frases), baseado nos últimos 30 dias.',
+      'Seja específico (cite conta/categoria) e sugira uma ação simples.',
+      'Não invente dados. Se faltar dado, assuma pouco e diga isso.',
+      '',
+      `Resumo (30d): receita=${totalIncome.toFixed(2)} despesa=${totalExpense.toFixed(2)} transacoes=${recent.length}.`,
+      `Top categorias (despesa): ${byCategory.map(([k, v]) => `${k}:${v.toFixed(2)}`).join(' | ') || '—'}`,
+      `Top contas (despesa): ${byAccount.map(([k, v]) => `${k}:${v.toFixed(2)}`).join(' | ') || '—'}`,
+      'Amostra de transações recentes (máx 40):',
+      JSON.stringify(sample),
+    ].join('\n');
+
+    const r = await openAiText({
+      apiKey,
+      requestId,
+      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'Responda apenas com o insight (texto puro), sem markdown.' },
+        { role: 'user', content: prompt },
+      ],
+      maxOutputTokens: 220,
+    });
+
+    const text = String(r?.text || '').trim();
+    logger.info('ai_insight_generated', { requestId, chars: text.length, txCount: recent.length });
+    res.json({ ok: true, insight: { text, windowDays: 30, generatedAt: new Date().toISOString() } });
+  } catch (e) {
+    next(e);
+  }
+});
+
 if (process.env.ENABLE_DIAGNOSTICS === 'true') {
   router.get('/debug/diagnostics', async (req, res, next) => {
     try {

@@ -13,6 +13,25 @@ export default function App() {
   const [reloadKey, setReloadKey] = useState(0);
   const [toast, setToast] = useState('');
   const [pendingImportsCount, setPendingImportsCount] = useState(0);
+  const [insightTick, setInsightTick] = useState(0);
+
+  const notificationsLoad = () => {
+    try {
+      const raw = localStorage.getItem('gf_notifications_v1');
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const notificationsSave = (arr) => {
+    try {
+      localStorage.setItem('gf_notifications_v1', JSON.stringify(arr.slice(0, 50)));
+    } catch {
+      // ignore
+    }
+  };
 
   const getPluggyBoostUntilMs = () => {
     try {
@@ -114,8 +133,53 @@ export default function App() {
   }, [auth, reloadKey]);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 3500); return () => clearTimeout(t); }, [toast]);
 
+  // Insight periódico (Nicco IA): 1x por dia (quando app estiver aberto).
+  useEffect(() => {
+    if (!auth) return;
+
+    const getLastAt = () => {
+      try { return Number(localStorage.getItem('gf_last_ai_insight_at_ms') || 0) || 0; } catch { return 0; }
+    };
+    const setLastAt = (ms) => {
+      try { localStorage.setItem('gf_last_ai_insight_at_ms', String(ms)); } catch {}
+    };
+
+    const maybeGenerate = async () => {
+      const now = Date.now();
+      const last = getLastAt();
+      const dayMs = 24 * 60 * 60 * 1000;
+      if (last && now - last < dayMs) return;
+
+      try {
+        const r = await api('/ai/insight');
+        const text = String(r?.insight?.text || '').trim();
+        if (!text) return;
+
+        const n = {
+          id: `insight:${now}`,
+          kind: 'Insight',
+          title: 'Insight do Nicco IA',
+          body: text,
+          createdAt: new Date(now).toISOString(),
+        };
+        const arr = [n, ...notificationsLoad()];
+        notificationsSave(arr);
+        setToast('Novo insight do Nicco IA');
+        setLastAt(now);
+        setInsightTick((v) => v + 1);
+      } catch {
+        // ignore
+      }
+    };
+
+    // primeiro check + intervalo
+    void maybeGenerate();
+    const id = setInterval(() => { void maybeGenerate(); }, 60 * 60 * 1000); // checa de hora em hora
+    return () => clearInterval(id);
+  }, [auth]);
+
   if (auth === null) return <div className='loading-state'>Carregando…</div>;
   if (!auth) return <LoginScreen onOk={() => setAuth(true)} />;
 
-  return <><AppShell tab={tab} onTab={setTab} filters={filters} setFilters={setFilters} metadata={metadata || {}} initialDashboard={boot?.dashboard || null} onReload={() => setReloadKey((v) => v + 1)} api={api} withQuery={withQuery} onToast={setToast} pendingImportsCount={pendingImportsCount} onLogout={async()=>{await api('/auth/logout',{method:'POST'});location.reload();}} />{toast&&<div className='toast'>{toast}</div>}</>;
+  return <><AppShell tab={tab} onTab={setTab} filters={filters} setFilters={setFilters} metadata={metadata || {}} initialDashboard={boot?.dashboard || null} onReload={() => setReloadKey((v) => v + 1)} api={api} withQuery={withQuery} onToast={setToast} pendingImportsCount={pendingImportsCount} insightTick={insightTick} onLogout={async()=>{await api('/auth/logout',{method:'POST'});location.reload();}} />{toast&&<div className='toast'>{toast}</div>}</>;
 }
