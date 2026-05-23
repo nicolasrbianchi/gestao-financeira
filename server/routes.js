@@ -509,6 +509,12 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
             logger.info('pluggy_item_update_triggered', { requestId: req.requestId, itemId: it.itemId, updateMinIntervalMs });
           } catch (e) {
             itemUpdatesFailed += 1;
+            // Se for um item MeuPluggy, a API não permite PATCH /items. Evita retry em loop.
+            if (String(e?.message || '').toLowerCase().includes('meupluggy item cant be updated')) {
+              try {
+                await touchPluggyItemUpdate({ itemId: it.itemId, requestId: req.requestId });
+              } catch {}
+            }
             failures.push({
               phase: 'updateItem',
               itemId: it.itemId,
