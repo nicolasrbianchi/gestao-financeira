@@ -507,7 +507,13 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
             logger.info('pluggy_item_update_triggered', { requestId: req.requestId, itemId: it.itemId, updateMinIntervalMs });
           } catch (e) {
             itemUpdatesFailed += 1;
-            logger.warn('pluggy_item_update_failed', { requestId: req.requestId, itemId: it.itemId, error: e?.message || String(e) });
+            logger.warn('pluggy_item_update_failed', {
+              requestId: req.requestId,
+              itemId: it.itemId,
+              status: e?.status || null,
+              pluggyRequestId: e?.pluggyRequestId || null,
+              error: e?.message || String(e),
+            });
           }
         } else {
           itemUpdatesSkipped += 1;
@@ -537,10 +543,18 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
       let accounts = [];
       let itemErrors = 0;
       try {
+        logger.debug('pluggy_manual_fetch_list_accounts_started', { requestId: req.requestId, itemId: it.itemId });
         accounts = await listAccounts({ requestId: req.requestId, itemId: it.itemId });
+        logger.debug('pluggy_manual_fetch_list_accounts_finished', { requestId: req.requestId, itemId: it.itemId, accounts: accounts.length });
       } catch (e) {
         itemErrors += 1;
-        logger.warn('pluggy_manual_fetch_list_accounts_failed', { requestId: req.requestId, itemId: it.itemId, error: e?.message || String(e) });
+        logger.warn('pluggy_manual_fetch_list_accounts_failed', {
+          requestId: req.requestId,
+          itemId: it.itemId,
+          status: e?.status || null,
+          pluggyRequestId: e?.pluggyRequestId || null,
+          error: e?.message || String(e),
+        });
         continue;
       }
 
@@ -554,10 +568,19 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
 
         let tx = [];
         try {
+          logger.debug('pluggy_manual_fetch_list_transactions_started', { requestId: req.requestId, itemId: it.itemId, accountId, createdAtFrom });
           tx = await listTransactionsByAccount({ requestId: req.requestId, accountId, createdAtFrom });
+          logger.debug('pluggy_manual_fetch_list_transactions_finished', { requestId: req.requestId, itemId: it.itemId, accountId, count: tx.length });
         } catch (e) {
           itemErrors += 1;
-          logger.warn('pluggy_manual_fetch_list_transactions_failed', { requestId: req.requestId, itemId: it.itemId, accountId, error: e?.message || String(e) });
+          logger.warn('pluggy_manual_fetch_list_transactions_failed', {
+            requestId: req.requestId,
+            itemId: it.itemId,
+            accountId,
+            status: e?.status || null,
+            pluggyRequestId: e?.pluggyRequestId || null,
+            error: e?.message || String(e),
+          });
           continue;
         }
 

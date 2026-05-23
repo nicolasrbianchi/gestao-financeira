@@ -53,6 +53,9 @@ async function pluggyFetch(pathOrUrl, { requestId, method = 'GET', body } = {}) 
   const apiKey = await getApiKey({ requestId });
   const url = String(pathOrUrl).startsWith('http') ? String(pathOrUrl) : `${API_BASE}${pathOrUrl}`;
 
+  const started = Date.now();
+  logger.debug('pluggy_request_started', { requestId, method, url });
+
   const res = await fetch(url, {
     method,
     headers: {
@@ -64,11 +67,32 @@ async function pluggyFetch(pathOrUrl, { requestId, method = 'GET', body } = {}) 
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    logger.warn('pluggy_request_failed', { requestId, url, method, status: res.status, body: text?.slice?.(0, 500) });
-    throw new Error('Falha ao consultar Pluggy.');
+    const durationMs = Date.now() - started;
+    const pluggyRequestId = res.headers?.get?.('x-request-id') || res.headers?.get?.('x-pluggy-request-id') || null;
+    const rateLimit = {
+      limit: res.headers?.get?.('x-ratelimit-limit') || null,
+      remaining: res.headers?.get?.('x-ratelimit-remaining') || null,
+      reset: res.headers?.get?.('x-ratelimit-reset') || null,
+    };
+    logger.warn('pluggy_request_failed', {
+      requestId,
+      url,
+      method,
+      status: res.status,
+      durationMs,
+      pluggyRequestId,
+      rateLimit,
+      body: text?.slice?.(0, 800),
+    });
+    const err = new Error(`Pluggy request failed (${method} ${url}) status=${res.status}`);
+    err.status = res.status;
+    err.pluggyRequestId = pluggyRequestId;
+    throw err;
   }
 
-  return res.json();
+  const data = await res.json();
+  logger.debug('pluggy_request_finished', { requestId, method, url, status: res.status, durationMs: Date.now() - started });
+  return data;
 }
 
 export async function getItem({ requestId, itemId } = {}) {
@@ -91,6 +115,7 @@ export async function listAccounts({ requestId, itemId }) {
   const data = await pluggyFetch(`/accounts?${qs.toString()}`, { requestId });
   // normalmente vem como array ou { results }
   const results = Array.isArray(data) ? data : (data?.results || []);
+  logger.debug('pluggy_accounts_listed', { requestId, itemId: String(itemId), count: results.length });
   return results;
 }
 
@@ -141,6 +166,7 @@ export async function listTransactionsByAccount({ requestId, accountId, createdA
     nextUrl = u.toString();
   }
 
+  logger.debug('pluggy_transactions_listed', { requestId, accountId: String(accountId), createdAtFrom: createdAtFrom || null, count: out.length, pages: safety });
   return out;
 }
 
@@ -159,6 +185,16 @@ export async function updateItem({ requestId, itemId, credentials } = {}) {
   if (!itemId) throw new Error('itemId obrigatório.');
   // PATCH /items/{id} dispara uma nova sincronização; credentials é opcional.
   const body = credentials && typeof credentials === 'object' ? credentials : {};
+  const started = Date.now();
+  logger.info('pluggy_item_update_started', { requestId, itemId: String(itemId) });
   const data = await pluggyFetch(`/items/${encodeURIComponent(String(itemId))}`, { requestId, method: 'PATCH', body });
+  logger.info('pluggy_item_update_finished', {
+    requestId,
+    itemId: String(itemId),
+    durationMs: Date.now() - started,
+    status: data?.status || null,
+    executionStatus: data?.executionStatus || null,
+    lastUpdatedAt: data?.lastUpdatedAt || null,
+  });
   return data;
 }
