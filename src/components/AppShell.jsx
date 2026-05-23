@@ -57,6 +57,7 @@ export default function AppShell(props) {
   const [approveDraft, setApproveDraft] = useState(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   const safeTab = ROUTES[tab] === undefined ? 'home' : tab;
   const route = useMemo(() => ROUTES[safeTab], [safeTab]);
@@ -190,6 +191,36 @@ export default function AppShell(props) {
 
   const pendingCount = Number.isFinite(Number(pendingImportsCount)) ? Number(pendingImportsCount) : 0;
 
+  const computeUnreadNotifications = useCallback(() => {
+    try {
+      const raw = localStorage.getItem('gf_notifications_v1');
+      const arr = raw ? JSON.parse(raw) : [];
+      const list = Array.isArray(arr) ? arr : [];
+      const lastSeen = Number(localStorage.getItem('gf_notifications_last_seen_at_ms') || 0) || 0;
+      const unread = list.filter((n) => {
+        const t = n?.createdAt ? new Date(n.createdAt).getTime() : 0;
+        return t && t > lastSeen;
+      }).length;
+      setUnreadNotifications(unread);
+    } catch {
+      setUnreadNotifications(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    computeUnreadNotifications();
+  }, [computeUnreadNotifications, insightTick]);
+
+  useEffect(() => {
+    if (!showNotifications) return;
+    try {
+      localStorage.setItem('gf_notifications_last_seen_at_ms', String(Date.now()));
+    } catch {
+      // ignore
+    }
+    computeUnreadNotifications();
+  }, [showNotifications, computeUnreadNotifications]);
+
   return (
     <div className={`app-frame ${safeTab === 'ai' ? 'app-frame-chat' : ''}`}>
       <div className='top-actions'>
@@ -219,7 +250,15 @@ export default function AppShell(props) {
           className='icon-btn'
           aria-label='Notificações'
         >
-          <Bell size={18} />
+          <span className='relative inline-grid place-items-center'>
+            <Bell size={18} />
+            {unreadNotifications > 0 && (
+              <span
+                className='absolute -right-1 -top-1 h-3 w-3 rounded-full bg-rose-500 ring-2 ring-[rgba(0,0,0,0.72)]'
+                aria-label={`${unreadNotifications} notificação(ões) não lida(s)`}
+              />
+            )}
+          </span>
         </button>
         <button
           type='button'
