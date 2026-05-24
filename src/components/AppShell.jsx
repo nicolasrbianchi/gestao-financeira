@@ -197,13 +197,20 @@ export default function AppShell(props) {
       const arr = raw ? JSON.parse(raw) : [];
       const list = Array.isArray(arr) ? arr : [];
       const lastSeen = Number(localStorage.getItem('gf_notifications_last_seen_at_ms') || 0) || 0;
+
+      const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
+
       const unread = list.filter((n) => {
-        // novo esquema: readAt
-        if (n?.readAt) return false;
-        // compat: se não tiver readAt, usa lastSeen
+        // Esquema novo: se o objeto TEM a chave readAt, seguimos estritamente:
+        // - string => lida
+        // - null/undefined => não lida
+        if (hasOwn(n, 'readAt')) return !n?.readAt;
+
+        // Compat legado (sem readAt): usa lastSeen
         const t = n?.createdAt ? new Date(n.createdAt).getTime() : 0;
         return t ? t > lastSeen : true;
       }).length;
+
       setUnreadNotifications(unread);
     } catch {
       setUnreadNotifications(0);
