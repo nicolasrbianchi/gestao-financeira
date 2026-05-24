@@ -44,13 +44,11 @@ function snippet(text, max = 90) {
   return t.length > max ? `${t.slice(0, max - 1)}…` : t;
 }
 
-function NotificationRow({ n, onOpen }) {
+function NotificationRow({ n }) {
   const isUnread = !n.readAt;
 
   return (
-    <button
-      type='button'
-      onClick={onOpen}
+    <article
       className={`w-full text-left rounded-4xl border px-4 py-3 ${isUnread ? 'border-white/20 bg-white/95' : 'border-white/10 bg-slate-950/40'}`}
       aria-label={isUnread ? 'Notificação não lida' : 'Notificação lida'}
     >
@@ -76,7 +74,7 @@ function NotificationRow({ n, onOpen }) {
           </p>
         </div>
       </div>
-    </button>
+    </article>
   );
 }
 
@@ -87,6 +85,10 @@ export default function NotificationsSheet({ open, onClose }) {
   const [version, setVersion] = useState(0);
   const notifications = useMemo(() => loadNotifications(), [version]);
   const selected = selectedId ? notifications.find((n) => n.id === selectedId) : null;
+
+  const [openId, setOpenId] = useState(null);
+  const dragRef = React.useRef({ id: null, startX: 0, startY: 0, started: false, dragging: false, dx: 0 });
+  const ACTION_W = 148; // px
 
   const markRead = (id) => {
     const list = loadNotifications();
@@ -106,6 +108,48 @@ export default function NotificationsSheet({ open, onClose }) {
     list[idx] = { ...list[idx], readAt: next };
     saveNotifications(list);
     setVersion((v) => v + 1);
+  };
+
+  const onPointerDown = (event, id) => {
+    if (event.pointerType !== 'mouse' && event.isPrimary === false) return;
+    dragRef.current = {
+      id,
+      startX: event.clientX,
+      startY: event.clientY,
+      started: true,
+      dragging: false,
+      dx: 0,
+    };
+  };
+
+  const onPointerMove = (event, id) => {
+    const d = dragRef.current;
+    if (!d.started || d.id !== id) return;
+    const dx = event.clientX - d.startX;
+    const dy = event.clientY - d.startY;
+
+    if (!d.dragging) {
+      if (Math.abs(dx) < 10) return;
+      if (Math.abs(dy) > Math.abs(dx) * 1.2) return;
+      d.dragging = true;
+      try { event.currentTarget.setPointerCapture?.(event.pointerId); } catch { /* ignore */ }
+    }
+
+    d.dx = dx;
+    if (dx < -18) setOpenId(id);
+    if (dx > 18 && openId === id) setOpenId(null);
+  };
+
+  const onPointerUp = (_event, id) => {
+    const d = dragRef.current;
+    if (!d.started || d.id !== id) return;
+    const dx = d.dx;
+    const shouldOpen = dx < -32;
+    const shouldClose = dx > 32;
+
+    if (shouldOpen) setOpenId(id);
+    else if (shouldClose) setOpenId(null);
+    dragRef.current = { id: null, startX: 0, startY: 0, started: false, dragging: false, dx: 0 };
   };
 
   return (
@@ -136,31 +180,57 @@ export default function NotificationsSheet({ open, onClose }) {
               <p className='mt-1 text-xl font-extrabold text-slate-100'>{selected.title}</p>
               {selected.createdAt && <p className='mt-2 text-xs text-slate-400'>{new Date(selected.createdAt).toLocaleString()}</p>}
               {selected.body && <p className='mt-3 whitespace-pre-wrap text-sm text-slate-300'>{selected.body}</p>}
-
-              <div className='mt-4 flex items-center gap-2'>
-                <button
-                  type='button'
-                  onClick={() => toggleRead(selected.id)}
-                  className='inline-flex items-center gap-2 rounded-3xl bg-white/95 px-4 py-3 text-sm font-extrabold text-slate-100'
-                >
-                  {selected.readAt ? <MailPlus size={16} /> : <MailOpen size={16} />}
-                  {selected.readAt ? 'Marcar como não lida' : 'Marcar como lida'}
-                </button>
-              </div>
             </div>
           </div>
         ) : notifications.length ? (
           <div className='space-y-2'>
-            {notifications.map((n) => (
-              <NotificationRow
-                key={n.id}
-                n={n}
-                onOpen={() => {
-                  setSelectedId(n.id);
-                  markRead(n.id);
-                }}
-              />
-            ))}
+            {notifications.map((n) => {
+              const isOpen = openId === n.id;
+              const isUnread = !n.readAt;
+              const actionLabel = isUnread ? 'Marcar como lida' : 'Marcar como não lida';
+              const ActionIcon = isUnread ? MailOpen : MailPlus;
+
+              return (
+                <div key={n.id} className='relative overflow-hidden rounded-4xl'>
+                  {/* Underlay action */}
+                  <div className='absolute inset-y-0 right-0 flex items-stretch pr-2' style={{ width: ACTION_W }}>
+                    <button
+                      type='button'
+                      className='h-full w-full rounded-4xl bg-slate-950/80 px-3 text-xs font-extrabold text-white shadow-soft ring-1 ring-black/10'
+                      onClick={() => {
+                        setOpenId(null);
+                        toggleRead(n.id);
+                      }}
+                      aria-label={actionLabel}
+                    >
+                      <span className='inline-flex items-center justify-center gap-2'>
+                        <ActionIcon size={16} />
+                        {actionLabel}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Foreground card (swipe) */}
+                  <div
+                    className='transition-transform duration-150'
+                    style={{ transform: isOpen ? `translateX(-${ACTION_W}px)` : 'translateX(0px)' }}
+                    onPointerDown={(e) => onPointerDown(e, n.id)}
+                    onPointerMove={(e) => onPointerMove(e, n.id)}
+                    onPointerUp={(e) => onPointerUp(e, n.id)}
+                    onPointerCancel={(e) => onPointerUp(e, n.id)}
+                    onClick={() => {
+                      if (isOpen) return setOpenId(null);
+                      setSelectedId(n.id);
+                      markRead(n.id);
+                    }}
+                    role='button'
+                    tabIndex={0}
+                  >
+                    <NotificationRow n={n} />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className='empty-state shadow-none'>
