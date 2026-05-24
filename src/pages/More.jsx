@@ -61,7 +61,7 @@ export default function More({ api, metadata = {}, onLogout, onToast, onReload }
     // Ao abrir o painel manual do MeuPluggy, aumentamos temporariamente o ritmo do fetch
     // para capturar as novidades mais rápido enquanto o usuário clica em "Atualizar".
     try {
-      localStorage.setItem('gf_pluggy_fetch_boost_until_ms', String(Date.now() + 6 * 60 * 1000));
+      localStorage.setItem('gf_pluggy_fetch_boost_until_ms', String(Date.now() + 5 * 60 * 1000));
       window.dispatchEvent(new Event('gf_pluggy_boost'));
     } catch {
       // ignore
@@ -78,9 +78,9 @@ export default function More({ api, metadata = {}, onLogout, onToast, onReload }
     if (!ok) return;
     try {
       await api('/imports/prune', { method: 'POST', body: JSON.stringify({ days, onlyPending: true }) });
-      await api('/pluggy/items/ignore-before/last-days', { method: 'POST', body: JSON.stringify({ days }) });
-      // backfill imediato (createdAtFrom é por criação no Pluggy, então forçamos janela aqui)
-      await api('/pluggy/fetch-transactions', { method: 'POST', body: JSON.stringify({ burst: true, forceCreatedAtFromDays: days }) });
+      await api('/pluggy/items/ignore-before/last-days', { method: 'POST', body: JSON.stringify({ days, rewind: true }) });
+      // roda um fetch em burst (a rota já usa janela rolante de N dias)
+      await api('/pluggy/fetch-transactions', { method: 'POST', body: JSON.stringify({ burst: true }) });
       onToast?.(`Inbox limpa. Mantidas só pendências dos últimos ${days} dias.`);
       onReload?.();
     } catch (e) {

@@ -66,7 +66,7 @@ export default function App() {
   }, [auth, reloadKey]);
 
   // Pluggy auto-fetch (MVP): roda periodicamente quando app estiver aberto.
-  // Normal: 3min. Ao abrir o painel do MeuPluggy, fazemos um "boost" temporário para 30s por alguns minutos.
+  // Normal: 3min. Ao abrir o painel do MeuPluggy, fazemos um "boost" temporário para 30s por 5 min.
   useEffect(() => {
     if (!auth) return;
     let stopped = false;

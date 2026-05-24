@@ -14,7 +14,7 @@ import { listMonthlyGoals, upsertMonthlyGoal, deleteMonthlyGoal } from './monthl
 import { buildExportPayload, buildTransactionsCsv, buildInboxCsv } from './exporter.js';
 import { listPendingImports, rejectImport, approveImport } from './importInboxDb.js';
 import { createConnectToken, listAccounts, listTransactionsByUrl, listTransactionsByIds, listTransactionsByAccount, getItem as pluggyGetItem } from './pluggyClient.js';
-import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy, setPluggyItemIgnoreBefore, rewindPluggyItemFetch, ensurePluggyItemIgnoreBeforeAtMost } from './pluggyDb.js';
+import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy, setPluggyItemIgnoreBefore, rewindPluggyItemFetch } from './pluggyDb.js';
 import pkg from '../package.json' with { type: 'json' };
 
 export const router = express.Router();
@@ -84,35 +84,6 @@ router.post('/pluggy/webhook', (req, res) => {
         // Observabilidade: o auto-sync diário do Pluggy (ou update manual no MeuPluggy) dispara item/updated.
         // Marcamos last_sync_at para termos um "último sync observado" mesmo quando não vem transação no webhook.
         if (event === 'item/updated' && itemId) await touchPluggyItemSync({ itemId, requestId });
-
-        // Auto-backfill: após item/updated, tenta puxar transações recentes (best-effort) sem exigir botão manual.
-        // Motivo: o cursor createdAtFrom pode ficar "muito recente" e perder transações já existentes.
-        const backfillDays = Number(process.env.PLUGGY_AUTO_BACKFILL_DAYS || 3);
-        if (itemId && backfillDays > 0) {
-          try {
-            const item = await getPluggyItem({ itemId });
-            if (item?.enabled) {
-              const createdAtFrom = new Date(Date.now() - backfillDays * 24 * 60 * 60 * 1000).toISOString();
-
-              // Garante ignore_before não mais restritivo do que essa janela (pra não cortar occurredAt recentes).
-              await ensurePluggyItemIgnoreBeforeAtMost({ itemId, ignoreBefore: createdAtFrom, requestId });
-              await rewindPluggyItemFetch({ itemId, to: createdAtFrom, requestId });
-
-              const accounts = await listAccounts({ requestId, itemId });
-              for (const acc of accounts) {
-                const accountId = String(acc?.id || '').trim();
-                if (!accountId) continue;
-                const accountHint = String(acc?.name || acc?.number || acc?.type || accountId || '').trim();
-                const tx = await listTransactionsByAccount({ requestId, accountId, createdAtFrom });
-                await insertImportsFromPluggy({ requestId, itemId, accountHint, transactions: tx, ignoreBefore: createdAtFrom });
-              }
-              await touchPluggyItemFetch({ itemId, requestId });
-              logger.info('pluggy_auto_backfill_done', { requestId, itemId, backfillDays });
-            }
-          } catch (e) {
-            logger.warn('pluggy_auto_backfill_failed', { requestId, itemId, error: e?.message || String(e) });
-          }
-        }
         return;
       }
 
@@ -610,7 +581,7 @@ router.get('/pluggy/items/:itemId', async (req, res, next) => {
   }
 });
 
-// MVP: buscar transações manualmente (últimas 24h por createdAtFrom) e jogar na inbox.
+// MVP: buscar transações manualmente (janela rolante dos últimos N dias por createdAtFrom) e jogar na inbox.
 // Premissa: o usuário atualiza/sincroniza no MeuPluggy e o Nicco só puxa os dados via API.
 router.post('/pluggy/fetch-transactions', async (req, res, next) => {
   try {
@@ -621,12 +592,12 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
     const burst = req.body?.burst === true;
     const minIntervalMs = burst ? 30 * 1000 : normalMinIntervalMs;
     const nowIso = new Date().toISOString();
-    const forceCreatedAtFromDays = req.body?.forceCreatedAtFromDays != null ? Number(req.body.forceCreatedAtFromDays) : null;
-    const forceCreatedAtFromIso = Number.isFinite(forceCreatedAtFromDays) && forceCreatedAtFromDays > 0
-      ? new Date(Date.now() - forceCreatedAtFromDays * 24 * 60 * 60 * 1000).toISOString()
+    const fetchWindowDays = Number(process.env.PLUGGY_FETCH_WINDOW_DAYS || 5);
+    const windowStartIso = Number.isFinite(fetchWindowDays) && fetchWindowDays > 0
+      ? new Date(Date.now() - fetchWindowDays * 24 * 60 * 60 * 1000).toISOString()
       : null;
 
-    logger.info('pluggy_manual_fetch_started', { requestId: req.requestId, mode: 'cursor', overlapMs, minIntervalMs, burst, forceCreatedAtFromIso });
+    logger.info('pluggy_manual_fetch_started', { requestId: req.requestId, mode: 'rolling-window', overlapMs, minIntervalMs, burst, fetchWindowDays, windowStartIso });
 
     const items = await listPluggyItems({ requestId: req.requestId });
     const enabled = items.filter((i) => i.enabled);
@@ -649,19 +620,11 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
         continue;
       }
 
-      const ignoreBefore = it.ignoreBefore ? new Date(it.ignoreBefore) : null;
-      const ignoreBeforeIso = ignoreBefore && !Number.isNaN(ignoreBefore.getTime()) ? ignoreBefore.toISOString() : null;
+      // Janela rolante: sempre busca pelo createdAtFrom de N dias atrás.
+      // Dedupe via (provider, external_id) evita duplicata na inbox.
+      const effectiveCreatedAtFrom = windowStartIso || nowIso;
 
-      // Cursor principal: createdAtFrom (Pluggy) é por "data de criação no Pluggy", não por occurredAt.
-      // - Normal: avança por last_fetch_at
-      // - Primeira vez/backfill controlado: se não tem cursor, usa ignoreBefore (quando existe); senão "daqui pra frente".
-      const createdAtFrom = lastFetchAt && !Number.isNaN(lastFetchAt.getTime())
-        ? new Date(lastFetchAt.getTime() - overlapMs).toISOString()
-        : (ignoreBeforeIso || nowIso);
-
-      const effectiveCreatedAtFrom = forceCreatedAtFromIso || createdAtFrom;
-
-      logger.info('pluggy_manual_fetch_item_started', { requestId: req.requestId, itemId: it.itemId, createdAtFrom: effectiveCreatedAtFrom, lastFetchAt: it.lastFetchAt || null, forceCreatedAtFromIso });
+      logger.info('pluggy_manual_fetch_item_started', { requestId: req.requestId, itemId: it.itemId, createdAtFrom: effectiveCreatedAtFrom, lastFetchAt: it.lastFetchAt || null });
 
       let accounts = [];
       let itemErrors = 0;
@@ -707,7 +670,7 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
           continue;
         }
 
-        const r = await insertImportsFromPluggy({ requestId: req.requestId, itemId: it.itemId, accountHint, transactions: tx, ignoreBefore: it.ignoreBefore });
+        const r = await insertImportsFromPluggy({ requestId: req.requestId, itemId: it.itemId, accountHint, transactions: tx, ignoreBefore: windowStartIso || it.ignoreBefore });
         totalSeen += r.seen || 0;
         totalInserted += r.inserted || 0;
         totalUpdated += r.updated || 0;

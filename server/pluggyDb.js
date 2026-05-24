@@ -41,24 +41,6 @@ export async function setPluggyItemIgnoreBefore({ itemId, ignoreBefore, requestI
   return { ok: true };
 }
 
-// Garante que ignore_before não fique mais restritivo do que a janela desejada.
-// Se ignore_before já for mais antigo, não mexe.
-export async function ensurePluggyItemIgnoreBeforeAtMost({ itemId, ignoreBefore, requestId } = {}) {
-  if (!itemId) throw new Error('itemId obrigatório.');
-  const d = new Date(ignoreBefore);
-  if (Number.isNaN(d.getTime())) throw new Error('ignoreBefore inválido.');
-  const { rowCount } = await query(
-    `update pluggy_items
-        set ignore_before = least(ignore_before, $2::timestamptz),
-            updated_at=now()
-      where item_id=$1::uuid`,
-    [String(itemId), d.toISOString()]
-  );
-  if (!rowCount) throw new Error('Item não encontrado.');
-  logger.info('pluggy_item_ignore_before_ensured', { requestId, itemId: String(itemId), ignoreBefore: d.toISOString() });
-  return { ok: true };
-}
-
 export async function listPluggyItems({ requestId } = {}) {
   const { rows } = await query(
     `select id, item_id, client_user_id, enabled, ignore_before, last_webhook_at, last_sync_at, last_update_at, can_update, last_fetch_at, created_at, updated_at
