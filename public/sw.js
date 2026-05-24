@@ -3,7 +3,7 @@
 // Web Push Service Worker (PWA)
 
 self.addEventListener('push', (event) => {
-  const fallback = { title: 'Notificação', body: 'Nova notificação', url: '/', tag: 'nicco' };
+  const fallback = { title: 'Nicco Finance', body: 'Nova notificação', url: '/', tag: 'nicco' };
   let data = fallback;
   try {
     const raw = event?.data?.text?.() || '';
@@ -55,3 +55,4 @@ self.addEventListener('notificationclick', (event) => {
     })()
   );
 });
+
