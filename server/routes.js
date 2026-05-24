@@ -586,8 +586,12 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
     const burst = req.body?.burst === true;
     const minIntervalMs = burst ? 30 * 1000 : normalMinIntervalMs;
     const nowIso = new Date().toISOString();
+    const forceCreatedAtFromDays = req.body?.forceCreatedAtFromDays != null ? Number(req.body.forceCreatedAtFromDays) : null;
+    const forceCreatedAtFromIso = Number.isFinite(forceCreatedAtFromDays) && forceCreatedAtFromDays > 0
+      ? new Date(Date.now() - forceCreatedAtFromDays * 24 * 60 * 60 * 1000).toISOString()
+      : null;
 
-    logger.info('pluggy_manual_fetch_started', { requestId: req.requestId, mode: 'cursor', overlapMs, minIntervalMs, burst });
+    logger.info('pluggy_manual_fetch_started', { requestId: req.requestId, mode: 'cursor', overlapMs, minIntervalMs, burst, forceCreatedAtFromIso });
 
     const items = await listPluggyItems({ requestId: req.requestId });
     const enabled = items.filter((i) => i.enabled);
@@ -620,7 +624,9 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
         ? new Date(lastFetchAt.getTime() - overlapMs).toISOString()
         : (ignoreBeforeIso || nowIso);
 
-      logger.info('pluggy_manual_fetch_item_started', { requestId: req.requestId, itemId: it.itemId, createdAtFrom, lastFetchAt: it.lastFetchAt || null });
+      const effectiveCreatedAtFrom = forceCreatedAtFromIso || createdAtFrom;
+
+      logger.info('pluggy_manual_fetch_item_started', { requestId: req.requestId, itemId: it.itemId, createdAtFrom: effectiveCreatedAtFrom, lastFetchAt: it.lastFetchAt || null, forceCreatedAtFromIso });
 
       let accounts = [];
       let itemErrors = 0;
@@ -650,8 +656,8 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
 
         let tx = [];
         try {
-          logger.debug('pluggy_manual_fetch_list_transactions_started', { requestId: req.requestId, itemId: it.itemId, accountId, createdAtFrom });
-          tx = await listTransactionsByAccount({ requestId: req.requestId, accountId, createdAtFrom });
+          logger.debug('pluggy_manual_fetch_list_transactions_started', { requestId: req.requestId, itemId: it.itemId, accountId, createdAtFrom: effectiveCreatedAtFrom });
+          tx = await listTransactionsByAccount({ requestId: req.requestId, accountId, createdAtFrom: effectiveCreatedAtFrom });
           logger.debug('pluggy_manual_fetch_list_transactions_finished', { requestId: req.requestId, itemId: it.itemId, accountId, count: tx.length });
         } catch (e) {
           itemErrors += 1;
