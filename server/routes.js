@@ -116,7 +116,7 @@ router.post('/pluggy/webhook', (req, res) => {
           await maybeSendPush({
             key: 'inbox:new',
             cooldownMs: 60 * 1000,
-            title: 'Nicco Finance',
+            title: 'Importações pendentes',
             body: `${r.inserted} nova(s) importação(ões) pendente(s) para aprovar.`,
             url: '/',
             tag: 'inbox',
@@ -142,7 +142,7 @@ router.post('/pluggy/webhook', (req, res) => {
           await maybeSendPush({
             key: 'inbox:new',
             cooldownMs: 60 * 1000,
-            title: 'Nicco Finance',
+            title: 'Importações pendentes',
             body: `${r.inserted} nova(s) importação(ões) pendente(s) para aprovar.`,
             url: '/',
             tag: 'inbox',
@@ -193,8 +193,8 @@ router.post('/push/unsubscribe', async (req, res, next) => {
 router.post('/push/test', async (req, res, next) => {
   try {
     if (!config.databaseUrl) return res.status(409).json({ ok: false, error: 'Push requer DATABASE_URL (armazenamento de subscriptions).', requestId: req.requestId });
-    const title = String(req.body?.title || 'Nicco Finance');
-    const body = String(req.body?.body || 'Push de teste do Nicco.');
+    const title = String(req.body?.title || 'Teste de push');
+    const body = String(req.body?.body || 'Se tu tá vendo isso, o push do Nicco tá funcionando ✅');
     const r = await sendPushToAll({ title, body, url: '/', tag: 'test', requestId: req.requestId });
     res.json({ ok: true, result: r });
   } catch (e) {
@@ -773,7 +773,7 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
       await maybeSendPush({
         key: 'inbox:new',
         cooldownMs: 60 * 1000,
-        title: 'Nicco Finance',
+        title: 'Importações pendentes',
         body: `${totalInserted} nova(s) importação(ões) pendente(s) para aprovar.`,
         url: '/',
         tag: 'inbox',
