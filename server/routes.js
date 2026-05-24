@@ -14,7 +14,7 @@ import { listMonthlyGoals, upsertMonthlyGoal, deleteMonthlyGoal } from './monthl
 import { buildExportPayload, buildTransactionsCsv, buildInboxCsv } from './exporter.js';
 import { listPendingImports, rejectImport, approveImport } from './importInboxDb.js';
 import { createConnectToken, listAccounts, listTransactionsByUrl, listTransactionsByIds, listTransactionsByAccount, getItem as pluggyGetItem } from './pluggyClient.js';
-import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy, setPluggyItemIgnoreBefore } from './pluggyDb.js';
+import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy, setPluggyItemIgnoreBefore, rewindPluggyItemFetch } from './pluggyDb.js';
 import pkg from '../package.json' with { type: 'json' };
 
 export const router = express.Router();
@@ -516,7 +516,14 @@ router.post('/pluggy/items/ignore-before/last-days', async (req, res, next) => {
     for (const it of enabled) {
       await setPluggyItemIgnoreBefore({ itemId: it.itemId, ignoreBefore, requestId: req.requestId });
     }
-    res.json({ ok: true, data: { days, ignoreBefore, items: enabled.length } });
+    // Rewind cursor para permitir backfill (senão createdAtFrom fica preso no last_fetch_at recente).
+    const rewind = req.body?.rewind !== false;
+    if (rewind) {
+      for (const it of enabled) {
+        await rewindPluggyItemFetch({ itemId: it.itemId, to: ignoreBefore, requestId: req.requestId });
+      }
+    }
+    res.json({ ok: true, data: { days, ignoreBefore, items: enabled.length, rewind } });
   } catch (e) {
     next(e);
   }
@@ -603,9 +610,15 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
         continue;
       }
 
+      const ignoreBefore = it.ignoreBefore ? new Date(it.ignoreBefore) : null;
+      const ignoreBeforeIso = ignoreBefore && !Number.isNaN(ignoreBefore.getTime()) ? ignoreBefore.toISOString() : null;
+
+      // Cursor principal: createdAtFrom (Pluggy) é por "data de criação no Pluggy", não por occurredAt.
+      // - Normal: avança por last_fetch_at
+      // - Primeira vez/backfill controlado: se não tem cursor, usa ignoreBefore (quando existe); senão "daqui pra frente".
       const createdAtFrom = lastFetchAt && !Number.isNaN(lastFetchAt.getTime())
         ? new Date(lastFetchAt.getTime() - overlapMs).toISOString()
-        : nowIso; // primeira vez: começa "daqui pra frente"
+        : (ignoreBeforeIso || nowIso);
 
       logger.info('pluggy_manual_fetch_item_started', { requestId: req.requestId, itemId: it.itemId, createdAtFrom, lastFetchAt: it.lastFetchAt || null });
 

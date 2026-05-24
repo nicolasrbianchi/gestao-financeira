@@ -94,6 +94,21 @@ export async function touchPluggyItemFetch({ itemId, requestId } = {}) {
   logger.debug('pluggy_item_fetch_touched', { requestId, itemId: String(itemId) });
 }
 
+export async function rewindPluggyItemFetch({ itemId, to = null, requestId } = {}) {
+  if (!itemId) throw new Error('itemId obrigatório.');
+  const d = to ? new Date(to) : null;
+  if (d && Number.isNaN(d.getTime())) throw new Error('to inválido.');
+  await query(
+    `update pluggy_items
+        set last_fetch_at=$2::timestamptz,
+            updated_at=now()
+      where item_id=$1::uuid`,
+    [String(itemId), d ? d.toISOString() : null]
+  );
+  logger.info('pluggy_item_fetch_rewound', { requestId, itemId: String(itemId), to: d ? d.toISOString() : null });
+  return { ok: true };
+}
+
 export async function getPluggyItem({ itemId } = {}) {
   if (!itemId) throw new Error('itemId obrigatório.');
   const { rows } = await query(
