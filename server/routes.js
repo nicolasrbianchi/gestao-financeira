@@ -596,6 +596,7 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
     const windowStartIso = Number.isFinite(fetchWindowDays) && fetchWindowDays > 0
       ? new Date(Date.now() - fetchWindowDays * 24 * 60 * 60 * 1000).toISOString()
       : null;
+    const debugTxSample = req.body?.debugTxSample === true;
 
     logger.info('pluggy_manual_fetch_started', { requestId: req.requestId, mode: 'rolling-window', overlapMs, minIntervalMs, burst, fetchWindowDays, windowStartIso });
 
@@ -657,6 +658,13 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
           logger.debug('pluggy_manual_fetch_list_transactions_started', { requestId: req.requestId, itemId: it.itemId, accountId, createdAtFrom: effectiveCreatedAtFrom });
           tx = await listTransactionsByAccount({ requestId: req.requestId, accountId, createdAtFrom: effectiveCreatedAtFrom });
           logger.debug('pluggy_manual_fetch_list_transactions_finished', { requestId: req.requestId, itemId: it.itemId, accountId, count: tx.length });
+
+          if (debugTxSample && tx.length) {
+            const sample = tx
+              .slice(0, 5)
+              .map((t) => ({ id: t?.id, date: t?.date, amount: t?.amount, desc: t?.description, createdAt: t?.createdAt }));
+            logger.debug('pluggy_manual_fetch_tx_sample', { requestId: req.requestId, itemId: it.itemId, accountId, sample });
+          }
         } catch (e) {
           itemErrors += 1;
           logger.warn('pluggy_manual_fetch_list_transactions_failed', {
