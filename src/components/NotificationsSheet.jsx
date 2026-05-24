@@ -193,11 +193,16 @@ export default function NotificationsSheet({ open, onClose }) {
               return (
                 <div key={n.id} className='relative overflow-hidden rounded-4xl'>
                   {/* Underlay action */}
-                  <div className='absolute inset-y-0 right-0 flex items-stretch pr-2' style={{ width: ACTION_W }}>
+                  <div
+                    className={`absolute inset-y-0 right-0 flex items-stretch pr-2 transition-opacity duration-150 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                    style={{ width: ACTION_W }}
+                  >
                     <button
                       type='button'
                       className='h-full w-full rounded-4xl bg-slate-950/80 px-3 text-xs font-extrabold text-white shadow-soft ring-1 ring-black/10'
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         setOpenId(null);
                         toggleRead(n.id);
                       }}
