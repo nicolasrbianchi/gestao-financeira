@@ -15,6 +15,8 @@ import { buildExportPayload, buildTransactionsCsv, buildInboxCsv } from './expor
 import { listPendingImports, rejectImport, approveImport } from './importInboxDb.js';
 import { createConnectToken, listAccounts, listTransactionsByUrl, listTransactionsByIds, listTransactionsByAccount, getItem as pluggyGetItem } from './pluggyClient.js';
 import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy, setPluggyItemIgnoreBefore, rewindPluggyItemFetch } from './pluggyDb.js';
+import { upsertSubscription, deleteSubscription } from './pushDb.js';
+import { sendPushToAll, maybeSendPush } from './pushService.js';
 import pkg from '../package.json' with { type: 'json' };
 
 export const router = express.Router();
@@ -109,7 +111,18 @@ router.post('/pluggy/webhook', (req, res) => {
         }
 
         const tx = await listTransactionsByUrl({ requestId, url: link });
-        await insertImportsFromPluggy({ requestId, itemId, accountHint, transactions: tx, ignoreBefore: item.ignoreBefore });
+        const r = await insertImportsFromPluggy({ requestId, itemId, accountHint, transactions: tx, ignoreBefore: item.ignoreBefore });
+        if (r?.inserted > 0) {
+          await maybeSendPush({
+            key: 'inbox:new',
+            cooldownMs: 60 * 1000,
+            title: 'Nicco Finance',
+            body: `${r.inserted} nova(s) importação(ões) pendente(s) para aprovar.`,
+            url: '/',
+            tag: 'inbox',
+            requestId,
+          });
+        }
         await touchPluggyItemSync({ itemId, requestId });
         return;
       }
@@ -124,7 +137,18 @@ router.post('/pluggy/webhook', (req, res) => {
         const item = await getPluggyItem({ itemId });
         if (!item?.enabled) return;
         const tx = await listTransactionsByIds({ requestId, ids });
-        await insertImportsFromPluggy({ requestId, itemId, accountHint: String(payload.accountId || ''), transactions: tx, ignoreBefore: item.ignoreBefore });
+        const r = await insertImportsFromPluggy({ requestId, itemId, accountHint: String(payload.accountId || ''), transactions: tx, ignoreBefore: item.ignoreBefore });
+        if (r?.inserted > 0) {
+          await maybeSendPush({
+            key: 'inbox:new',
+            cooldownMs: 60 * 1000,
+            title: 'Nicco Finance',
+            body: `${r.inserted} nova(s) importação(ões) pendente(s) para aprovar.`,
+            url: '/',
+            tag: 'inbox',
+            requestId,
+          });
+        }
         await touchPluggyItemSync({ itemId, requestId });
       }
     } catch (e) {
@@ -134,6 +158,49 @@ router.post('/pluggy/webhook', (req, res) => {
 });
 
 router.use(requireAuth);
+
+// Web Push (PWA) — requer HTTPS e o app instalado (Add to Home Screen no iOS).
+router.get('/push/public-key', (req, res) => {
+  const key = String(process.env.WEB_PUSH_PUBLIC_KEY || '').trim();
+  if (!key) return res.status(409).json({ ok: false, error: 'WEB_PUSH_PUBLIC_KEY não configurado.', requestId: req.requestId });
+  return res.json({ ok: true, publicKey: key });
+});
+
+router.post('/push/subscribe', async (req, res, next) => {
+  try {
+    if (!config.databaseUrl) return res.status(409).json({ ok: false, error: 'Push requer DATABASE_URL (armazenamento de subscriptions).', requestId: req.requestId });
+    const subscription = req.body?.subscription;
+    if (!subscription?.endpoint) return res.status(400).json({ ok: false, error: 'subscription inválida.', requestId: req.requestId });
+    const userAgent = String(req.headers['user-agent'] || '');
+    const r = await upsertSubscription({ subscription, userAgent, requestId: req.requestId });
+    res.json({ ok: true, subscription: r });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/push/unsubscribe', async (req, res, next) => {
+  try {
+    if (!config.databaseUrl) return res.status(409).json({ ok: false, error: 'Push requer DATABASE_URL (armazenamento de subscriptions).', requestId: req.requestId });
+    const endpoint = String(req.body?.endpoint || '').trim();
+    await deleteSubscription({ endpoint, requestId: req.requestId });
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/push/test', async (req, res, next) => {
+  try {
+    if (!config.databaseUrl) return res.status(409).json({ ok: false, error: 'Push requer DATABASE_URL (armazenamento de subscriptions).', requestId: req.requestId });
+    const title = String(req.body?.title || 'Nicco Finance');
+    const body = String(req.body?.body || 'Push de teste do Nicco.');
+    const r = await sendPushToAll({ title, body, url: '/', tag: 'test', requestId: req.requestId });
+    res.json({ ok: true, result: r });
+  } catch (e) {
+    next(e);
+  }
+});
 
 const loadNormalizedTx = async (req) => {
   const data = await client.getTransactions({ requestId: req.requestId });
@@ -701,6 +768,18 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
       inserted: totalInserted,
       updated: totalUpdated,
     });
+
+    if (totalInserted > 0) {
+      await maybeSendPush({
+        key: 'inbox:new',
+        cooldownMs: 60 * 1000,
+        title: 'Nicco Finance',
+        body: `${totalInserted} nova(s) importação(ões) pendente(s) para aprovar.`,
+        url: '/',
+        tag: 'inbox',
+        requestId: req.requestId,
+      });
+    }
 
     res.json({
       ok: true,

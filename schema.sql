@@ -153,3 +153,16 @@ alter table pluggy_items
   add column if not exists can_update boolean not null default true;
 
 create index if not exists idx_pluggy_items_enabled on pluggy_items(enabled);
+
+-- Web Push subscriptions (PWA)
+create table if not exists push_subscriptions (
+  id bigserial primary key,
+  endpoint text not null,
+  subscription jsonb not null default '{}'::jsonb,
+  user_agent text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (endpoint)
+);
+
+create index if not exists idx_push_subscriptions_updated_at on push_subscriptions(updated_at desc);

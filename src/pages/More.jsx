@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Download, Landmark, Link2, LogOut, Server, Tags, Target, Trash2 } from 'lucide-react';
+import { Bell, Download, Landmark, Link2, LogOut, Server, Tags, Target, Trash2 } from 'lucide-react';
 import ManageTagsSheet from '../components/ManageTagsSheet';
 import ManageMonthlyGoalsSheet from '../components/ManageMonthlyGoalsSheet';
 import ExportSheet from '../components/ExportSheet';
 import ManageAccountsSheet from '../components/ManageAccountsSheet';
+import { isPushSupported, subscribeToPush, unsubscribeFromPush } from '../utils/push';
 
 function Row({ icon: Icon, title, description, action, children }) {
   return (
@@ -30,6 +31,7 @@ export default function More({ api, metadata = {}, onLogout, onToast, onReload }
   const [goalsOpen, setGoalsOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [pluggyItems, setPluggyItems] = useState([]);
+  const [pushState, setPushState] = useState({ supported: false, permission: 'default', subscribed: false });
 
   const testConnection = async () => {
     try {
@@ -56,6 +58,24 @@ export default function More({ api, metadata = {}, onLogout, onToast, onReload }
   };
 
   React.useEffect(() => { loadPluggy(); /* eslint-disable-next-line */ }, []);
+
+  const refreshPushState = async () => {
+    try {
+      const supported = isPushSupported();
+      const permission = supported ? (Notification.permission || 'default') : 'unsupported';
+      let subscribed = false;
+      if (supported) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        const sub = await reg?.pushManager?.getSubscription?.();
+        subscribed = !!sub;
+      }
+      setPushState({ supported, permission, subscribed });
+    } catch {
+      setPushState({ supported: false, permission: 'default', subscribed: false });
+    }
+  };
+
+  React.useEffect(() => { void refreshPushState(); /* eslint-disable-next-line */ }, []);
 
   const openMeuPluggy = () => {
     // Ao abrir o painel manual do MeuPluggy, aumentamos temporariamente o ritmo do fetch
@@ -88,6 +108,36 @@ export default function More({ api, metadata = {}, onLogout, onToast, onReload }
     }
   };
 
+  const enablePush = async () => {
+    try {
+      await subscribeToPush(api);
+      onToast?.('Push ativado neste dispositivo ✅');
+      await refreshPushState();
+    } catch (e) {
+      onToast?.(e?.message || 'Não consegui ativar push.');
+      await refreshPushState();
+    }
+  };
+
+  const disablePush = async () => {
+    try {
+      await unsubscribeFromPush(api);
+      onToast?.('Push desativado.');
+      await refreshPushState();
+    } catch (e) {
+      onToast?.(e?.message || 'Erro ao desativar push.');
+    }
+  };
+
+  const testPush = async () => {
+    try {
+      await api('/push/test', { method: 'POST', body: JSON.stringify({}) });
+      onToast?.('Enviei um push de teste.');
+    } catch (e) {
+      onToast?.(e?.message || 'Erro ao enviar push.');
+    }
+  };
+
   return (
     <div className='space-y-4'>
       <header className='px-1'>
@@ -101,6 +151,34 @@ export default function More({ api, metadata = {}, onLogout, onToast, onReload }
         title='Conectar banco (MeuPluggy)'
         description={pluggyItems.length ? `${pluggyItems.length} conexão(ões) ativa(s)` : 'Abra o MeuPluggy para conectar/atualizar seus bancos.'}
         action={<button type='button' onClick={openMeuPluggy} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Abrir Meu Pluggy</button>}
+      />
+
+      <Row
+        icon={Bell}
+        title='Notificações push (celular)'
+        description={
+          !pushState.supported
+            ? 'Este navegador não suporta push. (No iOS: só funciona se o app estiver instalado na Tela de Início.)'
+            : pushState.permission === 'denied'
+              ? 'Permissão negada no sistema. Precisa liberar nas configurações do navegador.'
+              : pushState.subscribed
+                ? 'Ativo neste dispositivo.'
+                : 'Ative para receber alertas como um app.'
+        }
+        action={(
+          <div className='flex gap-2'>
+            {!pushState.supported || pushState.permission === 'denied' ? (
+              <button type='button' disabled className='w-full rounded-3xl bg-slate-200 px-4 py-3 text-sm font-bold text-slate-500'>Indisponível</button>
+            ) : pushState.subscribed ? (
+              <>
+                <button type='button' onClick={testPush} className='flex-1 rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Teste</button>
+                <button type='button' onClick={disablePush} className='flex-1 rounded-3xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600'>Desativar</button>
+              </>
+            ) : (
+              <button type='button' onClick={enablePush} className='w-full rounded-3xl bg-slate-950 px-4 py-3 text-sm font-bold text-white'>Ativar push</button>
+            )}
+          </div>
+        )}
       />
 
       <Row
