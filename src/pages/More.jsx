@@ -79,6 +79,8 @@ export default function More({ api, metadata = {}, onLogout, onToast, onReload }
     try {
       await api('/imports/prune', { method: 'POST', body: JSON.stringify({ days, onlyPending: true }) });
       await api('/pluggy/items/ignore-before/last-days', { method: 'POST', body: JSON.stringify({ days }) });
+      // backfill imediato (createdAtFrom é por criação no Pluggy, então forçamos janela aqui)
+      await api('/pluggy/fetch-transactions', { method: 'POST', body: JSON.stringify({ burst: true, forceCreatedAtFromDays: days }) });
       onToast?.(`Inbox limpa. Mantidas só pendências dos últimos ${days} dias.`);
       onReload?.();
     } catch (e) {
