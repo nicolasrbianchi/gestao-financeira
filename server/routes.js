@@ -14,7 +14,7 @@ import { listMonthlyGoals, upsertMonthlyGoal, deleteMonthlyGoal } from './monthl
 import { buildExportPayload, buildTransactionsCsv, buildInboxCsv } from './exporter.js';
 import { listPendingImports, rejectImport, approveImport } from './importInboxDb.js';
 import { createConnectToken, listAccounts, listTransactionsByUrl, listTransactionsByIds, listTransactionsByAccount, getItem as pluggyGetItem } from './pluggyClient.js';
-import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy, setPluggyItemIgnoreBefore, rewindPluggyItemFetch } from './pluggyDb.js';
+import { upsertPluggyItem, listPluggyItems, touchPluggyItemWebhook, touchPluggyItemSync, touchPluggyItemFetch, getPluggyItem, insertImportsFromPluggy, setPluggyItemIgnoreBefore, rewindPluggyItemFetch, ensurePluggyItemIgnoreBeforeAtMost } from './pluggyDb.js';
 import pkg from '../package.json' with { type: 'json' };
 
 export const router = express.Router();
@@ -84,6 +84,35 @@ router.post('/pluggy/webhook', (req, res) => {
         // Observabilidade: o auto-sync diário do Pluggy (ou update manual no MeuPluggy) dispara item/updated.
         // Marcamos last_sync_at para termos um "último sync observado" mesmo quando não vem transação no webhook.
         if (event === 'item/updated' && itemId) await touchPluggyItemSync({ itemId, requestId });
+
+        // Auto-backfill: após item/updated, tenta puxar transações recentes (best-effort) sem exigir botão manual.
+        // Motivo: o cursor createdAtFrom pode ficar "muito recente" e perder transações já existentes.
+        const backfillDays = Number(process.env.PLUGGY_AUTO_BACKFILL_DAYS || 3);
+        if (itemId && backfillDays > 0) {
+          try {
+            const item = await getPluggyItem({ itemId });
+            if (item?.enabled) {
+              const createdAtFrom = new Date(Date.now() - backfillDays * 24 * 60 * 60 * 1000).toISOString();
+
+              // Garante ignore_before não mais restritivo do que essa janela (pra não cortar occurredAt recentes).
+              await ensurePluggyItemIgnoreBeforeAtMost({ itemId, ignoreBefore: createdAtFrom, requestId });
+              await rewindPluggyItemFetch({ itemId, to: createdAtFrom, requestId });
+
+              const accounts = await listAccounts({ requestId, itemId });
+              for (const acc of accounts) {
+                const accountId = String(acc?.id || '').trim();
+                if (!accountId) continue;
+                const accountHint = String(acc?.name || acc?.number || acc?.type || accountId || '').trim();
+                const tx = await listTransactionsByAccount({ requestId, accountId, createdAtFrom });
+                await insertImportsFromPluggy({ requestId, itemId, accountHint, transactions: tx, ignoreBefore: createdAtFrom });
+              }
+              await touchPluggyItemFetch({ itemId, requestId });
+              logger.info('pluggy_auto_backfill_done', { requestId, itemId, backfillDays });
+            }
+          } catch (e) {
+            logger.warn('pluggy_auto_backfill_failed', { requestId, itemId, error: e?.message || String(e) });
+          }
+        }
         return;
       }
 
@@ -497,6 +526,12 @@ router.post('/pluggy/items', async (req, res, next) => {
       ? new Date(Date.now() - Math.max(0, initialDays) * 24 * 60 * 60 * 1000).toISOString()
       : new Date().toISOString();
     const item = await upsertPluggyItem({ itemId, clientUserId: 'nicco', requestId: req.requestId, ignoreBefore });
+
+    // Se configurado, rebobina o cursor para permitir backfill inicial automaticamente.
+    // (Sem isso, createdAtFrom começa "agora" e pode não puxar transações recentes já existentes.)
+    if (initialDays > 0) {
+      await rewindPluggyItemFetch({ itemId, to: ignoreBefore, requestId: req.requestId });
+    }
     res.json({ ok: true, item });
   } catch (e) { next(e); }
 });
