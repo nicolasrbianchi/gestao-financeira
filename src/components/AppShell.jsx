@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import BottomNav from './BottomNav';
 import FilterSheet from './FilterSheet';
 import TransactionSheet from './TransactionSheet';
+import TransactionDetailsSheet from './TransactionDetailsSheet';
 import ImportInboxSheet from './ImportInboxSheet';
 import AddTransactionMenuSheet from './AddTransactionMenuSheet';
 import NotificationsSheet from './NotificationsSheet';
@@ -46,6 +47,8 @@ export default function AppShell(props) {
   const { tab, onTab, filters, setFilters, metadata, initialDashboard, api, withQuery, onLogout, onToast, onReload, pendingImportsCount, insightTick } = props;
   const [showFilters, setShowFilters] = useState(false);
   const [showTransactionSheet, setShowTransactionSheet] = useState(false);
+  const [showTransactionDetails, setShowTransactionDetails] = useState(false);
+  const [detailsTx, setDetailsTx] = useState(null);
   const [editingTx, setEditingTx] = useState(null);
   const [transactionSheetMode, setTransactionSheetMode] = useState('add');
   const [data, setData] = useState(null);
@@ -137,6 +140,11 @@ export default function AppShell(props) {
     reload();
   };
 
+  const openDetails = (tx) => {
+    setDetailsTx(tx || null);
+    setShowTransactionDetails(true);
+  };
+
   const closeTransactionSheet = () => {
     setShowTransactionSheet(false);
     setEditingTx(null);
@@ -164,6 +172,7 @@ export default function AppShell(props) {
           loading={loading}
           filters={filters}
           setFilters={setFilters}
+          onView={(tx) => openDetails(tx)}
           onEdit={(tx) => {
             setEditingTx(tx);
             setTransactionSheetMode('edit');
@@ -303,6 +312,29 @@ export default function AppShell(props) {
         initialTransaction={editingTx}
         mode={transactionSheetMode}
         submitPath={approveDraft?.importId ? `/imports/${approveDraft.importId}/approve` : null}
+      />
+
+      <TransactionDetailsSheet
+        open={showTransactionDetails}
+        onClose={() => setShowTransactionDetails(false)}
+        api={api}
+        transaction={detailsTx}
+        onToast={onToast}
+        onEdit={(tx) => {
+          setShowTransactionDetails(false);
+          setEditingTx(tx);
+          setTransactionSheetMode('edit');
+          setShowTransactionSheet(true);
+        }}
+        onDelete={async (tx) => {
+          // reaproveita o mesmo fluxo da lista
+          const id = tx?.id ?? tx?.sheetRowNumber ?? tx?.row;
+          if (!id) throw new Error('id inválido');
+          await api(`/transactions/${id}`, { method: 'DELETE' });
+          onToast?.('Transação excluída.');
+          onReload?.();
+          reload();
+        }}
       />
 
       <AddTransactionMenuSheet

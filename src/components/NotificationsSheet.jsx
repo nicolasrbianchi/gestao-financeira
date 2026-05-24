@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Bell, ChevronLeft, MailOpen, MailPlus } from 'lucide-react';
+import { Bell, ChevronLeft, MailOpen, MailPlus, Trash2 } from 'lucide-react';
 
 function normalizeNotifications(list) {
   return (Array.isArray(list) ? list : [])
@@ -88,7 +88,7 @@ export default function NotificationsSheet({ open, onClose }) {
 
   const [openId, setOpenId] = useState(null);
   const dragRef = React.useRef({ id: null, startX: 0, startY: 0, started: false, dragging: false, dx: 0 });
-  const ACTION_W = 148; // px
+  const ACTION_W = 172; // px (2 ações)
 
   const markRead = (id) => {
     const list = loadNotifications();
@@ -107,6 +107,15 @@ export default function NotificationsSheet({ open, onClose }) {
     const next = list[idx].readAt ? null : new Date().toISOString();
     list[idx] = { ...list[idx], readAt: next };
     saveNotifications(list);
+    setVersion((v) => v + 1);
+  };
+
+  const deleteNotification = (id) => {
+    const list = loadNotifications();
+    const next = list.filter((n) => n.id !== id);
+    saveNotifications(next);
+    if (selectedId === id) setSelectedId(null);
+    if (openId === id) setOpenId(null);
     setVersion((v) => v + 1);
   };
 
@@ -194,12 +203,12 @@ export default function NotificationsSheet({ open, onClose }) {
                 <div key={n.id} className='relative overflow-hidden rounded-4xl'>
                   {/* Underlay action */}
                   <div
-                    className={`absolute inset-y-0 right-0 flex items-stretch pr-2 transition-opacity duration-150 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                    className={`absolute inset-y-0 right-0 flex items-stretch gap-2 pr-2 transition-opacity duration-150 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
                     style={{ width: ACTION_W }}
                   >
                     <button
                       type='button'
-                      className='h-full w-full rounded-4xl bg-slate-950/80 px-3 text-xs font-extrabold text-white shadow-soft ring-1 ring-black/10'
+                      className='h-full flex-1 rounded-4xl bg-slate-950/80 px-3 text-[11px] font-extrabold text-white shadow-soft ring-1 ring-black/10'
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -211,6 +220,24 @@ export default function NotificationsSheet({ open, onClose }) {
                       <span className='inline-flex items-center justify-center gap-2'>
                         <ActionIcon size={16} />
                         {actionLabel}
+                      </span>
+                    </button>
+
+                    <button
+                      type='button'
+                      className='h-full flex-1 rounded-4xl bg-rose-500/15 px-3 text-[11px] font-extrabold text-rose-700 shadow-soft ring-1 ring-rose-600/20'
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const ok = window.confirm('Excluir esta notificação?');
+                        if (!ok) return;
+                        deleteNotification(n.id);
+                      }}
+                      aria-label='Excluir notificação'
+                    >
+                      <span className='inline-flex items-center justify-center gap-2'>
+                        <Trash2 size={16} />
+                        Excluir
                       </span>
                     </button>
                   </div>

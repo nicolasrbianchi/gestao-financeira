@@ -425,6 +425,108 @@ router.get('/transactions', async (req, res, next) => {
     res.json({ ok: true, summary, transactions });
   } catch (e) { next(e); }
 });
+
+function txOrderKey(t) {
+  return `${String(t?.date || '')}#${String(t?.sheetRowNumber || t?.row || t?.id || 0).padStart(12, '0')}`;
+}
+
+function normalizeKey(v) {
+  return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+}
+
+function isTransferCategory(tx) {
+  return normalizeKey(tx?.category) === 'transferencia entre contas';
+}
+
+function isBalanceTx(tx) {
+  return normalizeKey(tx?.type) === 'saldo';
+}
+
+function isReserveTx(tx) {
+  return normalizeKey(tx?.type) === 'reserva';
+}
+
+function availableDelta(tx) {
+  const amount = Number(tx?.amount || 0) || 0;
+  const type = normalizeKey(tx?.type);
+  const reserve = normalizeKey(tx?.reserve);
+  const isTransfer = isTransferCategory(tx);
+
+  // Saldo é snapshot (reseta), não delta
+  if (type === 'saldo') return 0;
+
+  if (type === 'receita') return amount; // receita real ou transferência entrada: ambas aumentam disponível
+  if (type === 'despesa') return -amount; // despesa real ou transferência saída: ambas reduzem disponível
+
+  if (type === 'reserva') {
+    if (reserve === 'entrada') return -amount; // move para reserva (tira do disponível)
+    if (reserve.startsWith('saida')) return amount; // volta da reserva (entra no disponível)
+    return 0;
+  }
+
+  return 0;
+}
+
+function computeSaldoAfter({ allTransactions = [], targetTx }) {
+  if (!targetTx) return null;
+  const account = String(targetTx.account || '').trim();
+  if (!account) return null;
+
+  const list = allTransactions
+    .filter((t) => String(t.account || '').trim() === account)
+    .slice()
+    .sort((a, b) => txOrderKey(a).localeCompare(txOrderKey(b)));
+
+  const targetId = Number(targetTx.id || targetTx.sheetRowNumber || targetTx.row || 0) || null;
+  const idx = list.findIndex((t) => {
+    const id = Number(t.id || t.sheetRowNumber || t.row || 0) || null;
+    if (targetId && id && id === targetId) return true;
+    return txOrderKey(t) === txOrderKey(targetTx);
+  });
+  if (idx < 0) return null;
+
+  // Se o target é Saldo, o saldo após é o próprio snapshot
+  if (isBalanceTx(list[idx])) return Number(list[idx].amount || 0) || 0;
+
+  // Snapshot mais recente até o target
+  let snapIdx = -1;
+  for (let i = idx; i >= 0; i--) {
+    if (isBalanceTx(list[i])) { snapIdx = i; break; }
+  }
+
+  let running = snapIdx >= 0 ? (Number(list[snapIdx].amount || 0) || 0) : 0;
+  const start = snapIdx >= 0 ? snapIdx + 1 : 0;
+
+  for (let i = start; i <= idx; i++) {
+    const tx = list[i];
+    if (isBalanceTx(tx)) {
+      running = Number(tx.amount || 0) || 0;
+      continue;
+    }
+    running += availableDelta(tx);
+  }
+
+  return running;
+}
+
+router.get('/transactions/:id/details', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id || 0);
+    if (!id) return res.status(400).json({ ok: false, error: 'id inválido.', requestId: req.requestId });
+
+    const normalized = await loadNormalizedTx(req);
+    const target = normalized.find((t) => Number(t.id || t.sheetRowNumber || t.row || 0) === id) || null;
+    if (!target) return res.status(404).json({ ok: false, error: 'Transação não encontrada.', requestId: req.requestId });
+
+    // Usa todo histórico (toDate) até hoje pra saldo após (independente do filtro MTD)
+    const all = filterTx(normalized, { startDate: '', endDate: '', search: '' }, { requestId: req.requestId });
+    const saldoAfter = computeSaldoAfter({ allTransactions: all, targetTx: target });
+
+    res.json({ ok: true, transaction: target, saldoAfter });
+  } catch (e) {
+    next(e);
+  }
+});
 router.get('/categories', async (req, res, next) => {
   try {
     const [normalized, metadata] = await Promise.all([

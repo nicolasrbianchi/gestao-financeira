@@ -51,7 +51,7 @@ function formatTimeFromIso(iso) {
   }
 }
 
-export default function Transactions({ data, loading, filters, setFilters, onEdit, onDelete }) {
+export default function Transactions({ data, loading, filters, setFilters, onView, onEdit, onDelete }) {
   const transactions = data?.transactions || [];
   const summary = data?.summary || { totalAmount: 0, count: transactions.length };
   const period = filterChip(filters) || 'Todos os registros';
@@ -213,24 +213,26 @@ export default function Transactions({ data, loading, filters, setFilters, onEdi
                         onPointerUp={(e) => onPointerUp(e, id)}
                         onPointerCancel={(e) => onPointerUp(e, id)}
                         onClick={() => {
-                          // Clique no card não edita; serve só pra fechar caso esteja aberto.
-                          if (isOpen) setOpenId(null);
+                          if (isOpen) return setOpenId(null);
+                          onView?.(transaction);
                         }}
                       >
                         <div className='flex min-w-0 items-start justify-between gap-3'>
                           <div className='min-w-0 flex-1'>
-                            <div className='flex items-center gap-2'>
-                              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone}`}>{transaction.type || 'Sem tipo'}</span>
-                              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${sourceTone}`}>{sourceLabel}</span>
-                              <p className='truncate text-sm font-bold text-slate-900'>{transaction.name || 'Sem nome'}</p>
-                            </div>
+                            <p className='truncate text-sm font-bold text-slate-900'>{transaction.name || 'Sem nome'}</p>
                             <p className='mt-1 flex items-center gap-1 truncate text-[11px] text-slate-500'>
                               <CalendarDays size={12} /> {transaction.displayDate || transaction.date || 'Sem data'}{timeLabel ? ` · ${timeLabel}` : ''} · {transaction.account || 'Sem conta'}
                             </p>
                           </div>
-                          <p className={`max-w-[8rem] shrink-0 break-words text-right text-sm font-extrabold ${amountTone}`}>
-                            {signed >= 0 ? '+' : '-'}{money(Math.abs(transaction.amount || 0))}
-                          </p>
+                          <div className='shrink-0 text-right'>
+                            <p className={`max-w-[8rem] break-words text-sm font-extrabold ${amountTone}`}>
+                              {signed >= 0 ? '+' : '-'}{money(Math.abs(transaction.amount || 0))}
+                            </p>
+                            <div className='mt-1 flex max-w-[10rem] flex-wrap justify-end gap-1.5'>
+                              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone}`}>{transaction.type || 'Sem tipo'}</span>
+                              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold ${sourceTone}`}>{sourceLabel}</span>
+                            </div>
+                          </div>
                         </div>
 
                         <div className='mt-2 flex min-w-0 items-start justify-between gap-3 text-[11px]'>
