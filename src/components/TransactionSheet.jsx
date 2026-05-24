@@ -87,6 +87,48 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
 
   if (!open) return null;
 
+  const formatMoneyInput = (raw) => {
+    let s = String(raw || '').trim();
+    if (!s) return '';
+
+    // Normaliza: mantém só dígitos e separadores.
+    s = s.replace(/\s/g, '').replace(/R\$/gi, '').replace(/[^\d.,]/g, '');
+    if (!s) return '';
+
+    const lastComma = s.lastIndexOf(',');
+    const lastDot = s.lastIndexOf('.');
+    const hasComma = lastComma !== -1;
+    const hasDot = lastDot !== -1;
+    const decimalSep = hasComma && hasDot
+      ? (lastComma > lastDot ? ',' : '.')
+      : (hasComma ? ',' : (hasDot ? '.' : null));
+
+    let intPart = '';
+    let fracPart = '';
+    if (decimalSep) {
+      const idx = s.lastIndexOf(decimalSep);
+      intPart = s.slice(0, idx);
+      fracPart = s.slice(idx + 1);
+    } else {
+      intPart = s;
+      fracPart = '';
+    }
+
+    // Remove outros separadores do inteiro.
+    intPart = intPart.replace(/[.,]/g, '').replace(/^0+(?=\d)/, '');
+    if (!intPart) intPart = '0';
+
+    // Fração: pega só dígitos, limita 2.
+    fracPart = fracPart.replace(/\D/g, '').slice(0, 2);
+
+    // Se não veio separador decimal, tratamos como "valor em reais" e completamos ,00.
+    if (!decimalSep) fracPart = '';
+
+    const withThousands = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const frac = fracPart.padEnd(2, '0');
+    return `${withThousands},${frac}`;
+  };
+
   const update = (key, value) => {
     setForm((current) => {
       const next = { ...current, [key]: value };
@@ -104,10 +146,28 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
     setError('');
   };
 
+  const sanitizeMoneyDraft = (raw) => {
+    // Mantém digitável: só corta caracteres estranhos.
+    return String(raw || '').replace(/\s/g, '').replace(/R\$/gi, '').replace(/[^\d.,]/g, '');
+  };
+
   const input = (key, label, props = {}) => (
     <label className='space-y-1 text-xs font-semibold text-slate-500'>
       <span>{label}</span>
-      <input value={form[key]} onChange={(event) => update(key, event.target.value)} {...props} />
+      <input
+        value={form[key]}
+        onChange={(event) => {
+          if (key === 'valor') return update(key, sanitizeMoneyDraft(event.target.value));
+          return update(key, event.target.value);
+        }}
+        onBlur={(event) => {
+          if (key !== 'valor') return;
+          const v = String(event.target.value || '').trim();
+          if (!v) return;
+          update(key, formatMoneyInput(v));
+        }}
+        {...props}
+      />
     </label>
   );
 
@@ -204,7 +264,7 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
 
         <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
           {input('data', 'Data', { type: 'date', required: true })}
-          {input('valor', 'Valor', { inputMode: 'decimal', placeholder: '0,00', required: true })}
+          {input('valor', 'Valor', { inputMode: 'decimal', placeholder: '0,00', required: true, autoComplete: 'off' })}
         </div>
 
         <div className='rounded-4xl bg-slate-50 p-3'>

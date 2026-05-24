@@ -40,6 +40,11 @@ export default function App() {
     } catch {
       // ignore
     }
+    try {
+      window.dispatchEvent(new Event('gf_notifications_changed'));
+    } catch {
+      // ignore
+    }
   };
 
   const getPluggyBoostUntilMs = () => {
@@ -133,7 +138,28 @@ export default function App() {
         const count = (r.items || []).length;
         setPendingImportsCount(count);
         const prev = Number(localStorage.getItem('gf_inbox_pending_count') || 0);
-        if (count > prev) setToast(`${count} importação(ões) pendente(s) para aprovar.`);
+
+        if (count > prev) {
+          setToast(`${count} importação(ões) pendente(s) para aprovar.`);
+
+          // Também registra na Central de notificações (pra aparecer no sino)
+          try {
+            const now = Date.now();
+            const n = {
+              id: `inbox:${now}`,
+              kind: 'Inbox',
+              title: 'Open Finance',
+              body: `${count} importação(ões) pendente(s) para aprovar.`,
+              createdAt: new Date(now).toISOString(),
+              readAt: null,
+            };
+            const arr = [n, ...notificationsLoad()];
+            notificationsSave(arr);
+          } catch {
+            // ignore
+          }
+        }
+
         localStorage.setItem('gf_inbox_pending_count', String(count));
       })
       .catch(() => {
@@ -142,7 +168,7 @@ export default function App() {
   }, [auth, reloadKey]);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 3500); return () => clearTimeout(t); }, [toast]);
 
-  // Insight periódico (Nicco IA): 1x por dia (quando app estiver aberto).
+  // Insight periódico (Nicco IA): 2x por dia (quando app estiver aberto).
   useEffect(() => {
     if (!auth) return;
 
@@ -156,8 +182,8 @@ export default function App() {
     const maybeGenerate = async () => {
       const now = Date.now();
       const last = getLastAt();
-      const dayMs = 24 * 60 * 60 * 1000;
-      if (last && now - last < dayMs) return;
+      const periodMs = 12 * 60 * 60 * 1000;
+      if (last && now - last < periodMs) return;
 
       try {
         const r = await api('/ai/insight');
