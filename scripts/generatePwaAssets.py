@@ -11,6 +11,36 @@ os.makedirs(OUT_DIR, exist_ok=True)
 
 def load_logo():
     img = Image.open(SRC).convert('RGBA')
+
+    # Tenta remover margens “invisíveis” do JPG (compara com a cor do canto).
+    try:
+        bg = img.getpixel((0, 0))
+        # máscara: pixels que diferem do background
+        diff = Image.new('L', img.size, 0)
+        px = img.load()
+        dpx = diff.load()
+        thr = 18  # tolerância
+        w, h = img.size
+        for y in range(h):
+            for x in range(w):
+                r, g, b, a = px[x, y]
+                if a == 0:
+                    continue
+                if max(abs(r - bg[0]), abs(g - bg[1]), abs(b - bg[2])) > thr:
+                    dpx[x, y] = 255
+        bbox = diff.getbbox()
+        if bbox:
+            l, t, r, b = bbox
+            # pequena folga pra não cortar demais
+            pad = int(min(w, h) * 0.03)
+            l = max(0, l - pad)
+            t = max(0, t - pad)
+            r = min(w, r + pad)
+            b = min(h, b + pad)
+            img = img.crop((l, t, r, b))
+    except Exception:
+        pass
+
     return img
 
 
@@ -54,12 +84,12 @@ def make_splash(w, h, logo_ratio=0.22):
 def main():
     # Standard icons
     # padding menor = logo maior
-    write_png(make_icon(192, 0.16), os.path.join(OUT_DIR, 'icon-192.png'))
-    write_png(make_icon(512, 0.16), os.path.join(OUT_DIR, 'icon-512.png'))
+    write_png(make_icon(192, 0.10), os.path.join(OUT_DIR, 'icon-192.png'))
+    write_png(make_icon(512, 0.10), os.path.join(OUT_DIR, 'icon-512.png'))
     # Maskable: precisa de área segura, mas não tão pequeno
-    write_png(make_icon(512, 0.24), os.path.join(OUT_DIR, 'icon-512-maskable.png'))
+    write_png(make_icon(512, 0.18), os.path.join(OUT_DIR, 'icon-512-maskable.png'))
     # Apple touch icon
-    write_png(make_icon(180, 0.16), os.path.join(OUT_DIR, 'apple-touch-icon.png'))
+    write_png(make_icon(180, 0.10), os.path.join(OUT_DIR, 'apple-touch-icon.png'))
 
     # iOS splash (common sizes)
     splashes = [
@@ -76,7 +106,7 @@ def main():
     os.makedirs(splash_dir, exist_ok=True)
     for (w, h) in splashes:
         # logo um pouco maior no splash
-        img = make_splash(w, h, 0.26)
+        img = make_splash(w, h, 0.32)
         write_png(img, os.path.join(splash_dir, f'splash-{w}x{h}.png'))
 
 
