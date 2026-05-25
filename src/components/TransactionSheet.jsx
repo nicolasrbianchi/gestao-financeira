@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, Landmark, PiggyBank, Wallet } from 'lucide-react';
+import { haptic } from '../utils/haptics';
 
 const TRANSFER_CATEGORY = 'Transferencia entre contas';
 
@@ -45,6 +46,7 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
   const [form, setForm] = useState(emptyTransaction);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const valueRef = useRef(null);
 
   const isEdit = useMemo(() => {
     const row = initialTransaction?.id ?? initialTransaction?.sheetRowNumber ?? initialTransaction?.row ?? null;
@@ -83,6 +85,17 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
     });
     setError('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialTransaction]);
+
+  // Shortcut-friendly: ao abrir para adicionar, foca no valor.
+  useEffect(() => {
+    if (!open) return;
+    const isNew = !initialTransaction;
+    if (!isNew) return;
+    const t = setTimeout(() => {
+      try { valueRef.current?.focus?.(); } catch {}
+    }, 60);
+    return () => clearTimeout(t);
   }, [open, initialTransaction]);
 
   if (!open) return null;
@@ -155,6 +168,7 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
     <label className='space-y-1 text-xs font-semibold text-slate-500'>
       <span>{label}</span>
       <input
+        ref={key === 'valor' ? valueRef : undefined}
         value={form[key]}
         onChange={(event) => {
           if (key === 'valor') return update(key, sanitizeMoneyDraft(event.target.value));
@@ -229,6 +243,7 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
         await api(submitPath || '/transactions', { method: 'POST', body: JSON.stringify(payload) });
       }
       setForm(emptyTransaction);
+      haptic(12);
       onSaved?.();
     } catch (err) {
       const message = err.message || 'Erro ao salvar transação.';

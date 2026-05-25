@@ -12,6 +12,7 @@ import Categories from '../pages/Categories';
 import More from '../pages/More';
 import Ai from '../pages/Ai';
 import { Bell, Filter, Settings, SquarePen } from 'lucide-react';
+import { haptic } from '../utils/haptics';
 
 const ROUTES = {
   home: '/dashboard',
@@ -66,6 +67,8 @@ export default function AppShell(props) {
   const [autoRefreshPaused, setAutoRefreshPaused] = useState(false);
   const refreshTimerRef = useRef(null);
   const refreshingRef = useRef(false);
+  const [pullProgress, setPullProgress] = useState(0);
+  const pullRef = useRef({ started: false, startY: 0, pulling: false, max: 80 });
 
   const safeTab = ROUTES[tab] === undefined ? 'home' : tab;
   const route = useMemo(() => ROUTES[safeTab], [safeTab]);
@@ -92,6 +95,66 @@ export default function AppShell(props) {
     onReload?.();
     reload();
   }, [onReload, reload]);
+
+  // Pull-to-refresh (mobile/PWA)
+  useEffect(() => {
+    const isPaused = () => (
+      document.visibilityState !== 'visible'
+      || showTransactionSheet
+      || showTransactionDetails
+      || showInbox
+      || showNotifications
+      || showFilters
+      || showAddMenu
+    );
+
+    const onTouchStart = (e) => {
+      if (isPaused()) return;
+      if (window.scrollY > 0) return;
+      const t = e.touches?.[0];
+      if (!t) return;
+      pullRef.current = { started: true, startY: t.clientY, pulling: false, max: 80 };
+    };
+
+    const onTouchMove = (e) => {
+      const st = pullRef.current;
+      if (!st.started) return;
+      if (window.scrollY > 0) return;
+      const t = e.touches?.[0];
+      if (!t) return;
+      const dy = t.clientY - st.startY;
+      if (dy <= 0) return;
+
+      // Evita interferir com scroll quando não é claramente um pull
+      if (dy < 8) return;
+      st.pulling = true;
+      const p = Math.max(0, Math.min(1, dy / st.max));
+      setPullProgress(p);
+    };
+
+    const onTouchEnd = () => {
+      const st = pullRef.current;
+      if (!st.started) return;
+      const shouldRefresh = st.pulling && pullProgress >= 1;
+      pullRef.current = { started: false, startY: 0, pulling: false, max: 80 };
+      setPullProgress(0);
+      if (shouldRefresh) {
+        haptic(10);
+        reloadAll();
+      }
+    };
+
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchend', onTouchEnd);
+    window.addEventListener('touchcancel', onTouchEnd);
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [reloadAll, showTransactionSheet, showTransactionDetails, showInbox, showNotifications, showFilters, showAddMenu, pullProgress]);
 
   // Auto-refresh: a barra enche por N ms; quando chega no fim, dispara reload.
   // (No iOS, timers podem pausar em background; quando voltar, o hook de focus/visibility já recarrega.)
@@ -378,12 +441,16 @@ export default function AppShell(props) {
   return (
     <div className={`app-frame ${safeTab === 'ai' ? 'app-frame-chat' : ''}`}>
       <div className='refresh-bar' aria-hidden='true' style={{ opacity: autoRefreshPaused ? 0 : 1, transition: 'opacity 200ms ease' }}>
-        <span
-          key={refreshAnimKey}
-          style={{
-            animation: `gf_refresh_progress ${refreshEveryMs}ms linear 1`,
-          }}
-        />
+        {pullProgress > 0 ? (
+          <span style={{ transform: `scaleX(${pullProgress})`, opacity: 0.55 }} />
+        ) : (
+          <span
+            key={refreshAnimKey}
+            style={{
+              animation: `gf_refresh_progress ${refreshEveryMs}ms linear 1`,
+            }}
+          />
+        )}
       </div>
       <div className='top-actions'>
         {safeTab === 'ai' ? (

@@ -72,6 +72,11 @@ export default function App() {
       if (action) {
         window.__gf_intent = { action };
       }
+
+      // Evita repetir intent ao navegar/recarregar.
+      if (nextTab || action) {
+        try { window.history.replaceState({}, '', '/'); } catch {}
+      }
     } catch {
       // ignore
     }

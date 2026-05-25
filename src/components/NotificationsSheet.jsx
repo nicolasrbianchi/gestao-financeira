@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Bell, ChevronLeft, MailOpen, MailPlus, Trash2 } from 'lucide-react';
+import { haptic } from '../utils/haptics';
 
 function normalizeNotifications(list) {
   return (Array.isArray(list) ? list : [])
@@ -213,6 +214,7 @@ export default function NotificationsSheet({ open, onClose }) {
                         e.preventDefault();
                         e.stopPropagation();
                         setOpenId(null);
+                        haptic(10);
                         toggleRead(n.id);
                       }}
                       aria-label={actionLabel}
@@ -231,6 +233,7 @@ export default function NotificationsSheet({ open, onClose }) {
                         e.stopPropagation();
                         const ok = window.confirm('Excluir esta notificação?');
                         if (!ok) return;
+                        haptic(14);
                         deleteNotification(n.id);
                       }}
                       aria-label='Excluir notificação'

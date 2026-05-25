@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Inbox, Trash2, CheckCircle2 } from 'lucide-react';
 import { money } from '../utils/format';
+import { haptic } from '../utils/haptics';
 
 function isoToFormDate(iso) {
   if (!iso) return new Date().toISOString().slice(0, 10);
@@ -93,6 +94,7 @@ export default function ImportInboxSheet({ open, onClose, api, metadata, onAppro
   const reject = async (id) => {
     if (!window.confirm('Excluir esta importação?')) return;
     try {
+      haptic(12);
       await api(`/imports/${id}/reject`, { method: 'POST', body: '{}' });
       onToast?.('Importação excluída.');
       await load();
@@ -130,7 +132,9 @@ export default function ImportInboxSheet({ open, onClose, api, metadata, onAppro
                 <div className='flex shrink-0 flex-col gap-2'>
                   <button
                     type='button'
-                    onClick={() => onApprove?.({
+                    onClick={() => {
+                      haptic(12);
+                      onApprove?.({
                       importId: it.id,
                       prefill: it.prefill || null,
                       // pré-preenche o que dá
@@ -148,7 +152,8 @@ export default function ImportInboxSheet({ open, onClose, api, metadata, onAppro
                         parcela: '',
                         obs: '',
                       },
-                    })}
+                    });
+                    }}
                     className='flex items-center justify-center gap-2 rounded-3xl bg-slate-950 px-4 py-3 text-xs font-extrabold text-white'
                   >
                     <CheckCircle2 size={16} /> Aprovar
