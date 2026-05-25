@@ -176,7 +176,14 @@ export default function Transactions({ data, loading, filters, setFilters, onVie
                     : 'text-slate-300 bg-slate-500/10 border-slate-300/20';
                   const timeLabel = formatTimeFromIso(transaction.occurredAt);
                   return (
-                    <div key={id} className='relative overflow-hidden rounded-3xl bg-white'>
+                    <div key={id} className='relative overflow-hidden rounded-3xl'>
+                      {/* Fundo do swipe (para os botões não ficarem “soltos”) */}
+                      <div
+                        className='absolute inset-0 rounded-3xl border border-white/10 bg-[rgba(6,6,10,0.86)]'
+                        style={{ opacity: isOpen ? 1 : 0, transition: 'opacity 140ms ease' }}
+                        aria-hidden='true'
+                      />
+
                       {/* Underlay actions */}
                       <div
                         className='absolute inset-y-0 right-0 z-0 flex items-stretch gap-2 pr-2 transition-opacity duration-150'
