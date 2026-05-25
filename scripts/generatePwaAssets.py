@@ -136,12 +136,12 @@ def main():
     # Standard icons
     # padding menor = logo maior
     # Ajuste fino: um tiquinho maior
-    write_png(make_icon(192, 0.13), os.path.join(OUT_DIR, 'icon-192.png'))
-    write_png(make_icon(512, 0.13), os.path.join(OUT_DIR, 'icon-512.png'))
+    write_png(make_icon(192, 0.125), os.path.join(OUT_DIR, 'icon-192.png'))
+    write_png(make_icon(512, 0.125), os.path.join(OUT_DIR, 'icon-512.png'))
     # Maskable: precisa de área segura, mas não tão pequeno
-    write_png(make_icon(512, 0.21), os.path.join(OUT_DIR, 'icon-512-maskable.png'))
+    write_png(make_icon(512, 0.205), os.path.join(OUT_DIR, 'icon-512-maskable.png'))
     # Apple touch icon
-    write_png(make_icon(180, 0.13), os.path.join(OUT_DIR, 'apple-touch-icon.png'))
+    write_png(make_icon(180, 0.125), os.path.join(OUT_DIR, 'apple-touch-icon.png'))
 
     # iOS splash (common sizes)
     splashes = [
