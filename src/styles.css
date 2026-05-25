@@ -44,11 +44,6 @@ body,
   overflow-x: hidden;
 }
 
-/* Evita scroll “vazar” por trás da status bar (iOS) */
-html, body {
-  overscroll-behavior-y: none;
-}
-
 body {
   @apply font-sans antialiased;
   background:
@@ -144,13 +139,6 @@ option {
   .app-frame-chat {
     height: 100dvh;
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .app-main-chat {
-    flex: 1;
-    min-height: 0;
   }
   .app-frame::before { content: ''; position: fixed; inset: 0; z-index: -1; background: radial-gradient(circle at 50% 6%, rgba(205, 187, 147, 0.055), transparent 38%); pointer-events: none; }
   .card {
