@@ -142,7 +142,7 @@ option {
     display: flex;
     flex-direction: column;
     /* No chat, queremos usar mais a área útil e ficar mais próximo da BottomNav */
-    padding-bottom: calc(6.25rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
   }
 
   .app-main-chat {
