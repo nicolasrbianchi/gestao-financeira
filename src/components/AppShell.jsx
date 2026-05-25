@@ -516,7 +516,7 @@ export default function AppShell(props) {
         </button>
       </div>
       <main
-        className='min-w-0 ptr-content'
+        className={`min-w-0 ptr-content ${safeTab === 'ai' ? 'app-main-chat' : ''}`}
         style={{
           transform: (pullProgress > 0 || pullRefreshing)
             ? `translateY(${Math.round((pullRefreshing ? 56 : pullProgress * 56))}px)`
