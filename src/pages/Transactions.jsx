@@ -59,6 +59,7 @@ export default function Transactions({ data, loading, filters, setFilters, onVie
   const grouped = useMemo(() => groupByDate(transactions), [transactions]);
   const [openId, setOpenId] = useState(null);
   const dragRef = useRef({ id: null, startX: 0, startY: 0, started: false, dragging: false, dx: 0 });
+  const blockNextCardClickRef = useRef(false);
 
   const ACTION_W = 172; // px (2 botões)
 
@@ -121,6 +122,8 @@ export default function Transactions({ data, loading, filters, setFilters, onVie
         const insideOpen = e?.target?.closest?.(`[data-tx-id="${openId}"]`);
         if (insideOpen) return;
         // Fecha o swipe ao tocar fora (comportamento app-like).
+        // E evita abrir detalhes de outro card no mesmo tap.
+        blockNextCardClickRef.current = true;
         setOpenId(null);
       }}
     >
@@ -232,6 +235,10 @@ export default function Transactions({ data, loading, filters, setFilters, onVie
                         onPointerUp={(e) => onPointerUp(e, id)}
                         onPointerCancel={(e) => onPointerUp(e, id)}
                         onClick={() => {
+                          if (blockNextCardClickRef.current) {
+                            blockNextCardClickRef.current = false;
+                            return;
+                          }
                           if (isOpen) return setOpenId(null);
                           onView?.(transaction);
                         }}
