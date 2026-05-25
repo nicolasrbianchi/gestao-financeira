@@ -58,6 +58,38 @@ def make_icon(size, padding_ratio=0.22):
     logo = load_logo()
     pad = int(size * padding_ratio)
     logo = fit_inside(logo, size - 2 * pad, size - 2 * pad)
+    # Centraliza pelo “centro de massa” (evita sensação de logo torto quando o desenho é assimétrico)
+    try:
+        gray = logo.convert('L')
+        bg_l = Image.new('L', logo.size, int(sum(BG) / 3))
+        diff = Image.new('L', logo.size, 0)
+        gpx = gray.load(); bpx = bg_l.load(); dpx = diff.load()
+        w, h = logo.size
+        thr = 12
+        for yy in range(h):
+            for xx in range(w):
+                if abs(gpx[xx, yy] - bpx[xx, yy]) > thr:
+                    dpx[xx, yy] = 255
+        # centro de massa aproximado
+        total = 0
+        sx = 0
+        sy = 0
+        for yy in range(h):
+            for xx in range(w):
+                v = dpx[xx, yy]
+                if v:
+                    total += v
+                    sx += xx * v
+                    sy += yy * v
+        if total > 0:
+            cx = sx / total
+            cy = sy / total
+            dx = (w / 2) - cx
+            dy = (h / 2) - cy
+            logo = logo.transform(logo.size, Image.AFFINE, (1, 0, dx, 0, 1, dy))
+    except Exception:
+        pass
+
     x = (size - logo.size[0]) // 2
     y = (size - logo.size[1]) // 2
     canvas.alpha_composite(logo, (x, y))
@@ -86,12 +118,13 @@ def make_splash(w, h, logo_ratio=0.22):
 def main():
     # Standard icons
     # padding menor = logo maior
-    write_png(make_icon(192, 0.14), os.path.join(OUT_DIR, 'icon-192.png'))
-    write_png(make_icon(512, 0.14), os.path.join(OUT_DIR, 'icon-512.png'))
+    # Ajuste fino: um tiquinho maior
+    write_png(make_icon(192, 0.13), os.path.join(OUT_DIR, 'icon-192.png'))
+    write_png(make_icon(512, 0.13), os.path.join(OUT_DIR, 'icon-512.png'))
     # Maskable: precisa de área segura, mas não tão pequeno
-    write_png(make_icon(512, 0.22), os.path.join(OUT_DIR, 'icon-512-maskable.png'))
+    write_png(make_icon(512, 0.21), os.path.join(OUT_DIR, 'icon-512-maskable.png'))
     # Apple touch icon
-    write_png(make_icon(180, 0.14), os.path.join(OUT_DIR, 'apple-touch-icon.png'))
+    write_png(make_icon(180, 0.13), os.path.join(OUT_DIR, 'apple-touch-icon.png'))
 
     # iOS splash (common sizes)
     splashes = [
@@ -108,7 +141,7 @@ def main():
     os.makedirs(splash_dir, exist_ok=True)
     for (w, h) in splashes:
         # logo um pouco maior no splash
-        img = make_splash(w, h, 0.28)
+        img = make_splash(w, h, 0.29)
         write_png(img, os.path.join(splash_dir, f'splash-{w}x{h}.png'))
 
 
