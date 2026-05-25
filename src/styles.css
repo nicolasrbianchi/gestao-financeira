@@ -179,6 +179,8 @@ option {
   .progress span { @apply block h-full rounded-full; background: linear-gradient(90deg, rgba(205, 187, 147, 0.96), rgba(243, 230, 204, 0.92)); }
   .toast { @apply fixed left-1/2 z-[60] w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 rounded-3xl px-4 py-3 text-center text-sm font-semibold text-white; bottom: calc(6.5rem + env(safe-area-inset-bottom)); background: rgba(10, 10, 16, 0.92); border: 1px solid var(--border); box-shadow: 0 22px 56px rgba(0, 0, 0, 0.46); }
   .top-actions { @apply absolute right-4 z-40 flex items-center gap-2; top: max(0.875rem, env(safe-area-inset-top)); }
+  .refresh-bar { @apply fixed left-0 right-0 z-[55]; top: 0; height: 2px; background: transparent; }
+  .refresh-bar > span { display: block; height: 100%; width: 100%; transform-origin: left; background: rgba(242, 213, 139, 0.9); opacity: 0.35; }
   .icon-btn { @apply grid h-11 w-11 place-items-center rounded-full bg-white text-slate-200 shadow-soft transition active:opacity-90; border: 1px solid rgba(255,255,255,0.14); }
   .bottom-nav { @apply fixed inset-x-0 bottom-0 z-40 mx-auto grid w-full max-w-[430px] grid-cols-5 items-end gap-1 rounded-t-[2rem] px-3 pt-3 backdrop-blur; border: 1px solid var(--border-soft); border-bottom: 0; background: rgba(0, 0, 0, 0.72); box-shadow: 0 -24px 72px rgba(0, 0, 0, 0.66); padding-bottom: max(1.15rem, env(safe-area-inset-bottom)); transform: translateY(10px); }
   .login-wrap { @apply mx-auto grid min-h-dvh w-full max-w-[430px] place-items-center px-4; }
@@ -189,6 +191,12 @@ option {
   .login-hint { @apply pt-1 text-center text-[11px] font-medium; color: rgba(226, 232, 240, 0.5); }
   .muted { color: var(--muted); }
   .error { @apply rounded-2xl p-3 text-sm; background: rgba(251, 113, 133, 0.12); color: rgba(253, 164, 175, 0.95); }
+}
+
+@keyframes gf_refresh_progress {
+  0% { transform: scaleX(0); opacity: 0.22; }
+  85% { opacity: 0.35; }
+  100% { transform: scaleX(1); opacity: 0.45; }
 }
 
 /* Dark polish for existing Tailwind utility-heavy markup. */

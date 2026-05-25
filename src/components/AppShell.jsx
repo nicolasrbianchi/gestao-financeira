@@ -64,6 +64,9 @@ export default function AppShell(props) {
   const [lastRefreshedAtMs, setLastRefreshedAtMs] = useState(0);
   const [refreshPulse, setRefreshPulse] = useState(false);
   const refreshPulseTimerRef = useRef(null);
+  const [refreshAnimKey, setRefreshAnimKey] = useState(0);
+  const [refreshEveryMs, setRefreshEveryMs] = useState(30_000);
+  const [autoRefreshPaused, setAutoRefreshPaused] = useState(false);
 
   const safeTab = ROUTES[tab] === undefined ? 'home' : tab;
   const route = useMemo(() => ROUTES[safeTab], [safeTab]);
@@ -106,6 +109,10 @@ export default function AppShell(props) {
       return 30_000; // default: 30s
     };
 
+    const everyMs = getEveryMs();
+    setRefreshEveryMs(everyMs);
+    setRefreshAnimKey((v) => v + 1);
+
     let id = null;
     const tick = () => {
       if (document.visibilityState !== 'visible') return;
@@ -114,11 +121,19 @@ export default function AppShell(props) {
       reload();
     };
 
-    id = setInterval(tick, getEveryMs());
+    id = setInterval(tick, everyMs);
     return () => {
       try { if (id) clearInterval(id); } catch {}
     };
   }, [route, reload, showTransactionSheet, showTransactionDetails, showInbox, showNotifications, showFilters, showAddMenu]);
+
+  // Pausa/retoma a barra de tempo do refresh
+  useEffect(() => {
+    const paused = document.visibilityState !== 'visible'
+      || showTransactionSheet || showTransactionDetails || showInbox || showNotifications || showFilters || showAddMenu;
+    setAutoRefreshPaused(paused);
+    if (!paused) setRefreshAnimKey((v) => v + 1);
+  }, [showTransactionSheet, showTransactionDetails, showInbox, showNotifications, showFilters, showAddMenu]);
 
   // Quando volta pro app (PWA), atualiza automaticamente.
   useEffect(() => {
@@ -177,6 +192,8 @@ export default function AppShell(props) {
         setRefreshPulse(true);
         try { if (refreshPulseTimerRef.current) clearTimeout(refreshPulseTimerRef.current); } catch {}
         refreshPulseTimerRef.current = setTimeout(() => setRefreshPulse(false), 1200);
+        // reinicia contador visual
+        setRefreshAnimKey((v) => v + 1);
 
         try {
           localStorage.setItem(cacheKey, JSON.stringify({ at: Date.now(), data: nextData }));
@@ -358,6 +375,14 @@ export default function AppShell(props) {
 
   return (
     <div className={`app-frame ${safeTab === 'ai' ? 'app-frame-chat' : ''}`}>
+      <div className='refresh-bar' aria-hidden='true' style={{ opacity: autoRefreshPaused ? 0 : 1, transition: 'opacity 200ms ease' }}>
+        <span
+          key={refreshAnimKey}
+          style={{
+            animation: `gf_refresh_progress ${refreshEveryMs}ms linear infinite`,
+          }}
+        />
+      </div>
       <div className='top-actions'>
         <span
           className={`select-none text-[10px] font-semibold text-slate-400 transition-opacity duration-200 ${refreshPulse ? 'opacity-100' : 'opacity-0'}`}
