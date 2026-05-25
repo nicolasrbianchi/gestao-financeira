@@ -43,6 +43,22 @@ def load_logo():
     except Exception:
         pass
 
+    # Remove o fundo (chroma-key do pixel do canto) => deixa só o “mark” com alpha.
+    try:
+        bg = img.getpixel((0, 0))
+        thr = 12
+        px = img.load()
+        w, h = img.size
+        for y in range(h):
+            for x in range(w):
+                r, g, b, a = px[x, y]
+                if a == 0:
+                    continue
+                if max(abs(r - bg[0]), abs(g - bg[1]), abs(b - bg[2])) <= thr:
+                    px[x, y] = (r, g, b, 0)
+    except Exception:
+        pass
+
     return img
 
 
@@ -53,40 +69,41 @@ def fit_inside(img, box_w, box_h):
     return img.resize((nw, nh), Image.LANCZOS)
 
 
+def shift_rgba(img, dx, dy, pad=48):
+    """Shift without clipping by expanding canvas with transparent padding."""
+    ox = int(round(dx))
+    oy = int(round(dy))
+    w, h = img.size
+    out = Image.new('RGBA', (w + pad * 2, h + pad * 2), (0, 0, 0, 0))
+    out.alpha_composite(img, (pad + ox, pad + oy))
+    # recorta pro tamanho original, centrado
+    left = pad
+    top = pad
+    return out.crop((left, top, left + w, top + h))
+
+
 def make_icon(size, padding_ratio=0.22):
     canvas = Image.new('RGBA', (size, size), BG + (255,))
     logo = load_logo()
     pad = int(size * padding_ratio)
     logo = fit_inside(logo, size - 2 * pad, size - 2 * pad)
-    # Centraliza pelo “centro de massa” (evita sensação de logo torto quando o desenho é assimétrico)
+    # Centraliza pelo bbox do conteúdo (mais estável para ícone/squircle do iOS)
     try:
-        gray = logo.convert('L')
-        bg_l = Image.new('L', logo.size, int(sum(BG) / 3))
-        diff = Image.new('L', logo.size, 0)
-        gpx = gray.load(); bpx = bg_l.load(); dpx = diff.load()
         w, h = logo.size
-        thr = 12
-        for yy in range(h):
-            for xx in range(w):
-                if abs(gpx[xx, yy] - bpx[xx, yy]) > thr:
-                    dpx[xx, yy] = 255
-        # centro de massa aproximado
-        total = 0
-        sx = 0
-        sy = 0
-        for yy in range(h):
-            for xx in range(w):
-                v = dpx[xx, yy]
-                if v:
-                    total += v
-                    sx += xx * v
-                    sy += yy * v
-        if total > 0:
-            cx = sx / total
-            cy = sy / total
+        # bbox pelo alpha
+        alpha = logo.split()[-1]
+        bbox = alpha.getbbox()
+        if bbox:
+            l, t, r, b = bbox
+            cx = (l + r) / 2
+            cy = (t + b) / 2
             dx = (w / 2) - cx
             dy = (h / 2) - cy
-            logo = logo.transform(logo.size, Image.AFFINE, (1, 0, dx, 0, 1, dy))
+
+            # Ajuste óptico leve (iOS squircle costuma “parecer” baixo)
+            dx += w * 0.008
+            dy -= h * 0.035
+            logo = shift_rgba(logo, dx, dy)
     except Exception:
         pass
 
