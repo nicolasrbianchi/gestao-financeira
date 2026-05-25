@@ -120,6 +120,8 @@ export default function Ai({ api, resetKey = 0 }) {
   const pendingAutoScrollRef = useRef(true);
   const [showJump, setShowJump] = useState(false);
   const showJumpRef = useRef(false);
+  const [unseenCount, setUnseenCount] = useState(0);
+  const unseenRef = useRef(0);
 
   const messages = session?.messages || [];
 
@@ -148,8 +150,29 @@ export default function Ai({ api, resetKey = 0 }) {
       showJumpRef.current = false;
       setShowJump(false);
     }
+    if (unseenRef.current) {
+      unseenRef.current = 0;
+      setUnseenCount(0);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, loading]);
+
+  // Se chegaram mensagens novas enquanto o usuário está “lá em cima”, mostra badge.
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const atBottom = isAtBottom(el);
+    if (atBottom) return;
+    const last = messages[messages.length - 1];
+    if (!last) return;
+    if (last.role !== 'assistant') return;
+
+    unseenRef.current += 1;
+    setUnseenCount(unseenRef.current);
+    showJumpRef.current = true;
+    setShowJump(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length]);
 
   const canSend = useMemo(() => !loading && input.trim().length > 0, [loading, input]);
 
@@ -162,6 +185,8 @@ export default function Ai({ api, resetKey = 0 }) {
     pendingAutoScrollRef.current = true;
     showJumpRef.current = false;
     setShowJump(false);
+    unseenRef.current = 0;
+    setUnseenCount(0);
     // deixa o DOM atualizar e desce
     setTimeout(scrollToBottom, 0);
   };
@@ -190,6 +215,8 @@ export default function Ai({ api, resetKey = 0 }) {
     atBottomRef.current = true;
     showJumpRef.current = false;
     setShowJump(false);
+    unseenRef.current = 0;
+    setUnseenCount(0);
     setTimeout(() => scrollToBottom('auto'), 0);
 
     try {
@@ -245,6 +272,11 @@ export default function Ai({ api, resetKey = 0 }) {
             const atBottom = isAtBottom(el);
             atBottomRef.current = atBottom;
 
+            if (atBottom && unseenRef.current) {
+              unseenRef.current = 0;
+              setUnseenCount(0);
+            }
+
             const nextShow = !atBottom && (messages.length > 0 || loading);
             if (nextShow !== showJumpRef.current) {
               showJumpRef.current = nextShow;
@@ -286,6 +318,8 @@ export default function Ai({ api, resetKey = 0 }) {
               atBottomRef.current = true;
               showJumpRef.current = false;
               setShowJump(false);
+              unseenRef.current = 0;
+              setUnseenCount(0);
               scrollToBottom('smooth');
             }}
             className='absolute right-4 z-20 grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[rgba(10,10,16,0.9)] text-slate-100 shadow-soft backdrop-blur'
@@ -294,6 +328,16 @@ export default function Ai({ api, resetKey = 0 }) {
           >
             <ChevronDown size={18} />
           </button>
+        )}
+
+        {showJump && unseenCount > 0 && (
+          <div
+            className='absolute left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/10 bg-[rgba(10,10,16,0.9)] px-3 py-1.5 text-xs font-bold text-slate-100 shadow-soft backdrop-blur'
+            style={{ bottom: 'calc(5.35rem + env(safe-area-inset-bottom))' }}
+            aria-live='polite'
+          >
+            {unseenCount} nova(s)
+          </div>
         )}
 
         {/* Botão "Ir pro fim" aparece só quando o usuário não está no final. */}

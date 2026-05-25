@@ -236,15 +236,20 @@ export default function TransactionSheet({ open, onClose, metadata = {}, api, on
         categoria: isBalance ? TRANSFER_CATEGORY : form.categoria,
       };
 
+      let queued = false;
       if (isEdit) {
         const id = initialTransaction?.id ?? initialTransaction?.sheetRowNumber ?? initialTransaction?.row;
-        await api(`/transactions/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+        const r = await api(`/transactions/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+        queued = Boolean(r?.queued);
+        if (queued) onToast?.('Sem conexão: edição enfileirada e será sincronizada.');
       } else {
-        await api(submitPath || '/transactions', { method: 'POST', body: JSON.stringify(payload) });
+        const r = await api(submitPath || '/transactions', { method: 'POST', body: JSON.stringify(payload) });
+        queued = Boolean(r?.queued);
+        if (queued) onToast?.('Sem conexão: transação salva offline e será sincronizada.');
       }
       setForm(emptyTransaction);
       haptic(12);
-      onSaved?.();
+      onSaved?.({ queued });
     } catch (err) {
       const message = err.message || 'Erro ao salvar transação.';
       setError(message);

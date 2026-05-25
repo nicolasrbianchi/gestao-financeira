@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
-import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Label } from 'recharts';
+import React, { Suspense, useMemo } from 'react';
 import { ArrowDownRight, Landmark, Layers3, Tags } from 'lucide-react';
 import { money } from '../utils/format';
+
+const ExpensesDonutChart = React.lazy(() => import('../components/charts/ExpensesDonutChart'));
 
 // Paleta mais separada (boa leitura em dark) + cor de marca.
 const COLORS = [
@@ -143,31 +144,9 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
 
         <div className='grid gap-4'>
           <div className='h-[200px]'>
-            {expensesByCategory.length ? (
-              <ResponsiveContainer width='100%' height='100%'>
-                <PieChart>
-                  <Pie data={expensesByCategory.slice(0, 8)} dataKey='value' nameKey='name' innerRadius={60} outerRadius={90} paddingAngle={3}>
-                    {expensesByCategory.slice(0, 8).map((entry, index) => (
-                      <Cell key={entry.name || index} fill={colorForLabel(entry.name || String(index))} />
-                    ))}
-                    <Label
-                      position='center'
-                      content={() => (
-                        <text x='50%' y='50%' textAnchor='middle' dominantBaseline='middle' fill='#e2e8f0'>
-                          <tspan x='50%' dy='-0.25em' fontSize='12'>Total</tspan>
-                          <tspan x='50%' dy='1.25em' fontSize='14' fontWeight='800'>
-                            {money(expenseTotal || 0)}
-                          </tspan>
-                        </text>
-                      )}
-                    />
-                  </Pie>
-                  <Tooltip formatter={(value) => money(value)} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className='grid h-full place-items-center text-sm text-slate-400'>Sem gráfico disponível.</div>
-            )}
+            <Suspense fallback={<div className='grid h-full place-items-center text-sm text-slate-400'>Carregando gráfico…</div>}>
+              <ExpensesDonutChart items={expensesByCategory.slice(0, 8)} total={expenseTotal} formatMoney={money} colorForLabel={colorForLabel} />
+            </Suspense>
           </div>
 
           <div className='space-y-3'>

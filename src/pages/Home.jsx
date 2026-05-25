@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import {
   ArrowUpRight,
   CalendarDays,
@@ -6,8 +6,9 @@ import {
   TrendingDown,
   Wallet
 } from 'lucide-react';
-import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 import { money } from '../utils/format';
+
+const DailySeriesChart = React.lazy(() => import('../components/charts/DailySeriesChart'));
 
 function ActivityTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
@@ -41,6 +42,13 @@ function LoadingSkeleton() {
 
 export default function Home({ data, loading, onGoTransactions }) {
   if (loading && !data) return <LoadingSkeleton />;
+
+  const [showChart, setShowChart] = useState(false);
+  useEffect(() => {
+    // Carrega o chunk do Recharts depois do primeiro paint (percepção mais rápida no iPhone).
+    const id = setTimeout(() => setShowChart(true), 120);
+    return () => clearTimeout(id);
+  }, []);
 
   const summaryCards = data?.summaryCards || [];
   const charts = data?.charts || {};
@@ -174,26 +182,12 @@ export default function Home({ data, loading, onGoTransactions }) {
           </div>
         </div>
         <div className='h-36'>
-          {series.length ? (
-            <ResponsiveContainer width='100%' height='100%'>
-              <LineChart data={series} margin={{ left: 4, right: 4, top: 6, bottom: 0 }}>
-                <XAxis
-                  dataKey='day'
-                  axisLine={false}
-                  tickLine={false}
-                  interval={0}
-                  minTickGap={0}
-                  tickMargin={8}
-                  padding={{ left: 10, right: 10 }}
-                  tick={{ fontSize: 10, fill: '#94a3b8' }}
-                />
-                <Tooltip content={<ActivityTooltip />} />
-                <Line type='monotone' dataKey='income' stroke='#34d399' strokeWidth={2.5} dot={false} />
-                <Line type='monotone' dataKey='expense' stroke='#fb7185' strokeWidth={2.5} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+          {showChart ? (
+            <Suspense fallback={<div className='grid h-full place-items-center text-sm text-slate-400'>Carregando gráfico…</div>}>
+              <DailySeriesChart series={series} tooltip={<ActivityTooltip />} />
+            </Suspense>
           ) : (
-            <div className='grid h-full place-items-center text-sm text-slate-400'>Sem dados no período.</div>
+            <div className='grid h-full place-items-center text-sm text-slate-400'>Carregando gráfico…</div>
           )}
         </div>
       </section>

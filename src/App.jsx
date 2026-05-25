@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api, withQuery } from './api/client';
+import { api, flushOfflineQueue, withQuery } from './api/client';
 import { defaultFilters } from './utils/filters';
 import AppShell from './components/AppShell';
 import LoginScreen from './components/LoginScreen';
@@ -15,6 +15,30 @@ export default function App() {
   const [toastAction, setToastAction] = useState(null);
   const [pendingImportsCount, setPendingImportsCount] = useState(0);
   const [insightTick, setInsightTick] = useState(0);
+
+  // Flush de ações offline (transações) quando a conexão voltar.
+  useEffect(() => {
+    let mounted = true;
+    const flush = async () => {
+      try {
+        const r = await flushOfflineQueue();
+        if (!mounted) return;
+        if (r?.processed) {
+          setToast(`Sincronizei ${r.processed} ação(ões) offline.`);
+          setReloadKey((v) => v + 1);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    void flush();
+    window.addEventListener('online', flush);
+    return () => {
+      mounted = false;
+      window.removeEventListener('online', flush);
+    };
+  }, []);
 
   const notificationsLoad = () => {
     try {

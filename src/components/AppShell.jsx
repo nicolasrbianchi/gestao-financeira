@@ -342,12 +342,13 @@ export default function AppShell(props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSaved = () => {
+  const handleSaved = (info = {}) => {
     setShowTransactionSheet(false);
     setEditingTx(null);
     setApproveDraft(null);
     setTransactionSheetMode('add');
-    onToast?.('Transação salva com sucesso.');
+    if (info?.queued) onToast?.('Sem conexão: ação salva offline e será sincronizada.');
+    else onToast?.('Transação salva com sucesso.');
     onReload?.();
     reload();
   };
@@ -394,8 +395,9 @@ export default function AppShell(props) {
             try {
               const id = tx?.id ?? tx?.sheetRowNumber ?? tx?.row;
               if (!id) throw new Error('id inválido');
-              await api(`/transactions/${id}`, { method: 'DELETE' });
-              onToast?.('Transação excluída.');
+              const r = await api(`/transactions/${id}`, { method: 'DELETE' });
+              if (r?.queued) onToast?.('Sem conexão: exclusão enfileirada e será sincronizada.');
+              else onToast?.('Transação excluída.');
               onReload?.();
               reload();
             } catch (e) {
@@ -594,8 +596,9 @@ export default function AppShell(props) {
           // reaproveita o mesmo fluxo da lista
           const id = tx?.id ?? tx?.sheetRowNumber ?? tx?.row;
           if (!id) throw new Error('id inválido');
-          await api(`/transactions/${id}`, { method: 'DELETE' });
-          onToast?.('Transação excluída.');
+          const r = await api(`/transactions/${id}`, { method: 'DELETE' });
+          if (r?.queued) onToast?.('Sem conexão: exclusão enfileirada e será sincronizada.');
+          else onToast?.('Transação excluída.');
           onReload?.();
           reload();
         }}
