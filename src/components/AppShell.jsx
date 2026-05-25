@@ -88,6 +88,19 @@ export default function AppShell(props) {
     reload();
   }, [onReload, reload]);
 
+  // Quando volta pro app (PWA), atualiza automaticamente.
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'visible') reloadAll();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('focus', onVis);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', onVis);
+    };
+  }, [reloadAll]);
+
   useEffect(() => {
     if (!route) {
       setLoading(false);

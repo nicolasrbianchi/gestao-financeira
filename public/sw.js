@@ -111,6 +111,19 @@ self.addEventListener('push', (event) => {
     // ignore
   }
 
+  // Atualiza badge no ícone (best-effort)
+  try {
+    const badge = Number(data?.badge);
+    if (Number.isFinite(badge) && badge >= 0) {
+      if (self.registration?.setAppBadge) {
+        if (badge > 0) self.registration.setAppBadge(badge);
+        else self.registration.clearAppBadge?.();
+      }
+    }
+  } catch {
+    // ignore
+  }
+
   const title = String(data.title || fallback.title);
   const body = String(data.body || fallback.body);
   const url = String(data.url || fallback.url);

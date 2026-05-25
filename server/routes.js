@@ -21,6 +21,15 @@ import pkg from '../package.json' with { type: 'json' };
 
 export const router = express.Router();
 
+async function getPendingInboxCount() {
+  try {
+    const { rows } = await query(`select count(*)::int as c from import_inbox where status='pending'`);
+    return Number(rows?.[0]?.c || 0) || 0;
+  } catch {
+    return null;
+  }
+}
+
 // Mantém o serviço “quente” no Render free (sem auth, sem dependências).
 // Use com um monitor externo (UptimeRobot / cron / etc.).
 router.get(['/ping', '/wakeup'], (req, res) => {
@@ -113,6 +122,7 @@ router.post('/pluggy/webhook', (req, res) => {
         const tx = await listTransactionsByUrl({ requestId, url: link });
         const r = await insertImportsFromPluggy({ requestId, itemId, accountHint, transactions: tx, ignoreBefore: item.ignoreBefore });
         if (r?.inserted > 0) {
+          const badge = await getPendingInboxCount();
           await maybeSendPush({
             key: 'inbox:new',
             cooldownMs: 60 * 1000,
@@ -120,6 +130,7 @@ router.post('/pluggy/webhook', (req, res) => {
             body: `Encontrei ${r.inserted} nova(s) transação(ões) no Open Finance (pendente(s) na inbox).`,
             url: '/',
             tag: 'inbox',
+            badge,
             requestId,
           });
         }
@@ -139,6 +150,7 @@ router.post('/pluggy/webhook', (req, res) => {
         const tx = await listTransactionsByIds({ requestId, ids });
         const r = await insertImportsFromPluggy({ requestId, itemId, accountHint: String(payload.accountId || ''), transactions: tx, ignoreBefore: item.ignoreBefore });
         if (r?.inserted > 0) {
+          const badge = await getPendingInboxCount();
           await maybeSendPush({
             key: 'inbox:new',
             cooldownMs: 60 * 1000,
@@ -146,6 +158,7 @@ router.post('/pluggy/webhook', (req, res) => {
             body: `Encontrei ${r.inserted} nova(s) transação(ões) no Open Finance (pendente(s) na inbox).`,
             url: '/',
             tag: 'inbox',
+            badge,
             requestId,
           });
         }
@@ -195,7 +208,8 @@ router.post('/push/test', async (req, res, next) => {
     if (!config.databaseUrl) return res.status(409).json({ ok: false, error: 'Push requer DATABASE_URL (armazenamento de subscriptions).', requestId: req.requestId });
     const title = String(req.body?.title || 'Nicco Finance');
     const body = String(req.body?.body || 'Push de teste do Nicco.');
-    const r = await sendPushToAll({ title, body, url: '/', tag: 'test', requestId: req.requestId });
+    const badge = await getPendingInboxCount();
+    const r = await sendPushToAll({ title, body, url: '/', tag: 'test', badge, requestId: req.requestId });
     res.json({ ok: true, result: r });
   } catch (e) {
     next(e);
@@ -872,6 +886,7 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
     });
 
     if (totalInserted > 0) {
+      const badge = await getPendingInboxCount();
       await maybeSendPush({
         key: 'inbox:new',
         cooldownMs: 60 * 1000,
@@ -879,6 +894,7 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
         body: `Encontrei ${totalInserted} nova(s) transação(ões) no Open Finance (pendente(s) na inbox).`,
         url: '/',
         tag: 'inbox',
+        badge,
         requestId: req.requestId,
       });
     }

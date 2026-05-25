@@ -28,7 +28,7 @@ function allowSend(key, cooldownMs = 2 * 60 * 1000) {
   return true;
 }
 
-export async function sendPushToAll({ title, body, url = '/' , tag = 'nicco', requestId } = {}) {
+export async function sendPushToAll({ title, body, url = '/', tag = 'nicco', badge = null, requestId } = {}) {
   configure();
 
   const payload = {
@@ -36,6 +36,8 @@ export async function sendPushToAll({ title, body, url = '/' , tag = 'nicco', re
     body: String(body || ''),
     url: String(url || '/'),
     tag: String(tag || 'nicco'),
+    // badge: number (best-effort) — usado pelo Service Worker para atualizar o ícone
+    badge: Number.isFinite(Number(badge)) ? Number(badge) : undefined,
     sentAt: new Date().toISOString(),
   };
 
@@ -66,13 +68,12 @@ export async function sendPushToAll({ title, body, url = '/' , tag = 'nicco', re
   return { ok: true, sent, failed };
 }
 
-export async function maybeSendPush({ key, cooldownMs, title, body, url, tag, requestId } = {}) {
+export async function maybeSendPush({ key, cooldownMs, title, body, url, tag, badge, requestId } = {}) {
   try {
     if (!allowSend(String(key || 'default'), Number(cooldownMs) || 2 * 60 * 1000)) return { ok: true, skipped: true };
-    return await sendPushToAll({ title, body, url, tag, requestId });
+    return await sendPushToAll({ title, body, url, tag, badge, requestId });
   } catch (e) {
     logger.warn('push_broadcast_skipped', { requestId, error: e?.message || String(e) });
     return { ok: false, error: e?.message || String(e) };
   }
 }
-
