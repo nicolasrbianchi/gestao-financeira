@@ -176,9 +176,9 @@ export default function Transactions({ data, loading, filters, setFilters, onVie
                     : 'text-slate-300 bg-slate-500/10 border-slate-300/20';
                   const timeLabel = formatTimeFromIso(transaction.occurredAt);
                   return (
-                    <div key={id} className='relative overflow-hidden rounded-3xl'>
+                    <div key={id} className='relative overflow-hidden rounded-3xl bg-black/20'>
                       {/* Underlay actions */}
-                      <div className='absolute inset-y-0 right-0 flex items-stretch gap-2 pr-2' style={{ width: ACTION_W }}>
+                      <div className='absolute inset-y-0 right-0 z-0 flex items-stretch gap-2 pr-2' style={{ width: ACTION_W }}>
                         <button
                           type='button'
                           className='h-full flex-1 rounded-3xl bg-[rgba(231,220,198,0.92)] px-3 text-xs font-extrabold text-black shadow-soft ring-1 ring-black/10'
@@ -206,7 +206,7 @@ export default function Transactions({ data, loading, filters, setFilters, onVie
 
                       {/* Foreground card (swipe) */}
                       <article
-                        className='rounded-3xl bg-white p-3 shadow-soft transition-transform duration-150'
+                        className='relative z-10 rounded-3xl border border-white/10 bg-[rgba(6,6,10,0.96)] p-3 shadow-soft transition-transform duration-150'
                         style={{ transform: isOpen ? `translateX(-${ACTION_W}px)` : 'translateX(0px)' }}
                         onPointerDown={(e) => onPointerDown(e, id)}
                         onPointerMove={(e) => onPointerMove(e, id)}

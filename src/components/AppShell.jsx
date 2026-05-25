@@ -62,9 +62,6 @@ export default function AppShell(props) {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const [refreshAnimKey, setRefreshAnimKey] = useState(0);
-  const [refreshEveryMs, setRefreshEveryMs] = useState(30_000);
-  const [autoRefreshPaused, setAutoRefreshPaused] = useState(false);
   const refreshTimerRef = useRef(null);
   const refreshingRef = useRef(false);
   const [pullProgress, setPullProgress] = useState(0);
@@ -191,7 +188,7 @@ export default function AppShell(props) {
       } catch {
         // ignore
       }
-      return 30_000; // default: 30s
+      return 3 * 60_000; // default: 3min
     };
 
     const isPaused = () => (
@@ -206,13 +203,8 @@ export default function AppShell(props) {
 
     const schedule = () => {
       const everyMs = getEveryMs();
-      setRefreshEveryMs(everyMs);
       const paused = isPaused();
-      setAutoRefreshPaused(paused);
       if (paused) return;
-
-      // (re)inicia a barra
-      setRefreshAnimKey((v) => v + 1);
 
       try { if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current); } catch {}
       refreshTimerRef.current = setTimeout(() => {
@@ -463,19 +455,6 @@ export default function AppShell(props) {
 
   return (
     <div className={`app-frame ${safeTab === 'ai' ? 'app-frame-chat' : ''}`}>
-      <div className='refresh-bar' aria-hidden='true' style={{ opacity: autoRefreshPaused ? 0 : 1, transition: 'opacity 200ms ease' }}>
-        {pullProgress > 0 ? (
-          <span style={{ transform: `scaleX(${pullProgress})`, opacity: 0.55 }} />
-        ) : (
-          <span
-            key={refreshAnimKey}
-            style={{
-              animation: `gf_refresh_progress ${refreshEveryMs}ms linear 1`,
-            }}
-          />
-        )}
-      </div>
-
       {/* Pull-to-refresh loader (visível em qualquer tela) */}
       {(pullProgress > 0 || pullRefreshing) && (
         <div
@@ -546,7 +525,7 @@ export default function AppShell(props) {
         </button>
       </div>
       <main
-        className='min-w-0 ptr-content'
+        className={`min-w-0 ptr-content ${safeTab === 'ai' ? 'app-main-chat' : ''}`}
         style={{
           transform: (pullProgress > 0 || pullRefreshing)
             ? `translateY(${Math.round((pullRefreshing ? 56 : pullProgress * 56))}px)`
