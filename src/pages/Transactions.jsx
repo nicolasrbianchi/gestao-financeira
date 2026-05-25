@@ -2,7 +2,6 @@ import React, { useMemo, useRef, useState } from 'react';
 import { CalendarDays, Search } from 'lucide-react';
 import { money } from '../utils/format';
 import { filterChip } from '../utils/filters';
-import { haptic } from '../utils/haptics';
 
 const toneByType = {
   Receita: 'text-emerald-400 bg-emerald-500/10 border-emerald-400/20',
@@ -57,77 +56,61 @@ export default function Transactions({ data, loading, filters, setFilters, onVie
   const summary = data?.summary || { totalAmount: 0, count: transactions.length };
   const period = filterChip(filters) || 'Todos os registros';
 
-  const grouped = useMemo(() => groupByDate(transactions), [transactions]);
-  const [openId, setOpenId] = useState(null);
-  const [openX, setOpenX] = useState(0);
-  const [draggingId, setDraggingId] = useState(null);
-  const dragRef = useRef({ id: null, startX: 0, startY: 0, started: false, dragging: false, dx: 0, startOpenX: 0 });
-  const blockNextCardClickRef = useRef(false);
+	const grouped = useMemo(() => groupByDate(transactions), [transactions]);
+	const [openId, setOpenId] = useState(null);
+	const dragRef = useRef({ id: null, startX: 0, startY: 0, started: false, dragging: false, dx: 0 });
+	const blockNextCardClickRef = useRef(false);
 
   const ACTION_W = 172; // px (2 botões)
 
-  const onPointerDown = (event, id) => {
-    // Só pega primário (evita multi-touch estranho)
-    if (event.pointerType !== 'mouse' && event.isPrimary === false) return;
-    // se tem outro card aberto, fecha antes de começar outro swipe
-    if (openId && openId !== id) {
-      setOpenId(null);
-      setOpenX(0);
-    }
+	const onPointerDown = (event, id) => {
+		// Só pega primário (evita multi-touch estranho)
+		if (event.pointerType !== 'mouse' && event.isPrimary === false) return;
+		// se tem outro card aberto, fecha antes de começar outro swipe
+		if (openId && openId !== id) setOpenId(null);
 
-    const startOpenX = openId === id ? openX : 0;
+		dragRef.current = {
+			id,
+			startX: event.clientX,
+			startY: event.clientY,
+			started: true,
+			dragging: false,
+			dx: 0,
+		};
+	};
 
-    dragRef.current = {
-      id,
-      startX: event.clientX,
-      startY: event.clientY,
-      started: true,
-      dragging: false,
-      dx: 0,
-      startOpenX,
-    };
-  };
-
-  const onPointerMove = (event, id) => {
-    const d = dragRef.current;
-    if (!d.started || d.id !== id) return;
-    const dx = event.clientX - d.startX;
-    const dy = event.clientY - d.startY;
+	const onPointerMove = (event, id) => {
+		const d = dragRef.current;
+		if (!d.started || d.id !== id) return;
+		const dx = event.clientX - d.startX;
+		const dy = event.clientY - d.startY;
 
     // Só inicia swipe quando for claramente horizontal (senão deixa scroll normal)
-    if (!d.dragging) {
-      if (Math.abs(dx) < 10) return;
-      if (Math.abs(dy) > Math.abs(dx) * 1.2) return;
-      d.dragging = true;
-      setDraggingId(id);
-      try { event.currentTarget.setPointerCapture?.(event.pointerId); } catch { /* ignore */ }
-    }
+		if (!d.dragging) {
+			if (Math.abs(dx) < 10) return;
+			if (Math.abs(dy) > Math.abs(dx) * 1.2) return;
+			d.dragging = true;
+			try { event.currentTarget.setPointerCapture?.(event.pointerId); } catch { /* ignore */ }
+		}
 
-    d.dx = dx;
+		d.dx = dx;
+		// feedback: durante drag, abre/fecha visualmente via state rápida
+		// (não animamos por frame; só usamos threshold simples)
+		if (dx < -18) setOpenId(id);
+		if (dx > 18 && openId === id) setOpenId(null);
+	};
 
-    // follow finger (0..-ACTION_W)
-    const next = Math.max(-ACTION_W, Math.min(0, d.startOpenX + dx));
-    setOpenId(id);
-    setOpenX(next);
-  };
+	const onPointerUp = (_event, id) => {
+		const d = dragRef.current;
+		if (!d.started || d.id !== id) return;
+		const dx = d.dx;
+		const shouldOpen = dx < -32;
+		const shouldClose = dx > 32;
 
-  const onPointerUp = (_event, id) => {
-    const d = dragRef.current;
-    if (!d.started || d.id !== id) return;
-
-    const x = openX;
-    const shouldOpen = x <= -ACTION_W * 0.45;
-    const nextX = shouldOpen ? -ACTION_W : 0;
-
-    setOpenX(nextX);
-    if (shouldOpen) setOpenId(id);
-    else setOpenId(null);
-
-    if (d.dragging) haptic(8);
-
-    setDraggingId(null);
-    dragRef.current = { id: null, startX: 0, startY: 0, started: false, dragging: false, dx: 0, startOpenX: 0 };
-  };
+		if (shouldOpen) setOpenId(id);
+		else if (shouldClose) setOpenId(null);
+		dragRef.current = { id: null, startX: 0, startY: 0, started: false, dragging: false, dx: 0 };
+	};
 
   if (loading && !data) return <div className='loading-state'>Carregando transações…</div>;
 
@@ -244,16 +227,13 @@ export default function Transactions({ data, loading, filters, setFilters, onVie
                       </div>
 
                       {/* Foreground card (swipe) */}
-                      <article
-                        className={`relative z-10 rounded-3xl bg-white p-3 transition-transform duration-150 ${isOpen ? 'shadow-none' : 'shadow-soft'}`}
-                        style={{
-                          transform: isOpen ? `translateX(${openX}px)` : 'translateX(0px)',
-                          transition: draggingId === id ? 'none' : undefined,
-                        }}
-                        onPointerDown={(e) => onPointerDown(e, id)}
-                        onPointerMove={(e) => onPointerMove(e, id)}
-                        onPointerUp={(e) => onPointerUp(e, id)}
-                        onPointerCancel={(e) => onPointerUp(e, id)}
+					  <article
+						className={`relative z-10 rounded-3xl bg-white p-3 transition-transform duration-150 ${isOpen ? 'shadow-none' : 'shadow-soft'}`}
+						style={{ transform: isOpen ? `translateX(-${ACTION_W}px)` : 'translateX(0px)' }}
+						onPointerDown={(e) => onPointerDown(e, id)}
+						onPointerMove={(e) => onPointerMove(e, id)}
+						onPointerUp={(e) => onPointerUp(e, id)}
+						onPointerCancel={(e) => onPointerUp(e, id)}
                         onClick={() => {
                           if (blockNextCardClickRef.current) {
                             blockNextCardClickRef.current = false;
