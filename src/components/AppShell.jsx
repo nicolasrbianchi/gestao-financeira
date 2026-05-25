@@ -88,6 +88,33 @@ export default function AppShell(props) {
     reload();
   }, [onReload, reload]);
 
+  // Auto-refresh periódico enquanto o app está aberto.
+  // (No iOS, timers podem pausar em background; quando voltar, o hook de focus/visibility já recarrega.)
+  useEffect(() => {
+    if (!route) return undefined;
+
+    const getEveryMs = () => {
+      try {
+        const v = Number(localStorage.getItem('gf_auto_refresh_ms') || 0);
+        if (Number.isFinite(v) && v >= 30_000) return v;
+      } catch {
+        // ignore
+      }
+      return 2 * 60_000; // default: 2 min
+    };
+
+    let id = null;
+    const tick = () => {
+      if (document.visibilityState !== 'visible') return;
+      reload();
+    };
+
+    id = setInterval(tick, getEveryMs());
+    return () => {
+      try { if (id) clearInterval(id); } catch {}
+    };
+  }, [route, reload]);
+
   // Quando volta pro app (PWA), atualiza automaticamente.
   useEffect(() => {
     const onVis = () => {
