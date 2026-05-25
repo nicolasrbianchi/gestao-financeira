@@ -99,6 +99,7 @@ export default function AppShell(props) {
   useEffect(() => {
     const isPaused = () => (
       document.visibilityState !== 'visible'
+      || safeTab === 'ai'
       || showTransactionSheet
       || showTransactionDetails
       || showInbox
@@ -155,7 +156,7 @@ export default function AppShell(props) {
       window.removeEventListener('touchend', onTouchEnd);
       window.removeEventListener('touchcancel', onTouchEnd);
     };
-  }, [reloadAll, showTransactionSheet, showTransactionDetails, showInbox, showNotifications, showFilters, showAddMenu, pullProgress]);
+  }, [reloadAll, safeTab, showTransactionSheet, showTransactionDetails, showInbox, showNotifications, showFilters, showAddMenu, pullProgress]);
 
   // Fecha o loader do pull-to-refresh quando o reload terminar.
   useEffect(() => {
