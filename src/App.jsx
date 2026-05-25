@@ -12,6 +12,7 @@ export default function App() {
   const [boot, setBoot] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [toast, setToast] = useState('');
+  const [toastAction, setToastAction] = useState(null);
   const [pendingImportsCount, setPendingImportsCount] = useState(0);
   const [insightTick, setInsightTick] = useState(0);
 
@@ -57,6 +58,25 @@ export default function App() {
   };
 
   useEffect(() => { api('/auth/status').then((d) => setAuth(d.authenticated)).catch(() => setAuth(false)); }, []);
+
+  // Deep links (PWA shortcuts): ?tab=transactions / ?action=add / ?action=inbox
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(window.location.search || '');
+      const nextTab = String(qs.get('tab') || '').trim();
+      const action = String(qs.get('action') || '').trim();
+
+      if (nextTab) setTab(nextTab);
+
+      // ações: deixam o AppShell abrir sheets
+      if (action) {
+        window.__gf_intent = { action };
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   useEffect(() => {
     if (!auth) return;
     api('/bootstrap', { cache: 'no-store' })
@@ -92,6 +112,28 @@ export default function App() {
         const r = await api('/imports/pending');
         const count = (r.items || []).length;
         setPendingImportsCount(count);
+
+        const prev = Number(localStorage.getItem('gf_inbox_pending_count') || 0);
+        if (count > prev) {
+          // Notificação na Central + toast
+          setToast(`${count} importação(ões) pendente(s) para aprovar.`);
+          try {
+            const now = Date.now();
+            const n = {
+              id: `inbox:${now}`,
+              kind: 'Inbox',
+              title: 'Open Finance',
+              body: `${count} importação(ões) pendente(s) para aprovar.`,
+              createdAt: new Date(now).toISOString(),
+              readAt: null,
+            };
+            const arr = [n, ...notificationsLoad()];
+            notificationsSave(arr);
+          } catch {
+            // ignore
+          }
+        }
+
         localStorage.setItem('gf_inbox_pending_count', String(count));
       } catch {
         // ignore
@@ -130,43 +172,13 @@ export default function App() {
     };
   }, [auth]);
 
-  // Notificação best-effort: importações pendentes
   useEffect(() => {
-    if (!auth) return;
-    api('/imports/pending')
-      .then((r) => {
-        const count = (r.items || []).length;
-        setPendingImportsCount(count);
-        const prev = Number(localStorage.getItem('gf_inbox_pending_count') || 0);
-
-        if (count > prev) {
-          setToast(`${count} importação(ões) pendente(s) para aprovar.`);
-
-          // Também registra na Central de notificações (pra aparecer no sino)
-          try {
-            const now = Date.now();
-            const n = {
-              id: `inbox:${now}`,
-              kind: 'Inbox',
-              title: 'Open Finance',
-              body: `${count} importação(ões) pendente(s) para aprovar.`,
-              createdAt: new Date(now).toISOString(),
-              readAt: null,
-            };
-            const arr = [n, ...notificationsLoad()];
-            notificationsSave(arr);
-          } catch {
-            // ignore
-          }
-        }
-
-        localStorage.setItem('gf_inbox_pending_count', String(count));
-      })
-      .catch(() => {
-        // ignore (DATA_SOURCE!=db ou erro de rede)
-      });
-  }, [auth, reloadKey]);
-  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(''), 3500); return () => clearTimeout(t); }, [toast]);
+    if (!toast) return;
+    // Quando o toast tem ação (ex: update do app), não auto-esconde.
+    if (toastAction) return undefined;
+    const t = setTimeout(() => setToast(''), 3500);
+    return () => clearTimeout(t);
+  }, [toast, toastAction]);
 
   // Insight periódico (Nicco IA): 2x por dia (quando app estiver aberto).
   useEffect(() => {
@@ -214,8 +226,75 @@ export default function App() {
     return () => clearInterval(id);
   }, [auth]);
 
+  // Service Worker update UX (toast com ação)
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const reg = (await navigator.serviceWorker.getRegistration()) || (await navigator.serviceWorker.register('/sw.js').catch(() => null));
+        if (!reg) return;
+        try { await reg.update(); } catch { /* ignore */ }
+
+        const onUpdateFound = () => {
+          const installing = reg.installing;
+          if (!installing) return;
+          installing.addEventListener('statechange', () => {
+            if (!mounted) return;
+            if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+              setToast('Nova versão disponível. Toque para atualizar.');
+              setToastAction(() => () => window.location.reload());
+            }
+          });
+        };
+
+        reg.addEventListener('updatefound', onUpdateFound);
+      } catch {
+        // ignore
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   if (auth === null) return <div className='loading-state'>Carregando…</div>;
   if (!auth) return <LoginScreen onOk={() => setAuth(true)} />;
 
-  return <><AppShell tab={tab} onTab={setTab} filters={filters} setFilters={setFilters} metadata={metadata || {}} initialDashboard={boot?.dashboard || null} onReload={() => setReloadKey((v) => v + 1)} api={api} withQuery={withQuery} onToast={setToast} pendingImportsCount={pendingImportsCount} insightTick={insightTick} onLogout={async()=>{await api('/auth/logout',{method:'POST'});location.reload();}} />{toast&&<div className='toast'>{toast}</div>}</>;
+  return (
+    <>
+      <AppShell
+        tab={tab}
+        onTab={setTab}
+        filters={filters}
+        setFilters={setFilters}
+        metadata={metadata || {}}
+        initialDashboard={boot?.dashboard || null}
+        onReload={() => setReloadKey((v) => v + 1)}
+        api={api}
+        withQuery={withQuery}
+        onToast={(t) => {
+          setToastAction(null);
+          setToast(t);
+        }}
+        pendingImportsCount={pendingImportsCount}
+        insightTick={insightTick}
+        onLogout={async () => { await api('/auth/logout', { method: 'POST' }); location.reload(); }}
+      />
+      {toast && (
+        <div
+          className='toast'
+          role='button'
+          tabIndex={0}
+          onClick={() => {
+            if (typeof toastAction === 'function') return toastAction();
+            return undefined;
+          }}
+        >
+          {toast}
+        </div>
+      )}
+    </>
+  );
 }

@@ -65,6 +65,17 @@ export default function AppShell(props) {
   const safeTab = ROUTES[tab] === undefined ? 'home' : tab;
   const route = useMemo(() => ROUTES[safeTab], [safeTab]);
 
+  const isStandalone = useMemo(() => {
+    try {
+      // iOS Safari: navigator.standalone
+      if (window.navigator && window.navigator.standalone) return true;
+      // Chrome/others
+      return window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+    } catch {
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     if (safeTab !== tab) onTab('home');
   }, [safeTab, tab, onTab]);
@@ -95,11 +106,14 @@ export default function AppShell(props) {
     setError(null);
 
     const cacheKey = `gf_cache:v1:${route}:${JSON.stringify(filters || {})}`;
+    const ttlMs = isStandalone ? 24 * 60 * 60 * 1000 : 2 * 60 * 1000;
+    let hadCache = false;
     try {
       const cachedRaw = localStorage.getItem(cacheKey);
       if (cachedRaw) {
         const cached = JSON.parse(cachedRaw);
-        if (cached?.data && cached?.at && Date.now() - cached.at < 2 * 60 * 1000) {
+        if (cached?.data && cached?.at && Date.now() - cached.at < ttlMs) {
+          hadCache = true;
           setData(cached.data);
         }
       }
@@ -119,7 +133,14 @@ export default function AppShell(props) {
         }
       })
       .catch((err) => {
-        if (mounted) setError(err);
+        if (!mounted) return;
+        // Offline-friendly: se já temos cache, mantém a tela funcionando.
+        if (hadCache) {
+          setError(null);
+          onToast?.('Sem conexão. Mostrando dados salvos.');
+        } else {
+          setError(err);
+        }
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -129,6 +150,29 @@ export default function AppShell(props) {
       mounted = false;
     };
   }, [api, withQuery, route, filters, reloadKey]);
+
+  // PWA shortcuts intents
+  useEffect(() => {
+    try {
+      const intent = window.__gf_intent;
+      if (!intent?.action) return;
+      window.__gf_intent = null;
+
+      if (intent.action === 'add') {
+        setEditingTx(null);
+        setApproveDraft(null);
+        setTransactionSheetMode('add');
+        setShowTransactionSheet(true);
+      }
+
+      if (intent.action === 'inbox') {
+        setShowInbox(true);
+      }
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSaved = () => {
     setShowTransactionSheet(false);
@@ -240,6 +284,19 @@ export default function AppShell(props) {
     if (!showNotifications) return;
     computeUnreadNotifications();
   }, [showNotifications, computeUnreadNotifications]);
+
+  // Badge no ícone (best-effort)
+  useEffect(() => {
+    const badge = Math.max(0, Number(unreadNotifications) || 0) + Math.max(0, Number(pendingCount) || 0);
+    try {
+      if ('setAppBadge' in navigator) {
+        if (badge > 0) navigator.setAppBadge(badge);
+        else navigator.clearAppBadge?.();
+      }
+    } catch {
+      // ignore
+    }
+  }, [unreadNotifications, pendingCount]);
 
   return (
     <div className={`app-frame ${safeTab === 'ai' ? 'app-frame-chat' : ''}`}>

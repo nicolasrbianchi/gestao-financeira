@@ -2,10 +2,30 @@
   "name": "Nicco Finance",
   "short_name": "Nicco",
   "description": "Nicco Finance — Precisão financeira",
-  "start_url": "/",
+  "start_url": "/?tab=home",
   "display": "standalone",
   "background_color": "#020204",
   "theme_color": "#020204",
+  "shortcuts": [
+    {
+      "name": "Novo lançamento",
+      "short_name": "Novo",
+      "description": "Adicionar transação",
+      "url": "/?action=add"
+    },
+    {
+      "name": "Inbox Open Finance",
+      "short_name": "Inbox",
+      "description": "Aprovar pendências",
+      "url": "/?action=inbox"
+    },
+    {
+      "name": "Transações",
+      "short_name": "Transações",
+      "description": "Ver transações",
+      "url": "/?tab=transactions"
+    }
+  ],
   "icons": [
     {
       "src": "/favicon.jpg",
@@ -14,4 +34,3 @@
     }
   ]
 }
-

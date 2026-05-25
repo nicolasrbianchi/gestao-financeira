@@ -2,6 +2,105 @@
 
 // Web Push Service Worker (PWA)
 
+const SHELL_CACHE = 'nicco-shell-v2';
+
+async function cacheShell() {
+  const cache = await caches.open(SHELL_CACHE);
+
+  // Index (SPA entry)
+  const indexRes = await fetch('/', { cache: 'no-store' });
+  await cache.put('/', indexRes.clone());
+
+  let html = '';
+  try { html = await indexRes.clone().text(); } catch { html = ''; }
+
+  // Manifest + ícones
+  try { await cache.addAll(['/manifest.webmanifest', '/favicon.jpg']); } catch { /* ignore */ }
+
+  // Cache best-effort dos assets do build (Vite)
+  if (html) {
+    const assets = new Set();
+    const re = /\/(assets\/[^"'\s>]+\.(?:js|css|png|jpg|jpeg|webp|svg|ico))/g;
+    let m;
+    // eslint-disable-next-line no-cond-assign
+    while ((m = re.exec(html))) {
+      assets.add(`/${m[1]}`);
+    }
+    await Promise.all(
+      [...assets].map(async (p) => {
+        try { await cache.add(p); } catch { /* ignore */ }
+      })
+    );
+  }
+}
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    (async () => {
+      try {
+        await cacheShell();
+      } catch {
+        // ignore
+      }
+      self.skipWaiting();
+    })()
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    (async () => {
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.filter((k) => k.startsWith('nicco-shell-') && k !== SHELL_CACHE).map((k) => caches.delete(k)));
+      } catch {
+        // ignore
+      }
+      await self.clients.claim();
+    })()
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+
+  // Navegação SPA: cache-first com fallback pra rede
+  if (req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html')) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(SHELL_CACHE);
+        const cached = await cache.match('/');
+        try {
+          const fresh = await fetch(req);
+          // Atualiza cache do index (best-effort)
+          try { await cache.put('/', fresh.clone()); } catch { /* ignore */ }
+          return fresh;
+        } catch {
+          return cached || new Response('Offline', { status: 200, headers: { 'Content-Type': 'text/plain' } });
+        }
+      })()
+    );
+    return;
+  }
+
+  // Static assets: cache-first
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(SHELL_CACHE);
+        const cached = await cache.match(req);
+        if (cached) return cached;
+        const res = await fetch(req);
+        try { await cache.put(req, res.clone()); } catch { /* ignore */ }
+        return res;
+      })()
+    );
+  }
+});
+
 self.addEventListener('push', (event) => {
   const fallback = { title: 'Nicco Finance', body: 'Nova notificação', url: '/', tag: 'nicco' };
   let data = fallback;
@@ -55,4 +154,3 @@ self.addEventListener('notificationclick', (event) => {
     })()
   );
 });
-
