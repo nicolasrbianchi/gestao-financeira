@@ -176,7 +176,7 @@ export default function Transactions({ data, loading, filters, setFilters, onVie
                     : 'text-slate-300 bg-slate-500/10 border-slate-300/20';
                   const timeLabel = formatTimeFromIso(transaction.occurredAt);
                   return (
-                    <div key={id} className='relative overflow-hidden rounded-3xl'>
+                    <div key={id} className='relative overflow-hidden rounded-3xl bg-white'>
                       {/* Underlay actions */}
                       <div
                         className='absolute inset-y-0 right-0 z-0 flex items-stretch gap-2 pr-2 transition-opacity duration-150'
@@ -188,7 +188,7 @@ export default function Transactions({ data, loading, filters, setFilters, onVie
                       >
                         <button
                           type='button'
-                          className='h-full flex-1 rounded-3xl bg-[rgba(231,220,198,0.92)] px-3 text-xs font-extrabold text-black shadow-soft ring-1 ring-black/10'
+                          className='h-full flex-1 rounded-3xl bg-[rgba(231,220,198,0.92)] px-3 text-xs font-extrabold text-black ring-1 ring-black/10'
                           onClick={() => {
                             setOpenId(null);
                             onEdit?.(transaction);
@@ -198,7 +198,7 @@ export default function Transactions({ data, loading, filters, setFilters, onVie
                         </button>
                         <button
                           type='button'
-                          className='h-full flex-1 rounded-3xl bg-rose-500/15 px-3 text-xs font-extrabold text-rose-700 shadow-soft ring-1 ring-rose-600/20'
+                          className='h-full flex-1 rounded-3xl bg-rose-500/15 px-3 text-xs font-extrabold text-rose-700 ring-1 ring-rose-600/20'
                           onClick={() => {
                             setOpenId(null);
                             const ok = window.confirm(`Excluir "${transaction.name || 'transação'}"?`);
