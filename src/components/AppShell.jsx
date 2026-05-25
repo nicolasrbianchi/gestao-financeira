@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BottomNav from './BottomNav';
 import FilterSheet from './FilterSheet';
 import TransactionSheet from './TransactionSheet';
@@ -61,6 +61,9 @@ export default function AppShell(props) {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [lastRefreshedAtMs, setLastRefreshedAtMs] = useState(0);
+  const [refreshPulse, setRefreshPulse] = useState(false);
+  const refreshPulseTimerRef = useRef(null);
 
   const safeTab = ROUTES[tab] === undefined ? 'home' : tab;
   const route = useMemo(() => ROUTES[safeTab], [safeTab]);
@@ -100,12 +103,14 @@ export default function AppShell(props) {
       } catch {
         // ignore
       }
-      return 2 * 60_000; // default: 2 min
+      return 30_000; // default: 30s
     };
 
     let id = null;
     const tick = () => {
       if (document.visibilityState !== 'visible') return;
+      // Evita atualizar no meio de um sheet aberto.
+      if (showTransactionSheet || showTransactionDetails || showInbox || showNotifications || showFilters || showAddMenu) return;
       reload();
     };
 
@@ -113,7 +118,7 @@ export default function AppShell(props) {
     return () => {
       try { if (id) clearInterval(id); } catch {}
     };
-  }, [route, reload]);
+  }, [route, reload, showTransactionSheet, showTransactionDetails, showInbox, showNotifications, showFilters, showAddMenu]);
 
   // Quando volta pro app (PWA), atualiza automaticamente.
   useEffect(() => {
@@ -166,6 +171,13 @@ export default function AppShell(props) {
         if (!mounted) return;
         const nextData = response || {};
         setData(nextData);
+
+        const now = Date.now();
+        setLastRefreshedAtMs(now);
+        setRefreshPulse(true);
+        try { if (refreshPulseTimerRef.current) clearTimeout(refreshPulseTimerRef.current); } catch {}
+        refreshPulseTimerRef.current = setTimeout(() => setRefreshPulse(false), 1200);
+
         try {
           localStorage.setItem(cacheKey, JSON.stringify({ at: Date.now(), data: nextData }));
         } catch {
@@ -190,6 +202,12 @@ export default function AppShell(props) {
       mounted = false;
     };
   }, [api, withQuery, route, filters, reloadKey]);
+
+  useEffect(() => {
+    return () => {
+      try { if (refreshPulseTimerRef.current) clearTimeout(refreshPulseTimerRef.current); } catch {}
+    };
+  }, []);
 
   // PWA shortcuts intents
   useEffect(() => {
@@ -341,6 +359,12 @@ export default function AppShell(props) {
   return (
     <div className={`app-frame ${safeTab === 'ai' ? 'app-frame-chat' : ''}`}>
       <div className='top-actions'>
+        <span
+          className={`select-none text-[10px] font-semibold text-slate-400 transition-opacity duration-200 ${refreshPulse ? 'opacity-100' : 'opacity-0'}`}
+          aria-label={lastRefreshedAtMs ? `Atualizado às ${new Date(lastRefreshedAtMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Atualizado'}
+        >
+          Atualizado
+        </span>
         {safeTab === 'ai' ? (
           <button
             type='button'
