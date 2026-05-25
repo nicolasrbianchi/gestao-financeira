@@ -2,7 +2,7 @@
 
 // Web Push Service Worker (PWA)
 
-const SHELL_CACHE = 'nicco-shell-v9';
+const SHELL_CACHE = 'nicco-shell-v10';
 
 async function cacheShell() {
   const cache = await caches.open(SHELL_CACHE);
