@@ -250,7 +250,7 @@ export default function Ai({ api, resetKey = 0 }) {
         <div className='flex items-center justify-between gap-3'>
           <div className='flex min-w-0 items-center gap-3'>
             <img
-              src='/icons/icon-192.png'
+              src='/icons/icon-192-v12.png'
               alt='Nicco Finance'
               className='h-10 w-10 shrink-0 rounded-2xl ring-1 ring-white/10'
             />
