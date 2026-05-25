@@ -2,7 +2,7 @@
 
 // Web Push Service Worker (PWA)
 
-const SHELL_CACHE = 'nicco-shell-v2';
+const SHELL_CACHE = 'nicco-shell-v3';
 
 async function cacheShell() {
   const cache = await caches.open(SHELL_CACHE);
@@ -15,7 +15,24 @@ async function cacheShell() {
   try { html = await indexRes.clone().text(); } catch { html = ''; }
 
   // Manifest + ícones
-  try { await cache.addAll(['/manifest.webmanifest', '/favicon.jpg']); } catch { /* ignore */ }
+  try {
+    await cache.addAll([
+      '/manifest.webmanifest',
+      '/favicon.jpg',
+      '/icons/icon-192.png',
+      '/icons/icon-512.png',
+      '/icons/icon-512-maskable.png',
+      '/icons/apple-touch-icon.png',
+      '/icons/splash/splash-1290x2796.png',
+      '/icons/splash/splash-1179x2556.png',
+      '/icons/splash/splash-1170x2532.png',
+      '/icons/splash/splash-1125x2436.png',
+      '/icons/splash/splash-1242x2688.png',
+      '/icons/splash/splash-828x1792.png',
+      '/icons/splash/splash-1242x2208.png',
+      '/icons/splash/splash-750x1334.png',
+    ]);
+  } catch { /* ignore */ }
 
   // Cache best-effort dos assets do build (Vite)
   if (html) {
@@ -87,7 +104,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Static assets: cache-first
-  if (url.pathname.startsWith('/assets/')) {
+  if (url.pathname.startsWith('/assets/') || url.pathname.startsWith('/icons/')) {
     event.respondWith(
       (async () => {
         const cache = await caches.open(SHELL_CACHE);
@@ -133,8 +150,8 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(title, {
       body,
       tag,
-      icon: '/favicon.jpg',
-      badge: '/favicon.jpg',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
       data: { url },
     })
   );

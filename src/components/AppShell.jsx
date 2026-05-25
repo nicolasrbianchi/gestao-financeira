@@ -62,6 +62,9 @@ export default function AppShell(props) {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [online, setOnline] = useState(() => {
+    try { return navigator.onLine !== false; } catch { return true; }
+  });
   const refreshTimerRef = useRef(null);
   const refreshingRef = useRef(false);
   const [pullProgress, setPullProgress] = useState(0);
@@ -82,6 +85,24 @@ export default function AppShell(props) {
       return false;
     }
   }, []);
+
+  // Offline / online awareness
+  useEffect(() => {
+    const onOn = () => {
+      setOnline(true);
+      onToast?.('Conexão restaurada ✅');
+    };
+    const onOff = () => {
+      setOnline(false);
+      onToast?.('Você está offline. Mostrando dados salvos.');
+    };
+    window.addEventListener('online', onOn);
+    window.addEventListener('offline', onOff);
+    return () => {
+      window.removeEventListener('online', onOn);
+      window.removeEventListener('offline', onOff);
+    };
+  }, [onToast]);
 
   useEffect(() => {
     if (safeTab !== tab) onTab('home');
@@ -470,6 +491,13 @@ export default function AppShell(props) {
           )}
         </div>
       )}
+
+      {!online && (
+        <div className='offline-badge' role='status' aria-live='polite'>
+          Offline
+        </div>
+      )}
+
       <div className='top-actions'>
         {safeTab === 'ai' ? (
           <button

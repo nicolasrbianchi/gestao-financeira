@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Send } from 'lucide-react';
+import { ChevronDown, Send } from 'lucide-react';
 
 const STORAGE_KEY = 'gf_ai_session:v1';
 
@@ -118,6 +118,8 @@ export default function Ai({ api, resetKey = 0 }) {
   const listRef = useRef(null);
   const atBottomRef = useRef(true);
   const pendingAutoScrollRef = useRef(true);
+  const [showJump, setShowJump] = useState(false);
+  const showJumpRef = useRef(false);
 
   const messages = session?.messages || [];
 
@@ -142,6 +144,10 @@ export default function Ai({ api, resetKey = 0 }) {
     if (!atBottomRef.current && !pendingAutoScrollRef.current) return;
     scrollToBottom('auto');
     pendingAutoScrollRef.current = false;
+    if (showJumpRef.current) {
+      showJumpRef.current = false;
+      setShowJump(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, loading]);
 
@@ -154,6 +160,8 @@ export default function Ai({ api, resetKey = 0 }) {
     setLoading(false);
     atBottomRef.current = true;
     pendingAutoScrollRef.current = true;
+    showJumpRef.current = false;
+    setShowJump(false);
     // deixa o DOM atualizar e desce
     setTimeout(scrollToBottom, 0);
   };
@@ -180,6 +188,8 @@ export default function Ai({ api, resetKey = 0 }) {
     // Ao enviar, sempre mantém no fim.
     pendingAutoScrollRef.current = true;
     atBottomRef.current = true;
+    showJumpRef.current = false;
+    setShowJump(false);
     setTimeout(() => scrollToBottom('auto'), 0);
 
     try {
@@ -213,7 +223,7 @@ export default function Ai({ api, resetKey = 0 }) {
         <div className='flex items-center justify-between gap-3'>
           <div className='flex min-w-0 items-center gap-3'>
             <img
-              src='/favicon.jpg'
+              src='/icons/icon-192.png'
               alt='Nicco Finance'
               className='h-10 w-10 shrink-0 rounded-2xl ring-1 ring-white/10'
             />
@@ -226,7 +236,7 @@ export default function Ai({ api, resetKey = 0 }) {
       </header>
 
       {/* Chat: header fixo, rolagem só nas mensagens, composer sticky (evita bugs iOS com fixed). */}
-      <section className='flex min-h-0 flex-1 flex-col overflow-hidden rounded-4xl border border-white/10 bg-[rgba(10,10,16,0.70)]'>
+      <section className='relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-4xl border border-white/10 bg-[rgba(10,10,16,0.70)]'>
         <div
           ref={listRef}
           className='min-h-0 flex-1 space-y-3 overflow-y-auto px-1 pr-1'
@@ -234,6 +244,12 @@ export default function Ai({ api, resetKey = 0 }) {
             const el = e.currentTarget;
             const atBottom = isAtBottom(el);
             atBottomRef.current = atBottom;
+
+            const nextShow = !atBottom && (messages.length > 0 || loading);
+            if (nextShow !== showJumpRef.current) {
+              showJumpRef.current = nextShow;
+              setShowJump(nextShow);
+            }
           }}
           style={{
             WebkitOverflowScrolling: 'touch',
@@ -262,7 +278,25 @@ export default function Ai({ api, resetKey = 0 }) {
           )}
         </div>
 
-        {/* Sem botão "Ir pro fim" (ganhar espaço). */}
+        {showJump && (
+          <button
+            type='button'
+            onClick={() => {
+              pendingAutoScrollRef.current = true;
+              atBottomRef.current = true;
+              showJumpRef.current = false;
+              setShowJump(false);
+              scrollToBottom('smooth');
+            }}
+            className='absolute right-4 z-20 grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-[rgba(10,10,16,0.9)] text-slate-100 shadow-soft backdrop-blur'
+            style={{ bottom: 'calc(5.25rem + env(safe-area-inset-bottom))' }}
+            aria-label='Ir para o fim'
+          >
+            <ChevronDown size={18} />
+          </button>
+        )}
+
+        {/* Botão "Ir pro fim" aparece só quando o usuário não está no final. */}
 
         <div
           className='sticky bottom-0 border-t border-white/10 bg-[rgba(6,6,10,0.88)] px-3 py-3 backdrop-blur'

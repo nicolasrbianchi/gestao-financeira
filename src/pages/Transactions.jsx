@@ -65,6 +65,9 @@ export default function Transactions({ data, loading, filters, setFilters, onVie
   const onPointerDown = (event, id) => {
     // Só pega primário (evita multi-touch estranho)
     if (event.pointerType !== 'mouse' && event.isPrimary === false) return;
+    // se tem outro card aberto, fecha antes de começar outro swipe
+    if (openId && openId !== id) setOpenId(null);
+
     dragRef.current = {
       id,
       startX: event.clientX,
@@ -111,7 +114,16 @@ export default function Transactions({ data, loading, filters, setFilters, onVie
   if (loading && !data) return <div className='loading-state'>Carregando transações…</div>;
 
   return (
-    <div className='space-y-4'>
+    <div
+      className='space-y-4'
+      onPointerDownCapture={(e) => {
+        if (!openId) return;
+        const insideOpen = e?.target?.closest?.(`[data-tx-id="${openId}"]`);
+        if (insideOpen) return;
+        // Fecha o swipe ao tocar fora (comportamento app-like).
+        setOpenId(null);
+      }}
+    >
       <header className='px-1'>
         <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Lançamentos</p>
         <h1 className='text-2xl font-bold text-slate-900'>Transações</h1>
@@ -175,8 +187,8 @@ export default function Transactions({ data, loading, filters, setFilters, onVie
                     ? 'text-indigo-300 bg-indigo-500/10 border-indigo-300/20'
                     : 'text-slate-300 bg-slate-500/10 border-slate-300/20';
                   const timeLabel = formatTimeFromIso(transaction.occurredAt);
-                  return (
-                    <div key={id} className='relative overflow-hidden rounded-3xl'>
+	                  return (
+	                    <div key={id} data-tx-id={id} className='relative overflow-hidden rounded-3xl'>
                       {/* Underlay actions */}
                       <div
                         className='absolute inset-y-0 right-0 z-0 flex items-stretch gap-2 pl-2 pr-2 transition-opacity duration-150'
