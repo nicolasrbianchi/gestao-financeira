@@ -11,7 +11,7 @@ import Transactions from '../pages/Transactions';
 import Categories from '../pages/Categories';
 import More from '../pages/More';
 import Ai from '../pages/Ai';
-import { Bell, Filter, Settings, SquarePen } from 'lucide-react';
+import { Bell, Filter, Settings, SquarePen, Loader2, ArrowDown } from 'lucide-react';
 import { haptic } from '../utils/haptics';
 
 const ROUTES = {
@@ -69,6 +69,8 @@ export default function AppShell(props) {
   const refreshingRef = useRef(false);
   const [pullProgress, setPullProgress] = useState(0);
   const pullRef = useRef({ started: false, startY: 0, pulling: false, max: 80 });
+  const [pullRefreshing, setPullRefreshing] = useState(false);
+  const pullRefreshRef = useRef({ startedAt: 0, sawLoading: false });
 
   const safeTab = ROUTES[tab] === undefined ? 'home' : tab;
   const route = useMemo(() => ROUTES[safeTab], [safeTab]);
@@ -140,6 +142,8 @@ export default function AppShell(props) {
       setPullProgress(0);
       if (shouldRefresh) {
         haptic(10);
+        pullRefreshRef.current = { startedAt: Date.now(), sawLoading: false };
+        setPullRefreshing(true);
         reloadAll();
       }
     };
@@ -155,6 +159,25 @@ export default function AppShell(props) {
       window.removeEventListener('touchcancel', onTouchEnd);
     };
   }, [reloadAll, showTransactionSheet, showTransactionDetails, showInbox, showNotifications, showFilters, showAddMenu, pullProgress]);
+
+  // Fecha o loader do pull-to-refresh quando o reload terminar.
+  useEffect(() => {
+    if (!pullRefreshing) return;
+    if (loading) {
+      pullRefreshRef.current.sawLoading = true;
+      return;
+    }
+
+    // Evita “piscar”: garante que pelo menos entrou em loading uma vez.
+    if (!pullRefreshRef.current.sawLoading) return;
+
+    // Deixa um mínimo de tempo visível pra passar sensação de refresh.
+    const minMs = 450;
+    const elapsed = Date.now() - (pullRefreshRef.current.startedAt || 0);
+    const wait = Math.max(0, minMs - elapsed);
+    const id = setTimeout(() => setPullRefreshing(false), wait);
+    return () => clearTimeout(id);
+  }, [pullRefreshing, loading]);
 
   // Auto-refresh: a barra enche por N ms; quando chega no fim, dispara reload.
   // (No iOS, timers podem pausar em background; quando voltar, o hook de focus/visibility já recarrega.)
@@ -452,6 +475,30 @@ export default function AppShell(props) {
           />
         )}
       </div>
+
+      {/* Pull-to-refresh loader (visível em qualquer tela) */}
+      {(pullProgress > 0 || pullRefreshing) && (
+        <div
+          className='ptr-indicator'
+          aria-hidden='true'
+          style={{
+            opacity: pullRefreshing ? 1 : Math.min(1, 0.35 + pullProgress),
+            transform: pullRefreshing ? 'translateX(-50%) translateY(0px)' : `translateX(-50%) translateY(${Math.min(26, pullProgress * 26)}px)`,
+          }}
+        >
+          {pullRefreshing ? (
+            <div className='ptr-inner'>
+              <Loader2 size={18} className='ptr-spin' />
+              <span className='ptr-label'>Atualizando…</span>
+            </div>
+          ) : (
+            <div className='ptr-inner'>
+              <ArrowDown size={18} style={{ transform: `rotate(${Math.min(180, pullProgress * 180)}deg)` }} />
+              <span className='ptr-label'>{pullProgress >= 1 ? 'Solte para atualizar' : 'Puxe para atualizar'}</span>
+            </div>
+          )}
+        </div>
+      )}
       <div className='top-actions'>
         {safeTab === 'ai' ? (
           <button
@@ -498,7 +545,16 @@ export default function AppShell(props) {
           <Settings size={18} />
         </button>
       </div>
-      <main className='min-w-0'>{renderPage()}</main>
+      <main
+        className='min-w-0 ptr-content'
+        style={{
+          transform: (pullProgress > 0 || pullRefreshing)
+            ? `translateY(${Math.round((pullRefreshing ? 56 : pullProgress * 56))}px)`
+            : 'translateY(0px)',
+        }}
+      >
+        {renderPage()}
+      </main>
 
       <BottomNav
         tab={safeTab}
