@@ -139,13 +139,6 @@ option {
   .app-frame-chat {
     height: 100dvh;
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .app-main-chat {
-    flex: 1;
-    min-height: 0;
   }
   .app-frame::before { content: ''; position: fixed; inset: 0; z-index: -1; background: radial-gradient(circle at 50% 6%, rgba(205, 187, 147, 0.055), transparent 38%); pointer-events: none; }
   .card {
@@ -188,10 +181,6 @@ option {
   .toast { @apply fixed left-1/2 z-[60] w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 rounded-3xl px-4 py-3 text-center text-sm font-semibold text-white; bottom: calc(6.5rem + env(safe-area-inset-bottom)); background: rgba(10, 10, 16, 0.92); border: 1px solid var(--border); box-shadow: 0 22px 56px rgba(0, 0, 0, 0.46); }
   /* Ações ficam abaixo da status bar (com folga mínima). */
   .top-actions { @apply absolute right-4 z-40 flex items-center gap-2; top: calc(env(safe-area-inset-top) + 0.5rem); }
-  /* Não desenhar acima da status bar no iPhone (safe-area). */
-  .refresh-bar { @apply fixed left-0 right-0 z-[55]; top: env(safe-area-inset-top); height: 2px; background: transparent; }
-  .refresh-bar > span { display: block; height: 100%; width: 100%; transform-origin: left; background: rgba(242, 213, 139, 0.9); opacity: 0.35; animation-fill-mode: forwards; }
-
   /* Pull-to-refresh indicator (spinner / arrow) */
   .ptr-indicator {
     position: fixed;
@@ -237,12 +226,6 @@ option {
   .login-hint { @apply pt-1 text-center text-[11px] font-medium; color: rgba(226, 232, 240, 0.5); }
   .muted { color: var(--muted); }
   .error { @apply rounded-2xl p-3 text-sm; background: rgba(251, 113, 133, 0.12); color: rgba(253, 164, 175, 0.95); }
-}
-
-@keyframes gf_refresh_progress {
-  0% { transform: scaleX(0); opacity: 0.22; }
-  85% { opacity: 0.35; }
-  100% { transform: scaleX(1); opacity: 0.45; }
 }
 
 @keyframes gf_ptr_spin {
