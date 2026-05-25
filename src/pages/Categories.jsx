@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Label } from 'recharts';
 import { ArrowDownRight, Landmark, Layers3, Tags } from 'lucide-react';
 import { money } from '../utils/format';
@@ -35,6 +35,33 @@ function colorForLabel(label = '') {
 
 function totalOf(items = []) {
   return items.reduce((sum, item) => sum + Math.abs(item.value || 0), 0);
+}
+
+function loadCategoryGoals() {
+  try {
+    const raw = localStorage.getItem('gf_category_goals_v1');
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveCategoryGoals(obj) {
+  try {
+    localStorage.setItem('gf_category_goals_v1', JSON.stringify(obj || {}));
+  } catch {
+    // ignore
+  }
+}
+
+function parseMoneyInput(v) {
+  const s = String(v || '').trim();
+  if (!s) return null;
+  const clean = s.replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '');
+  const n = Number(clean);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
 }
 
 function PercentList({ title, icon: Icon, items = [], total, onSelect }) {
@@ -87,6 +114,14 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
   const expensesByAccount = data?.expensesByAccount || [];
   const topTransactions = data?.topTransactions || [];
   const dailySeries = data?.charts?.dailySeries || [];
+
+  // Metas por categoria (localStorage — leve e PWA-friendly)
+  const [categoryGoals, setCategoryGoals] = useState(() => loadCategoryGoals());
+
+  useEffect(() => {
+    // garante que estado reflita localStorage ao entrar na tela (best-effort)
+    setCategoryGoals(loadCategoryGoals());
+  }, []);
 
   const subcategoryItems = useMemo(
     () => (expensesBySubcategory.length ? expensesBySubcategory : bySubcategory),
@@ -199,6 +234,82 @@ export default function Categories({ data, loading, filters, setFilters, onGoTra
           </div>
         </div>
       </section>
+
+      {/* Metas por categoria (MVP local) */}
+      {expensesByCategory.length > 0 && (
+        <section className='rounded-4xl bg-white p-5 shadow-soft'>
+          <div className='mb-4 flex items-center justify-between gap-3'>
+            <div>
+              <h2 className='text-base font-bold text-slate-900'>Metas por categoria</h2>
+              <p className='text-xs text-slate-500'>Realizado vs meta (toque na meta para editar).</p>
+            </div>
+            <span className='grid h-10 w-10 place-items-center rounded-2xl bg-slate-50 text-indigo-500'><Tags size={18} /></span>
+          </div>
+
+          <div className='space-y-3'>
+            {expensesByCategory.slice(0, 8).map((item, index) => {
+              const name = String(item?.name || '').trim() || 'Sem preenchimento';
+              const realized = Math.abs(Number(item?.value || 0) || 0);
+              const goal = Number(categoryGoals?.[name] || 0) || 0;
+              const hasGoal = goal > 0;
+              const pct = hasGoal ? Math.min(999, (realized / goal) * 100) : 0;
+              const barColor = colorForLabel(item.name || String(index));
+
+              return (
+                <article key={`goal:${name}:${index}`} className='rounded-4xl border border-white/10 bg-white/5 p-4'>
+                  <div className='flex min-w-0 items-start justify-between gap-3'>
+                    <button
+                      type='button'
+                      className='min-w-0 text-left'
+                      onClick={() => {
+                        if (!item?.name) return;
+                        setFilters?.({ ...(filters || {}), category: item.name });
+                        onGoTransactions?.();
+                      }}
+                    >
+                      <p className='truncate text-sm font-extrabold text-slate-100' title={name}>{name}</p>
+                      <p className='mt-1 text-xs font-semibold text-slate-400'>Realizado: <span className='text-slate-200'>{money(realized)}</span></p>
+                    </button>
+
+                    <button
+                      type='button'
+                      className='shrink-0 rounded-3xl bg-black/30 px-3 py-2 text-[11px] font-extrabold text-slate-200 ring-1 ring-white/10'
+                      onClick={() => {
+                        const current = categoryGoals?.[name];
+                        const raw = window.prompt(`Definir meta para "${name}" (R$):`, current ? String(current).replace('.', ',') : '');
+                        if (raw == null) return;
+                        const parsed = parseMoneyInput(raw);
+                        const next = { ...(categoryGoals || {}) };
+                        if (!parsed) {
+                          delete next[name];
+                        } else {
+                          next[name] = parsed;
+                        }
+                        setCategoryGoals(next);
+                        saveCategoryGoals(next);
+                      }}
+                    >
+                      {hasGoal ? `Meta: ${money(goal)}` : 'Definir meta'}
+                    </button>
+                  </div>
+
+                  {hasGoal ? (
+                    <>
+                      <div className='progress mt-3'><span style={{ width: `${Math.min(100, pct)}%`, background: pct > 110 ? '#fb7185' : barColor }} /></div>
+                      <div className='mt-2 flex justify-between text-[11px] font-semibold text-slate-400'>
+                        <span>{pct.toFixed(0)}%</span>
+                        <span>Falta: <span className='text-slate-200'>{money(Math.max(0, goal - realized))}</span></span>
+                      </div>
+                    </>
+                  ) : (
+                    <p className='mt-3 text-[11px] font-semibold text-slate-500'>Sem meta definida.</p>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Resumo compacto (substitui insights/blocos soltos) */}
       <section className='grid grid-cols-2 gap-3'>

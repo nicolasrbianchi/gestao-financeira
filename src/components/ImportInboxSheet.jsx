@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Inbox, Trash2, CheckCircle2 } from 'lucide-react';
+import { Trash2, CheckCircle2 } from 'lucide-react';
 import { money } from '../utils/format';
 import { haptic } from '../utils/haptics';
 
@@ -173,10 +173,7 @@ export default function ImportInboxSheet({ open, onClose, api, metadata, onAppro
           <div className='empty-state shadow-none'>Nada pra aprovar agora.</div>
         )}
 
-        <div className='rounded-4xl bg-slate-50 p-3 text-xs text-slate-500'>
-          <p className='flex items-center gap-2 font-semibold text-slate-600'><Inbox size={14} /> Dica</p>
-          <p className='mt-1'>Aprovar abre o formulário para você completar os campos do Nicco.</p>
-        </div>
+        {/* dica removida (UI mais limpa) */}
       </div>
     </div>
   );
