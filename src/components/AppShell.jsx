@@ -482,14 +482,20 @@ export default function AppShell(props) {
           className='ptr-indicator'
           aria-hidden='true'
           style={{
-            opacity: pullRefreshing ? 1 : Math.min(1, 0.25 + pullProgress),
-            transform: pullRefreshing ? 'translateX(-50%) translateY(0px)' : `translateX(-50%) translateY(${Math.min(18, pullProgress * 18)}px)`,
+            opacity: pullRefreshing ? 1 : Math.min(1, 0.35 + pullProgress),
+            transform: pullRefreshing ? 'translateX(-50%) translateY(0px)' : `translateX(-50%) translateY(${Math.min(26, pullProgress * 26)}px)`,
           }}
         >
           {pullRefreshing ? (
-            <Loader2 size={18} className='ptr-spin' />
+            <div className='ptr-inner'>
+              <Loader2 size={18} className='ptr-spin' />
+              <span className='ptr-label'>Atualizando…</span>
+            </div>
           ) : (
-            <ArrowDown size={18} style={{ transform: `rotate(${Math.min(180, pullProgress * 180)}deg)` }} />
+            <div className='ptr-inner'>
+              <ArrowDown size={18} style={{ transform: `rotate(${Math.min(180, pullProgress * 180)}deg)` }} />
+              <span className='ptr-label'>{pullProgress >= 1 ? 'Solte para atualizar' : 'Puxe para atualizar'}</span>
+            </div>
           )}
         </div>
       )}
@@ -539,7 +545,16 @@ export default function AppShell(props) {
           <Settings size={18} />
         </button>
       </div>
-      <main className='min-w-0'>{renderPage()}</main>
+      <main
+        className='min-w-0 ptr-content'
+        style={{
+          transform: (pullProgress > 0 || pullRefreshing)
+            ? `translateY(${Math.round((pullRefreshing ? 56 : pullProgress * 56))}px)`
+            : 'translateY(0px)',
+        }}
+      >
+        {renderPage()}
+      </main>
 
       <BottomNav
         tab={safeTab}

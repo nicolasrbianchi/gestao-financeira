@@ -189,10 +189,10 @@ option {
   .ptr-indicator {
     position: fixed;
     left: 50%;
-    top: calc(env(safe-area-inset-top) + 0.35rem);
+    top: calc(env(safe-area-inset-top) + 0.25rem);
     z-index: 56;
-    width: 40px;
-    height: 40px;
+    width: 172px;
+    height: 42px;
     border-radius: 9999px;
     display: grid;
     place-items: center;
@@ -203,7 +203,23 @@ option {
     backdrop-filter: blur(14px);
     transition: opacity 120ms ease, transform 180ms ease;
   }
+  .ptr-inner {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+    color: rgba(248, 250, 252, 0.92);
+  }
+  .ptr-label {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    opacity: 0.9;
+  }
   .ptr-spin { animation: gf_ptr_spin 800ms linear infinite; }
+
+  .ptr-content { will-change: transform; transition: transform 180ms ease; }
   .icon-btn { @apply grid h-11 w-11 place-items-center rounded-full bg-white text-slate-200 shadow-soft transition active:opacity-90; border: 1px solid rgba(255,255,255,0.14); }
   .bottom-nav { @apply fixed inset-x-0 bottom-0 z-40 mx-auto grid w-full max-w-[430px] grid-cols-5 items-end gap-1 rounded-t-[2rem] px-3 pt-3 backdrop-blur; border: 1px solid var(--border-soft); border-bottom: 0; background: rgba(0, 0, 0, 0.72); box-shadow: 0 -24px 72px rgba(0, 0, 0, 0.66); padding-bottom: max(1.15rem, env(safe-area-inset-bottom)); transform: translateY(10px); }
   .login-wrap { @apply mx-auto grid min-h-dvh w-full max-w-[430px] place-items-center px-4; }
