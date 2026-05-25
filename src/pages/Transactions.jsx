@@ -111,7 +111,7 @@ export default function Transactions({ data, loading, filters, setFilters, onVie
   if (loading && !data) return <div className='loading-state'>Carregando transações…</div>;
 
   return (
-    <div className='space-y-4 tx-page'>
+    <div className='space-y-4'>
       <header className='px-1'>
         <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Lançamentos</p>
         <h1 className='text-2xl font-bold text-slate-900'>Transações</h1>
