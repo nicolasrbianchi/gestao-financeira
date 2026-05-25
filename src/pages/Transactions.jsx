@@ -111,7 +111,7 @@ export default function Transactions({ data, loading, filters, setFilters, onVie
   if (loading && !data) return <div className='loading-state'>Carregando transações…</div>;
 
   return (
-    <div className='space-y-4'>
+    <div className='space-y-4 tx-page'>
       <header className='px-1'>
         <p className='text-xs font-medium uppercase tracking-[0.2em] text-slate-400'>Lançamentos</p>
         <h1 className='text-2xl font-bold text-slate-900'>Transações</h1>
@@ -179,7 +179,7 @@ export default function Transactions({ data, loading, filters, setFilters, onVie
                     <div key={id} className='relative overflow-hidden rounded-3xl'>
                       {/* Underlay actions */}
                       <div
-                        className='absolute inset-y-0 right-0 z-0 flex items-stretch gap-2 pr-2 transition-opacity duration-150'
+                        className='absolute inset-y-0 right-0 z-0 flex items-stretch gap-2 pl-2 pr-2 transition-opacity duration-150'
                         style={{
                           width: ACTION_W,
                           opacity: isOpen ? 1 : 0,
