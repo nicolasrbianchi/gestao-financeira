@@ -141,7 +141,8 @@ def main():
     # Maskable: precisa de área segura, mas não tão pequeno
     write_png(make_icon(512, 0.185), os.path.join(OUT_DIR, 'icon-512-maskable.png'))
     # Apple touch icon
-    write_png(make_icon(180, 0.105), os.path.join(OUT_DIR, 'apple-touch-icon.png'))
+    # iOS home icon usa principalmente apple-touch-icon → deixa maior que os demais.
+    write_png(make_icon(180, 0.075), os.path.join(OUT_DIR, 'apple-touch-icon.png'))
 
     # iOS splash (common sizes)
     splashes = [

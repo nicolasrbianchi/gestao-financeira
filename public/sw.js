@@ -2,7 +2,7 @@
 
 // Web Push Service Worker (PWA)
 
-const SHELL_CACHE = 'nicco-shell-v12';
+const SHELL_CACHE = 'nicco-shell-v13';
 
 async function cacheShell() {
   const cache = await caches.open(SHELL_CACHE);
@@ -23,10 +23,10 @@ async function cacheShell() {
       '/icons/icon-512.png',
       '/icons/icon-512-maskable.png',
       '/icons/apple-touch-icon.png',
-      '/icons/icon-192-v12.png',
-      '/icons/icon-512-v12.png',
-      '/icons/icon-512-maskable-v12.png',
-      '/icons/apple-touch-icon-v12.png',
+      '/icons/icon-192-v13.png',
+      '/icons/icon-512-v13.png',
+      '/icons/icon-512-maskable-v13.png',
+      '/icons/apple-touch-icon-v13.png',
       '/icons/splash/splash-1290x2796.png',
       '/icons/splash/splash-1179x2556.png',
       '/icons/splash/splash-1170x2532.png',
