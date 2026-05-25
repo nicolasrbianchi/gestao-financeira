@@ -19,7 +19,8 @@ def load_logo():
         diff = Image.new('L', img.size, 0)
         px = img.load()
         dpx = diff.load()
-        thr = 18  # tolerância
+        # tolerância menor = trim menos agressivo (mantém mais área “do arquivo”)
+        thr = 10
         w, h = img.size
         for y in range(h):
             for x in range(w):
@@ -32,7 +33,8 @@ def load_logo():
         if bbox:
             l, t, r, b = bbox
             # pequena folga pra não cortar demais
-            pad = int(min(w, h) * 0.03)
+            # mais folga pra não “colar” demais no ícone
+            pad = int(min(w, h) * 0.06)
             l = max(0, l - pad)
             t = max(0, t - pad)
             r = min(w, r + pad)
@@ -84,12 +86,12 @@ def make_splash(w, h, logo_ratio=0.22):
 def main():
     # Standard icons
     # padding menor = logo maior
-    write_png(make_icon(192, 0.10), os.path.join(OUT_DIR, 'icon-192.png'))
-    write_png(make_icon(512, 0.10), os.path.join(OUT_DIR, 'icon-512.png'))
+    write_png(make_icon(192, 0.14), os.path.join(OUT_DIR, 'icon-192.png'))
+    write_png(make_icon(512, 0.14), os.path.join(OUT_DIR, 'icon-512.png'))
     # Maskable: precisa de área segura, mas não tão pequeno
-    write_png(make_icon(512, 0.18), os.path.join(OUT_DIR, 'icon-512-maskable.png'))
+    write_png(make_icon(512, 0.22), os.path.join(OUT_DIR, 'icon-512-maskable.png'))
     # Apple touch icon
-    write_png(make_icon(180, 0.10), os.path.join(OUT_DIR, 'apple-touch-icon.png'))
+    write_png(make_icon(180, 0.14), os.path.join(OUT_DIR, 'apple-touch-icon.png'))
 
     # iOS splash (common sizes)
     splashes = [
@@ -106,7 +108,7 @@ def main():
     os.makedirs(splash_dir, exist_ok=True)
     for (w, h) in splashes:
         # logo um pouco maior no splash
-        img = make_splash(w, h, 0.32)
+        img = make_splash(w, h, 0.28)
         write_png(img, os.path.join(splash_dir, f'splash-{w}x{h}.png'))
 
 
