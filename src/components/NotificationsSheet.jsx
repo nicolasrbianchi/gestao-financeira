@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Bell, ChevronLeft, MailOpen, MailPlus, Trash2 } from 'lucide-react';
 import { haptic } from '../utils/haptics';
 
@@ -80,8 +80,6 @@ function NotificationRow({ n }) {
 }
 
 export default function NotificationsSheet({ open, onClose }) {
-  if (!open) return null;
-
   const [selectedId, setSelectedId] = useState(null);
   const [version, setVersion] = useState(0);
   const notifications = useMemo(() => loadNotifications(), [version]);
@@ -90,6 +88,19 @@ export default function NotificationsSheet({ open, onClose }) {
   const [openId, setOpenId] = useState(null);
   const dragRef = React.useRef({ id: null, startX: 0, startY: 0, started: false, dragging: false, dx: 0 });
   const ACTION_W = 172; // px (2 ações)
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onChanged = () => setVersion((v) => v + 1);
+    window.addEventListener('gf_notifications_changed', onChanged);
+    window.addEventListener('gf_imports_pending_count_changed', onChanged);
+    return () => {
+      window.removeEventListener('gf_notifications_changed', onChanged);
+      window.removeEventListener('gf_imports_pending_count_changed', onChanged);
+    };
+  }, [open]);
+
+  if (!open) return null;
 
   const markRead = (id) => {
     const list = loadNotifications();
@@ -169,7 +180,7 @@ export default function NotificationsSheet({ open, onClose }) {
           <div className='min-w-0'>
             <p className='text-xs font-semibold uppercase tracking-[0.18em] text-indigo-500'>Notificações</p>
             <h2 className='mt-1 truncate text-xl font-bold text-slate-900'>Central</h2>
-            <p className='mt-1 text-sm text-slate-500'>Em breve: alertas e lembretes do Nicco.</p>
+            <p className='mt-1 text-sm text-slate-500'>{notifications.length ? `${notifications.length} alerta(s) salvos neste dispositivo.` : 'Alertas do app e do Nicco IA.'}</p>
           </div>
           <button type='button' onClick={onClose} className='shrink-0 rounded-2xl bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-500'>Fechar</button>
         </div>

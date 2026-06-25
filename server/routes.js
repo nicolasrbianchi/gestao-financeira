@@ -6,6 +6,7 @@ import { filterTx, buildDashboard } from './analytics.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { query } from './db.js';
+import { invalidateDbReadCache } from './dbClient.js';
 import { openAiText } from './openaiClient.js';
 import { listCategories, createCategory, updateCategory } from './categoriesDb.js';
 import { listSubcategories, createSubcategory, updateSubcategory } from './subcategoriesDb.js';
@@ -28,6 +29,23 @@ async function getPendingInboxCount() {
   } catch {
     return null;
   }
+}
+
+function getRequestToken(req) {
+  return String(req.query.token || req.headers['x-nicco-sync-token'] || req.headers['x-cron-token'] || '').trim();
+}
+
+function assertPluggySyncToken(req, res) {
+  const expected = String(process.env.PLUGGY_SYNC_TOKEN || process.env.PLUGGY_CRON_TOKEN || '').trim();
+  if (!expected) {
+    res.status(409).json({ ok: false, error: 'PLUGGY_SYNC_TOKEN não configurado.', requestId: req.requestId });
+    return false;
+  }
+  if (getRequestToken(req) !== expected) {
+    res.status(401).json({ ok: false, error: 'Unauthorized', requestId: req.requestId });
+    return false;
+  }
+  return true;
 }
 
 // Mantém o serviço “quente” no Render free (sem auth, sem dependências).
@@ -128,7 +146,7 @@ router.post('/pluggy/webhook', (req, res) => {
             cooldownMs: 60 * 1000,
             title: 'Nicco Finance',
             body: `Encontrei ${r.inserted} nova(s) transação(ões) no Open Finance (pendente(s) na inbox).`,
-            url: '/',
+            url: '/?action=inbox',
             tag: 'inbox',
             badge,
             requestId,
@@ -156,7 +174,7 @@ router.post('/pluggy/webhook', (req, res) => {
             cooldownMs: 60 * 1000,
             title: 'Nicco Finance',
             body: `Encontrei ${r.inserted} nova(s) transação(ões) no Open Finance (pendente(s) na inbox).`,
-            url: '/',
+            url: '/?action=inbox',
             tag: 'inbox',
             badge,
             requestId,
@@ -169,6 +187,29 @@ router.post('/pluggy/webhook', (req, res) => {
     }
   })();
 });
+
+async function pluggyCronFetchHandler(req, res, next) {
+  try {
+    if (!assertPluggySyncToken(req, res)) return;
+    if (String(config.dataSource || '').toLowerCase() !== 'db') {
+      return res.status(409).json({ ok: false, error: 'Recurso disponível apenas quando DATA_SOURCE=db.', requestId: req.requestId });
+    }
+
+    const burst = String(req.query.burst || '').toLowerCase() === 'true' || req.body?.burst === true;
+    const data = await runPluggyFetch({
+      requestId: req.requestId,
+      body: { burst, debugTxSample: false },
+      source: 'cron',
+    });
+    res.json({ ok: true, data });
+  } catch (e) {
+    next(e);
+  }
+}
+
+// Endpoint protegido para monitor externo (UptimeRobot/cron) buscar Pluggy mesmo com o app fechado.
+router.get('/pluggy/cron/fetch-transactions', pluggyCronFetchHandler);
+router.post('/pluggy/cron/fetch-transactions', pluggyCronFetchHandler);
 
 router.use(requireAuth);
 
@@ -275,6 +316,7 @@ router.post('/categories/manage', async (req, res, next) => {
   try {
     if (!assertDbSource(req, res)) return;
     const created = await createCategory({ name: req.body?.name });
+    invalidateDbReadCache('metadata');
     res.json({ ok: true, category: created });
   } catch (e) { next(e); }
 });
@@ -283,6 +325,7 @@ router.put('/categories/manage/:id', async (req, res, next) => {
   try {
     if (!assertDbSource(req, res)) return;
     const updated = await updateCategory(req.params.id, { name: req.body?.name, isActive: req.body?.isActive });
+    invalidateDbReadCache('all');
     res.json({ ok: true, category: updated });
   } catch (e) { next(e); }
 });
@@ -300,6 +343,7 @@ router.post('/subcategories/manage', async (req, res, next) => {
   try {
     if (!assertDbSource(req, res)) return;
     const created = await createSubcategory({ name: req.body?.name });
+    invalidateDbReadCache('metadata');
     res.json({ ok: true, subcategory: created });
   } catch (e) { next(e); }
 });
@@ -308,6 +352,7 @@ router.put('/subcategories/manage/:id', async (req, res, next) => {
   try {
     if (!assertDbSource(req, res)) return;
     const updated = await updateSubcategory(req.params.id, { name: req.body?.name, isActive: req.body?.isActive });
+    invalidateDbReadCache('all');
     res.json({ ok: true, subcategory: updated });
   } catch (e) { next(e); }
 });
@@ -326,6 +371,7 @@ router.post('/accounts/manage', async (req, res, next) => {
   try {
     if (!assertDbSource(req, res)) return;
     const account = await createAccount({ name: req.body?.name });
+    invalidateDbReadCache('metadata');
     res.json({ ok: true, account });
   } catch (e) { next(e); }
 });
@@ -334,6 +380,7 @@ router.put('/accounts/manage/:id', async (req, res, next) => {
   try {
     if (!assertDbSource(req, res)) return;
     const account = await updateAccount(req.params.id, { name: req.body?.name, isActive: req.body?.isActive });
+    invalidateDbReadCache('metadata');
     res.json({ ok: true, account });
   } catch (e) { next(e); }
 });
@@ -360,6 +407,7 @@ router.post('/accounts/manage/seed', async (req, res, next) => {
        select name from to_insert
        returning id, name, is_active as "isActive"`
     );
+    invalidateDbReadCache('metadata');
     res.json({ ok: true, inserted: rows.length, accounts: rows });
   } catch (e) { next(e); }
 });
@@ -377,6 +425,7 @@ router.post('/monthly-goals/manage', async (req, res, next) => {
   try {
     if (!assertDbSource(req, res)) return;
     const goal = await upsertMonthlyGoal({ month: req.body?.month, value: req.body?.value });
+    invalidateDbReadCache('metadata');
     res.json({ ok: true, goal });
   } catch (e) { next(e); }
 });
@@ -385,6 +434,7 @@ router.delete('/monthly-goals/manage/:month', async (req, res, next) => {
   try {
     if (!assertDbSource(req, res)) return;
     await deleteMonthlyGoal(req.params.month);
+    invalidateDbReadCache('metadata');
     res.json({ ok: true });
   } catch (e) { next(e); }
 });
@@ -625,6 +675,7 @@ router.post('/imports/:id/approve', async (req, res, next) => {
     if (!txId) throw new Error('Falha ao criar transação.');
     const importId = Number(req.params.id || 0);
     await approveImport(importId, txId, { requestId: req.requestId });
+    invalidateDbReadCache('all');
 
     res.json({ ok: true, data: { importId, transactionId: txId } });
   } catch (e) { next(e); }
@@ -637,6 +688,7 @@ router.post('/imports/:id/reject', async (req, res, next) => {
     }
     const importId = Number(req.params.id || 0);
     const result = await rejectImport(importId, { requestId: req.requestId });
+    invalidateDbReadCache('metadata');
     res.json({ ok: true, data: result });
   } catch (e) { next(e); }
 });
@@ -764,63 +816,93 @@ router.get('/pluggy/items/:itemId', async (req, res, next) => {
   }
 });
 
-// MVP: buscar transações manualmente (janela rolante dos últimos N dias por createdAtFrom) e jogar na inbox.
-// Premissa: o usuário atualiza/sincroniza no MeuPluggy e o Nicco só puxa os dados via API.
-router.post('/pluggy/fetch-transactions', async (req, res, next) => {
-  try {
-    if (!assertDbSource(req, res)) return;
+async function runPluggyFetch({ requestId, body = {}, source = 'manual' } = {}) {
+  const overlapMs = Number(process.env.PLUGGY_FETCH_OVERLAP_MS || 5 * 60 * 1000);
+  const normalMinIntervalMs = Number(process.env.PLUGGY_FETCH_MIN_INTERVAL_MS || 3 * 60 * 1000);
+  const burst = body?.burst === true;
+  const minIntervalMs = burst ? 30 * 1000 : normalMinIntervalMs;
+  const nowIso = new Date().toISOString();
+  const fetchWindowDays = Number(process.env.PLUGGY_FETCH_WINDOW_DAYS || 5);
+  const windowStartIso = Number.isFinite(fetchWindowDays) && fetchWindowDays > 0
+    ? new Date(Date.now() - fetchWindowDays * 24 * 60 * 60 * 1000).toISOString()
+    : null;
+  const debugTxSample = body?.debugTxSample === true;
 
-    const overlapMs = Number(process.env.PLUGGY_FETCH_OVERLAP_MS || 5 * 60 * 1000);
-    const normalMinIntervalMs = Number(process.env.PLUGGY_FETCH_MIN_INTERVAL_MS || 3 * 60 * 1000);
-    const burst = req.body?.burst === true;
-    const minIntervalMs = burst ? 30 * 1000 : normalMinIntervalMs;
-    const nowIso = new Date().toISOString();
-    const fetchWindowDays = Number(process.env.PLUGGY_FETCH_WINDOW_DAYS || 5);
-    const windowStartIso = Number.isFinite(fetchWindowDays) && fetchWindowDays > 0
-      ? new Date(Date.now() - fetchWindowDays * 24 * 60 * 60 * 1000).toISOString()
-      : null;
-    const debugTxSample = req.body?.debugTxSample === true;
+  logger.info('pluggy_fetch_started', { requestId, source, mode: 'rolling-window', overlapMs, minIntervalMs, burst, fetchWindowDays, windowStartIso });
 
-    logger.info('pluggy_manual_fetch_started', { requestId: req.requestId, mode: 'rolling-window', overlapMs, minIntervalMs, burst, fetchWindowDays, windowStartIso });
+  const items = await listPluggyItems({ requestId });
+  const enabled = items.filter((i) => i.enabled);
+  if (!enabled.length) {
+    logger.info('pluggy_fetch_finished', { requestId, source, items: 0, accounts: 0, seen: 0, inserted: 0, updated: 0 });
+    return { items: 0, accounts: 0, seen: 0, inserted: 0, updated: 0 };
+  }
 
-    const items = await listPluggyItems({ requestId: req.requestId });
-    const enabled = items.filter((i) => i.enabled);
-    if (!enabled.length) {
-      logger.info('pluggy_manual_fetch_finished', { requestId: req.requestId, items: 0, accounts: 0, seen: 0, inserted: 0, updated: 0 });
-      return res.json({ ok: true, data: { items: 0, accounts: 0, seen: 0, inserted: 0, updated: 0 } });
+  let totalAccounts = 0;
+  let totalSeen = 0;
+  let totalInserted = 0;
+  let totalUpdated = 0;
+  let skippedItems = 0;
+
+  for (const it of enabled) {
+    const lastFetchAt = it.lastFetchAt ? new Date(it.lastFetchAt) : null;
+    if (lastFetchAt && !Number.isNaN(lastFetchAt.getTime()) && Date.now() - lastFetchAt.getTime() < minIntervalMs) {
+      skippedItems += 1;
+      logger.debug('pluggy_fetch_item_skipped', { requestId, source, itemId: it.itemId, lastFetchAt: it.lastFetchAt, minIntervalMs });
+      continue;
     }
 
-    let totalAccounts = 0;
-    let totalSeen = 0;
-    let totalInserted = 0;
-    let totalUpdated = 0;
-    let skippedItems = 0;
+    // Janela rolante: sempre busca pelo createdAtFrom de N dias atrás.
+    // Dedupe via (provider, external_id) evita duplicata na inbox.
+    const effectiveCreatedAtFrom = windowStartIso || nowIso;
 
-    for (const it of enabled) {
-      const lastFetchAt = it.lastFetchAt ? new Date(it.lastFetchAt) : null;
-      if (lastFetchAt && !Number.isNaN(lastFetchAt.getTime()) && Date.now() - lastFetchAt.getTime() < minIntervalMs) {
-        skippedItems += 1;
-        logger.debug('pluggy_manual_fetch_item_skipped', { requestId: req.requestId, itemId: it.itemId, lastFetchAt: it.lastFetchAt, minIntervalMs });
-        continue;
-      }
+    logger.info('pluggy_fetch_item_started', { requestId, source, itemId: it.itemId, createdAtFrom: effectiveCreatedAtFrom, lastFetchAt: it.lastFetchAt || null });
 
-      // Janela rolante: sempre busca pelo createdAtFrom de N dias atrás.
-      // Dedupe via (provider, external_id) evita duplicata na inbox.
-      const effectiveCreatedAtFrom = windowStartIso || nowIso;
+    let accounts = [];
+    let itemErrors = 0;
+    try {
+      logger.debug('pluggy_fetch_list_accounts_started', { requestId, source, itemId: it.itemId });
+      accounts = await listAccounts({ requestId, itemId: it.itemId });
+      logger.debug('pluggy_fetch_list_accounts_finished', { requestId, source, itemId: it.itemId, accounts: accounts.length });
+    } catch (e) {
+      itemErrors += 1;
+      logger.warn('pluggy_fetch_list_accounts_failed', {
+        requestId,
+        source,
+        itemId: it.itemId,
+        status: e?.status || null,
+        pluggyRequestId: e?.pluggyRequestId || null,
+        error: e?.message || String(e),
+      });
+      continue;
+    }
 
-      logger.info('pluggy_manual_fetch_item_started', { requestId: req.requestId, itemId: it.itemId, createdAtFrom: effectiveCreatedAtFrom, lastFetchAt: it.lastFetchAt || null });
+    totalAccounts += accounts.length;
 
-      let accounts = [];
-      let itemErrors = 0;
+    for (const acc of accounts) {
+      const accountId = String(acc?.id || '').trim();
+      if (!accountId) continue;
+
+      const accountHint = String(acc?.name || acc?.number || acc?.type || accountId || '').trim();
+
+      let tx = [];
       try {
-        logger.debug('pluggy_manual_fetch_list_accounts_started', { requestId: req.requestId, itemId: it.itemId });
-        accounts = await listAccounts({ requestId: req.requestId, itemId: it.itemId });
-        logger.debug('pluggy_manual_fetch_list_accounts_finished', { requestId: req.requestId, itemId: it.itemId, accounts: accounts.length });
+        logger.debug('pluggy_fetch_list_transactions_started', { requestId, source, itemId: it.itemId, accountId, createdAtFrom: effectiveCreatedAtFrom });
+        tx = await listTransactionsByAccount({ requestId, accountId, createdAtFrom: effectiveCreatedAtFrom });
+        logger.debug('pluggy_fetch_list_transactions_finished', { requestId, source, itemId: it.itemId, accountId, count: tx.length });
+
+        if (debugTxSample && tx.length) {
+          const sample = tx
+            .slice(0, 5)
+            .map((t) => ({ id: t?.id, date: t?.date, amount: t?.amount, desc: t?.description, createdAt: t?.createdAt }));
+          logger.debug('pluggy_fetch_tx_sample', { requestId, source, itemId: it.itemId, accountId, sample });
+        }
       } catch (e) {
         itemErrors += 1;
-        logger.warn('pluggy_manual_fetch_list_accounts_failed', {
-          requestId: req.requestId,
+        logger.warn('pluggy_fetch_list_transactions_failed', {
+          requestId,
+          source,
           itemId: it.itemId,
+          accountId,
           status: e?.status || null,
           pluggyRequestId: e?.pluggyRequestId || null,
           error: e?.message || String(e),
@@ -828,88 +910,62 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
         continue;
       }
 
-      totalAccounts += accounts.length;
-
-      for (const acc of accounts) {
-        const accountId = String(acc?.id || '').trim();
-        if (!accountId) continue;
-
-        const accountHint = String(acc?.name || acc?.number || acc?.type || accountId || '').trim();
-
-        let tx = [];
-        try {
-          logger.debug('pluggy_manual_fetch_list_transactions_started', { requestId: req.requestId, itemId: it.itemId, accountId, createdAtFrom: effectiveCreatedAtFrom });
-          tx = await listTransactionsByAccount({ requestId: req.requestId, accountId, createdAtFrom: effectiveCreatedAtFrom });
-          logger.debug('pluggy_manual_fetch_list_transactions_finished', { requestId: req.requestId, itemId: it.itemId, accountId, count: tx.length });
-
-          if (debugTxSample && tx.length) {
-            const sample = tx
-              .slice(0, 5)
-              .map((t) => ({ id: t?.id, date: t?.date, amount: t?.amount, desc: t?.description, createdAt: t?.createdAt }));
-            logger.debug('pluggy_manual_fetch_tx_sample', { requestId: req.requestId, itemId: it.itemId, accountId, sample });
-          }
-        } catch (e) {
-          itemErrors += 1;
-          logger.warn('pluggy_manual_fetch_list_transactions_failed', {
-            requestId: req.requestId,
-            itemId: it.itemId,
-            accountId,
-            status: e?.status || null,
-            pluggyRequestId: e?.pluggyRequestId || null,
-            error: e?.message || String(e),
-          });
-          continue;
-        }
-
-        const r = await insertImportsFromPluggy({ requestId: req.requestId, itemId: it.itemId, accountHint, transactions: tx, ignoreBefore: windowStartIso || it.ignoreBefore });
-        totalSeen += r.seen || 0;
-        totalInserted += r.inserted || 0;
-        totalUpdated += r.updated || 0;
-      }
-
-      // Só avança o cursor se conseguimos processar o item sem erros.
-      if (!itemErrors) {
-        await touchPluggyItemFetch({ itemId: it.itemId, requestId: req.requestId });
-      } else {
-        logger.warn('pluggy_manual_fetch_item_partial_failure', { requestId: req.requestId, itemId: it.itemId, errors: itemErrors });
-      }
+      const r = await insertImportsFromPluggy({ requestId, itemId: it.itemId, accountHint, transactions: tx, ignoreBefore: windowStartIso || it.ignoreBefore });
+      totalSeen += r.seen || 0;
+      totalInserted += r.inserted || 0;
+      totalUpdated += r.updated || 0;
     }
 
-    logger.info('pluggy_manual_fetch_finished', {
-      requestId: req.requestId,
-      items: enabled.length,
-      skippedItems,
-      accounts: totalAccounts,
-      seen: totalSeen,
-      inserted: totalInserted,
-      updated: totalUpdated,
-    });
-
-    if (totalInserted > 0) {
-      const badge = await getPendingInboxCount();
-      await maybeSendPush({
-        key: 'inbox:new',
-        cooldownMs: 60 * 1000,
-        title: 'Nicco Finance',
-        body: `Encontrei ${totalInserted} nova(s) transação(ões) no Open Finance (pendente(s) na inbox).`,
-        url: '/',
-        tag: 'inbox',
-        badge,
-        requestId: req.requestId,
-      });
+    // Só avança o cursor se conseguimos processar o item sem erros.
+    if (!itemErrors) {
+      await touchPluggyItemFetch({ itemId: it.itemId, requestId });
+    } else {
+      logger.warn('pluggy_fetch_item_partial_failure', { requestId, source, itemId: it.itemId, errors: itemErrors });
     }
+  }
 
-    res.json({
-      ok: true,
-      data: {
-        items: enabled.length,
-        skippedItems,
-        accounts: totalAccounts,
-        seen: totalSeen,
-        inserted: totalInserted,
-        updated: totalUpdated,
-      },
+  logger.info('pluggy_fetch_finished', {
+    requestId,
+    source,
+    items: enabled.length,
+    skippedItems,
+    accounts: totalAccounts,
+    seen: totalSeen,
+    inserted: totalInserted,
+    updated: totalUpdated,
+  });
+
+  if (totalInserted > 0) {
+    const badge = await getPendingInboxCount();
+    await maybeSendPush({
+      key: 'inbox:new',
+      cooldownMs: 60 * 1000,
+      title: 'Nicco Finance',
+      body: `Encontrei ${totalInserted} nova(s) transação(ões) no Open Finance (pendente(s) na inbox).`,
+      url: '/?action=inbox',
+      tag: 'inbox',
+      badge,
+      requestId,
     });
+  }
+
+  return {
+    items: enabled.length,
+    skippedItems,
+    accounts: totalAccounts,
+    seen: totalSeen,
+    inserted: totalInserted,
+    updated: totalUpdated,
+  };
+}
+
+// MVP: buscar transações manualmente (janela rolante dos últimos N dias por createdAtFrom) e jogar na inbox.
+// Premissa: o usuário atualiza/sincroniza no MeuPluggy e o Nicco só puxa os dados via API.
+router.post('/pluggy/fetch-transactions', async (req, res, next) => {
+  try {
+    if (!assertDbSource(req, res)) return;
+    const data = await runPluggyFetch({ requestId: req.requestId, body: req.body || {}, source: 'app' });
+    res.json({ ok: true, data });
   } catch (e) {
     next(e);
   }
@@ -1121,15 +1177,26 @@ router.get('/ai/insight', async (req, res, next) => {
     // janela padrão: últimos 30 dias
     const now = new Date();
     const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const prevFrom = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
     const fromIso = from.toISOString().slice(0, 10);
+    const prevFromIso = prevFrom.toISOString().slice(0, 10);
     const recent = normalized.filter((t) => String(t.date || '') >= fromIso);
+    const previous = normalized.filter((t) => String(t.date || '') >= prevFromIso && String(t.date || '') < fromIso);
 
     const sum = (arr) => arr.reduce((a, n) => a + (Number(n) || 0), 0);
-    const expenses = recent.filter((t) => t.type === 'Despesa');
-    const incomes = recent.filter((t) => t.type === 'Receita');
+    const isTransfer = (t) => normalizeKey(t?.category) === 'transferencia entre contas';
+    const isExpense = (t) => normalizeKey(t?.type) === 'despesa' && !isTransfer(t);
+    const isIncome = (t) => normalizeKey(t?.type) === 'receita' && !isTransfer(t);
+    const expenses = recent.filter(isExpense);
+    const incomes = recent.filter(isIncome);
+    const previousExpenses = previous.filter(isExpense);
+    const previousIncomes = previous.filter(isIncome);
 
     const totalExpense = sum(expenses.map((t) => Number(t.amount || 0)));
     const totalIncome = sum(incomes.map((t) => Number(t.amount || 0)));
+    const prevExpense = sum(previousExpenses.map((t) => Number(t.amount || 0)));
+    const prevIncome = sum(previousIncomes.map((t) => Number(t.amount || 0)));
+    const expenseDeltaPct = prevExpense > 0 ? ((totalExpense - prevExpense) / prevExpense) * 100 : null;
 
     const groupSum = (items, keyFn) => {
       const m = new Map();
@@ -1142,36 +1209,58 @@ router.get('/ai/insight', async (req, res, next) => {
 
     const byCategory = groupSum(expenses, (t) => t.category || 'Sem categoria').slice(0, 5);
     const byAccount = groupSum(expenses, (t) => t.account || 'Sem conta').slice(0, 4);
+    const byName = groupSum(expenses, (t) => t.name || 'Sem nome').filter(([, value]) => value > 0).slice(0, 6);
+    const recurring = Object.values(expenses.reduce((acc, t) => {
+      const key = normalizeKey(t.name);
+      if (!key) return acc;
+      if (!acc[key]) acc[key] = { name: t.name, count: 0, total: 0 };
+      acc[key].count += 1;
+      acc[key].total += Number(t.amount || 0);
+      return acc;
+    }, {})).filter((x) => x.count >= 2).sort((a, b) => b.total - a.total).slice(0, 5);
+    const overdue = recent.filter((t) => normalizeKey(t.status).includes('atraso')).slice(0, 8);
+    const pendingInbox = await getPendingInboxCount();
 
     const sample = recent
       .slice()
-      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
-      .slice(0, 40)
+      .filter((t) => isExpense(t) || isIncome(t))
+      .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
+      .slice(0, 35)
       .map((t) => ({
         date: t.date,
         name: t.name,
         type: t.type,
         account: t.account,
         category: t.category,
+        subcategory: t.subcategory,
         paymentMethod: t.paymentMethod,
+        status: t.status,
         amount: Number(t.amount || 0),
       }));
 
-    const apiKey = process.env.OPENAI_KEY;
+    const avoid = String(req.query.avoid || '').slice(0, 2000);
+    const apiKey = config.openAiKey;
     if (!apiKey) return res.status(409).json({ ok: false, error: 'OPENAI_KEY não configurada.', requestId });
 
     const prompt = [
       'Você é o Nicco IA, assistente financeiro do usuário.',
-      'Gere UM insight curto e útil em português (1 a 3 frases), baseado nos últimos 30 dias.',
-      'Seja específico (cite conta/categoria) e sugira uma ação simples.',
+      'Gere UM insight financeiro útil e específico em português, baseado nos últimos 30 dias.',
+      'Evite frases genéricas como "acompanhe seus gastos" ou "revise categorias".',
+      'Priorize uma descoberta acionável: categoria fora da curva, conta/canal concentrando gasto, recorrência, aumento vs período anterior, atraso ou inbox pendente.',
+      'Formato: 2 frases no máximo. A primeira traz o achado com número/contexto; a segunda traz uma ação concreta para hoje.',
       'Não invente dados. Se faltar dado, assuma pouco e diga isso.',
+      avoid ? `Evite repetir ideias/textos parecidos com estes insights recentes: ${avoid}` : '',
       '',
-      `Resumo (30d): receita=${totalIncome.toFixed(2)} despesa=${totalExpense.toFixed(2)} transacoes=${recent.length}.`,
+      `Resumo atual (30d): receita=${totalIncome.toFixed(2)} despesa=${totalExpense.toFixed(2)} transacoes=${recent.length} inboxPendente=${pendingInbox ?? 'indefinido'}.`,
+      `Resumo anterior (30d anteriores): receita=${prevIncome.toFixed(2)} despesa=${prevExpense.toFixed(2)} variacaoDespesaPct=${expenseDeltaPct == null ? 'sem_base' : expenseDeltaPct.toFixed(1)}.`,
       `Top categorias (despesa): ${byCategory.map(([k, v]) => `${k}:${v.toFixed(2)}`).join(' | ') || '—'}`,
       `Top contas (despesa): ${byAccount.map(([k, v]) => `${k}:${v.toFixed(2)}`).join(' | ') || '—'}`,
-      'Amostra de transações recentes (máx 40):',
+      `Top nomes/estabelecimentos: ${byName.map(([k, v]) => `${k}:${v.toFixed(2)}`).join(' | ') || '—'}`,
+      `Recorrências: ${recurring.map((r) => `${r.name}:${r.count}x:${r.total.toFixed(2)}`).join(' | ') || '—'}`,
+      `Atrasos: ${overdue.map((t) => `${t.name}:${t.date}:${Number(t.amount || 0).toFixed(2)}`).join(' | ') || '—'}`,
+      'Maiores transações reais da janela (máx 35):',
       JSON.stringify(sample),
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
     const r = await openAiText({
       apiKey,

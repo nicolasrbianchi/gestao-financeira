@@ -151,13 +151,24 @@ self.addEventListener('push', (event) => {
   const tag = String(data.tag || fallback.tag);
 
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body,
-      tag,
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
-      data: { url },
-    })
+    (async () => {
+      try {
+        const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        for (const client of clients) {
+          client.postMessage({ type: 'GF_PUSH_RECEIVED', payload: { title, body, url, tag, sentAt: data.sentAt || new Date().toISOString() } });
+        }
+      } catch {
+        // ignore
+      }
+
+      await self.registration.showNotification(title, {
+        body,
+        tag,
+        icon: '/icons/icon-192.png',
+        badge: '/icons/icon-192.png',
+        data: { url },
+      });
+    })()
   );
 });
 

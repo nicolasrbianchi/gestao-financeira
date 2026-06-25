@@ -10,7 +10,7 @@ function isoToFormDate(iso) {
   return d.toISOString().slice(0, 10);
 }
 
-export default function ImportInboxSheet({ open, onClose, api, metadata, onApprove, onToast }) {
+export default function ImportInboxSheet({ open, onClose, api, metadata, onApprove, onToast, onPendingCountChange }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [items, setItems] = useState([]);
@@ -24,7 +24,9 @@ export default function ImportInboxSheet({ open, onClose, api, metadata, onAppro
         api('/imports/pending'),
         api('/pluggy/items').catch(() => ({ items: [] })),
       ]);
-      setItems(r.items || []);
+      const nextItems = r.items || [];
+      setItems(nextItems);
+      onPendingCountChange?.(nextItems.length);
       const enabled = (pluggy.items || []).filter((it) => it.enabled);
       const dates = enabled.map((it) => it.lastFetchAt).filter(Boolean).map((x) => new Date(x)).filter((d) => !Number.isNaN(d.getTime()));
       const max = dates.length ? new Date(Math.max(...dates.map((d) => d.getTime()))) : null;
