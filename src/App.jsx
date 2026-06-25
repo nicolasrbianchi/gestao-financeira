@@ -81,6 +81,33 @@ export default function App() {
     }
   };
 
+  const syncPendingImportsCount = (count, { notify = true } = {}) => {
+    const nextCount = Math.max(0, Number(count) || 0);
+    setPendingImportsCount(nextCount);
+
+    try {
+      const prev = Number(localStorage.getItem('gf_inbox_pending_count') || 0);
+      if (notify && nextCount > prev) {
+        setToast(`${nextCount} importação(ões) pendente(s) para aprovar.`);
+        const now = Date.now();
+        const n = {
+          id: `inbox:${now}:${nextCount}`,
+          kind: 'Inbox',
+          title: 'Open Finance',
+          body: `${nextCount} importação(ões) pendente(s) para aprovar.`,
+          createdAt: new Date(now).toISOString(),
+          readAt: null,
+        };
+        notificationsSave([n, ...notificationsLoad()]);
+      }
+
+      localStorage.setItem('gf_inbox_pending_count', String(nextCount));
+      window.dispatchEvent(new CustomEvent('gf_imports_pending_count_changed', { detail: { count: nextCount } }));
+    } catch {
+      // ignore
+    }
+  };
+
   useEffect(() => { api('/auth/status').then((d) => setAuth(d.authenticated)).catch(() => setAuth(false)); }, []);
 
   // Deep links (PWA shortcuts): ?tab=transactions / ?action=add / ?action=inbox
@@ -140,30 +167,7 @@ export default function App() {
       try {
         const r = await api('/imports/pending');
         const count = (r.items || []).length;
-        setPendingImportsCount(count);
-
-        const prev = Number(localStorage.getItem('gf_inbox_pending_count') || 0);
-        if (count > prev) {
-          // Notificação na Central + toast
-          setToast(`${count} importação(ões) pendente(s) para aprovar.`);
-          try {
-            const now = Date.now();
-            const n = {
-              id: `inbox:${now}`,
-              kind: 'Inbox',
-              title: 'Open Finance',
-              body: `${count} importação(ões) pendente(s) para aprovar.`,
-              createdAt: new Date(now).toISOString(),
-              readAt: null,
-            };
-            const arr = [n, ...notificationsLoad()];
-            notificationsSave(arr);
-          } catch {
-            // ignore
-          }
-        }
-
-        localStorage.setItem('gf_inbox_pending_count', String(count));
+        syncPendingImportsCount(count);
       } catch {
         // ignore
       }
@@ -202,6 +206,61 @@ export default function App() {
   }, [auth]);
 
   useEffect(() => {
+    const onPendingChanged = (event) => {
+      const count = Number(event?.detail?.count);
+      if (!Number.isFinite(count)) return;
+      setPendingImportsCount(Math.max(0, count));
+    };
+    window.addEventListener('gf_imports_pending_count_changed', onPendingChanged);
+    return () => window.removeEventListener('gf_imports_pending_count_changed', onPendingChanged);
+  }, []);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return undefined;
+    const onMessage = (event) => {
+      if (event?.data?.type !== 'GF_PUSH_RECEIVED') return;
+      const payload = event.data.payload || {};
+      const now = Date.now();
+      const n = {
+        id: `push:${payload.tag || 'nicco'}:${now}`,
+        kind: payload.tag === 'inbox' ? 'Inbox' : 'Push',
+        title: payload.title || 'Nicco Finance',
+        body: payload.body || '',
+        createdAt: payload.sentAt || new Date(now).toISOString(),
+        readAt: null,
+      };
+      notificationsSave([n, ...notificationsLoad()]);
+      if (payload.tag === 'inbox') {
+        try { window.dispatchEvent(new CustomEvent('gf_imports_pending_count_changed', { detail: { count: pendingImportsCount } })); } catch {}
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage);
+  }, [pendingImportsCount]);
+
+  useEffect(() => {
+    if (!auth) return undefined;
+    const refreshInboxBadge = async () => {
+      try {
+        const r = await api('/imports/pending');
+        syncPendingImportsCount((r.items || []).length, { notify: false });
+      } catch {
+        // ignore
+      }
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refreshInboxBadge();
+    };
+    void refreshInboxBadge();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', refreshInboxBadge);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', refreshInboxBadge);
+    };
+  }, [auth]);
+
+  useEffect(() => {
     if (!toast) return;
     // Quando o toast tem ação (ex: update do app), não auto-esconde.
     if (toastAction) return undefined;
@@ -227,9 +286,23 @@ export default function App() {
       if (last && now - last < periodMs) return;
 
       try {
-        const r = await api('/ai/insight');
+        const recentInsights = notificationsLoad()
+          .filter((n) => n.kind === 'Insight' && n.body)
+          .slice(0, 5)
+          .map((n) => n.body)
+          .join(' | ')
+          .slice(0, 1600);
+        const r = await api(`/ai/insight${recentInsights ? `?avoid=${encodeURIComponent(recentInsights)}` : ''}`);
         const text = String(r?.insight?.text || '').trim();
         if (!text) return;
+        const normalizedText = text.toLowerCase().replace(/\s+/g, ' ').trim();
+        const alreadySeen = notificationsLoad()
+          .filter((n) => n.kind === 'Insight')
+          .some((n) => String(n.body || '').toLowerCase().replace(/\s+/g, ' ').trim() === normalizedText);
+        if (alreadySeen) {
+          setLastAt(now);
+          return;
+        }
 
         const n = {
           id: `insight:${now}`,
@@ -308,6 +381,7 @@ export default function App() {
           setToast(t);
         }}
         pendingImportsCount={pendingImportsCount}
+        onPendingImportsCountChange={(count) => syncPendingImportsCount(count, { notify: false })}
         insightTick={insightTick}
         onLogout={async () => { await api('/auth/logout', { method: 'POST' }); location.reload(); }}
       />

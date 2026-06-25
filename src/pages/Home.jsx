@@ -41,14 +41,14 @@ function LoadingSkeleton() {
 }
 
 export default function Home({ data, loading, onGoTransactions }) {
-  if (loading && !data) return <LoadingSkeleton />;
-
   const [showChart, setShowChart] = useState(false);
   useEffect(() => {
     // Carrega o chunk do Recharts depois do primeiro paint (percepção mais rápida no iPhone).
     const id = setTimeout(() => setShowChart(true), 120);
     return () => clearTimeout(id);
   }, []);
+
+  if (loading && !data) return <LoadingSkeleton />;
 
   const summaryCards = data?.summaryCards || [];
   const charts = data?.charts || {};

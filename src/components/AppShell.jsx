@@ -45,7 +45,7 @@ function ErrorState({ error, onRetry }) {
 }
 
 export default function AppShell(props) {
-  const { tab, onTab, filters, setFilters, metadata, initialDashboard, api, withQuery, onLogout, onToast, onReload, pendingImportsCount, insightTick } = props;
+  const { tab, onTab, filters, setFilters, metadata, initialDashboard, api, withQuery, onLogout, onToast, onReload, pendingImportsCount, onPendingImportsCountChange, insightTick } = props;
   const [showFilters, setShowFilters] = useState(false);
   const [showTransactionSheet, setShowTransactionSheet] = useState(false);
   const [showTransactionDetails, setShowTransactionDetails] = useState(false);
@@ -343,12 +343,17 @@ export default function AppShell(props) {
   }, []);
 
   const handleSaved = (info = {}) => {
+    const approvedImport = Boolean(approveDraft?.importId);
     setShowTransactionSheet(false);
     setEditingTx(null);
     setApproveDraft(null);
     setTransactionSheetMode('add');
     if (info?.queued) onToast?.('Sem conexão: ação salva offline e será sincronizada.');
     else onToast?.('Transação salva com sucesso.');
+    if (approvedImport) {
+      const nextCount = Math.max(0, (Number(pendingImportsCount) || 0) - 1);
+      onPendingImportsCountChange?.(nextCount);
+    }
     onReload?.();
     reload();
   };
@@ -627,6 +632,7 @@ export default function AppShell(props) {
         api={api}
         metadata={metadata || {}}
         onToast={onToast}
+        onPendingCountChange={onPendingImportsCountChange}
         onApprove={({ importId, initialForm }) => {
           setApproveDraft({ importId });
           setEditingTx({ ...initialForm });

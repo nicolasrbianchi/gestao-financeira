@@ -44,6 +44,10 @@ body,
   overflow-x: hidden;
 }
 
+html {
+  height: 100%;
+}
+
 body {
   @apply font-sans antialiased;
   background:
@@ -178,8 +182,8 @@ option {
   .chip { @apply rounded-full px-3 py-2 text-xs; border: 1px solid var(--border-soft); background: rgba(4, 4, 8, 0.90); color: var(--muted-strong); box-shadow: 0 14px 44px rgba(0, 0, 0, 0.56); }
   /* Badge neutra: o champagne entra só em ações/seleção, não em tudo */
   .badge { @apply rounded-full px-2 py-1 text-[11px]; background: rgba(4, 4, 8, 0.86); color: var(--muted-strong); border: 1px solid var(--border-soft); }
-  .sheet { @apply fixed inset-0 z-50 flex items-end justify-center px-3 pt-4; background: rgba(0, 0, 0, 0.72); padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); backdrop-filter: blur(14px); }
-  .sheet-panel { @apply max-h-[90dvh] w-full max-w-[430px] overflow-y-auto rounded-t-[2rem] p-5; border: 1px solid var(--border); background: linear-gradient(180deg, rgba(8, 8, 14, 0.96), rgba(2, 2, 6, 0.96)); box-shadow: 0 -24px 78px rgba(0, 0, 0, 0.66); }
+  .sheet { @apply fixed inset-0 z-50 flex items-end justify-center px-3 pt-4; background: rgba(0, 0, 0, 0.72); padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); backdrop-filter: blur(14px); overscroll-behavior: contain; }
+  .sheet-panel { @apply max-h-[90dvh] w-full max-w-[430px] overflow-y-auto rounded-t-[2rem] p-5; border: 1px solid var(--border); background: linear-gradient(180deg, rgba(8, 8, 14, 0.96), rgba(2, 2, 6, 0.96)); box-shadow: 0 -24px 78px rgba(0, 0, 0, 0.66); overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scroll-padding-bottom: 2rem; padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)); }
   .h { @apply min-h-[280px]; }
   .loading-state, .empty-state, .error-state { @apply rounded-4xl p-6 text-center text-sm; border: 1px solid var(--border-soft); background: rgba(4, 4, 8, 0.86); color: var(--muted); box-shadow: 0 22px 56px rgba(0, 0, 0, 0.48); }
   .error-state { color: rgba(253, 164, 175, 0.95); }

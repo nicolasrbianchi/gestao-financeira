@@ -12,6 +12,54 @@ const PAYMENT_METHODS_FALLBACK = ['Débito', 'Crédito', 'Pix', 'Boleto', 'Depó
 const CATEGORIES_FALLBACK = [];
 const SUBCATEGORIES_FALLBACK = [];
 
+const READ_CACHE_TTL_MS = Number(process.env.DB_READ_CACHE_TTL_MS || 10_000);
+const readCache = {
+  transactions: { value: null, at: 0, inFlight: null },
+  metadata: { value: null, at: 0, inFlight: null },
+};
+
+function isFresh(entry) {
+  if (!READ_CACHE_TTL_MS) return false;
+  return entry.value && Date.now() - entry.at < READ_CACHE_TTL_MS;
+}
+
+async function cachedRead(cacheKey, loader, { requestId } = {}) {
+  const entry = readCache[cacheKey];
+  if (!entry) return loader();
+
+  if (isFresh(entry)) {
+    logger.debug('db_read_cache_hit', { requestId, cacheKey, ageMs: Date.now() - entry.at });
+    return entry.value;
+  }
+
+  if (entry.inFlight) {
+    logger.debug('db_read_cache_join', { requestId, cacheKey });
+    return entry.inFlight;
+  }
+
+  entry.inFlight = (async () => {
+    try {
+      const value = await loader();
+      entry.value = value;
+      entry.at = Date.now();
+      return value;
+    } finally {
+      entry.inFlight = null;
+    }
+  })();
+
+  return entry.inFlight;
+}
+
+export function invalidateDbReadCache(scope = 'all') {
+  const keys = scope === 'all' ? Object.keys(readCache) : [scope];
+  for (const key of keys) {
+    if (!readCache[key]) continue;
+    readCache[key].value = null;
+    readCache[key].at = 0;
+  }
+}
+
 function toIsoFromFormDate(value) {
   // UI manda YYYY-MM-DD
   if (!value) return null;
@@ -78,82 +126,86 @@ export async function health(ctx = {}) {
 }
 
 export async function getTransactions(ctx = {}) {
-  const started = Date.now();
-  const requestId = ctx.requestId;
+  return cachedRead('transactions', async () => {
+    const started = Date.now();
+    const requestId = ctx.requestId;
 
-  const { rows } = await query(
-    `select t.id, t.date, t.name, t.type, t.reserve, t.account,
-            t.category_id, c.name as category_name,
-            t.subcategory_id, s.name as subcategory_name,
-            t.payment_method, t.amount, t.status, t.installment, t.notes,
-            imp.provider as import_provider,
-            imp.occurred_at as import_occurred_at
-       from transactions t
-       left join categories c on c.id = t.category_id
-       left join subcategories s on s.id = t.subcategory_id
-       left join lateral (
-         select provider, occurred_at
-           from import_inbox
-          where approved_transaction_id = t.id
-          order by occurred_at desc nulls last, id desc
-          limit 1
-       ) imp on true
-      order by t.date desc, t.id desc`
-  );
-  const transactions = rows.map(rowToTx).filter((t) => t.date && t.type && Number.isFinite(t.amount) && t.amount > 0);
-  logger.debug('db_transactions_loaded', { requestId, count: transactions.length, durationMs: Date.now() - started });
-  return { ok: true, transactions };
+    const { rows } = await query(
+      `select t.id, t.date, t.name, t.type, t.reserve, t.account,
+              t.category_id, c.name as category_name,
+              t.subcategory_id, s.name as subcategory_name,
+              t.payment_method, t.amount, t.status, t.installment, t.notes,
+              imp.provider as import_provider,
+              imp.occurred_at as import_occurred_at
+         from transactions t
+         left join categories c on c.id = t.category_id
+         left join subcategories s on s.id = t.subcategory_id
+         left join lateral (
+           select provider, occurred_at
+             from import_inbox
+            where approved_transaction_id = t.id
+            order by occurred_at desc nulls last, id desc
+            limit 1
+         ) imp on true
+        order by t.date desc, t.id desc`
+    );
+    const transactions = rows.map(rowToTx).filter((t) => t.date && t.type && Number.isFinite(t.amount) && t.amount > 0);
+    logger.debug('db_transactions_loaded', { requestId, count: transactions.length, durationMs: Date.now() - started });
+    return { ok: true, transactions };
+  }, ctx);
 }
 
 export async function getMetadata(ctx = {}) {
-  const started = Date.now();
-  const requestId = ctx.requestId;
+  return cachedRead('metadata', async () => {
+    const started = Date.now();
+    const requestId = ctx.requestId;
 
-  const distinct = async (column) => {
-    const { rows } = await query(`select distinct ${column} as v from transactions where ${column} is not null and ${column} <> '' order by 1 asc`);
-    return rows.map((r) => String(r.v));
-  };
+    const distinct = async (column) => {
+      const { rows } = await query(`select distinct ${column} as v from transactions where ${column} is not null and ${column} <> '' order by 1 asc`);
+      return rows.map((r) => String(r.v));
+    };
 
-  const [types, reserves, accountsDistinct, paymentMethods, statuses, goals, categoriesRows, subcategoriesRows, accountsRows] = await Promise.all([
-    distinct('type'),
-    distinct('reserve'),
-    distinct('account'),
-    distinct('payment_method'),
-    distinct('status'),
-    query('select month, value from monthly_goals order by month asc').catch(() => ({ rows: [] })),
-    query('select id, name, is_active from categories where is_active = true order by lower(name) asc').catch(() => ({ rows: [] })),
-    query('select id, name, is_active from subcategories where is_active = true order by lower(name) asc').catch(() => ({ rows: [] })),
-    // contas/canais gerenciáveis
-    query('select name from accounts where is_active = true order by lower(name) asc').catch(() => ({ rows: [] })),
-  ]);
+    const [types, reserves, accountsDistinct, paymentMethods, statuses, goals, categoriesRows, subcategoriesRows, accountsRows] = await Promise.all([
+      distinct('type'),
+      distinct('reserve'),
+      distinct('account'),
+      distinct('payment_method'),
+      distinct('status'),
+      query('select month, value from monthly_goals order by month asc').catch(() => ({ rows: [] })),
+      query('select id, name, is_active from categories where is_active = true order by lower(name) asc').catch(() => ({ rows: [] })),
+      query('select id, name, is_active from subcategories where is_active = true order by lower(name) asc').catch(() => ({ rows: [] })),
+      // contas/canais gerenciáveis
+      query('select name from accounts where is_active = true order by lower(name) asc').catch(() => ({ rows: [] })),
+    ]);
 
-  const monthlyGoals = Object.fromEntries((goals.rows || []).map((r) => [String(r.month), Number(r.value || 0)]).filter(([k, v]) => k && Number.isFinite(v)));
+    const monthlyGoals = Object.fromEntries((goals.rows || []).map((r) => [String(r.month), Number(r.value || 0)]).filter(([k, v]) => k && Number.isFinite(v)));
 
-  const uniq = (arr) => [...new Set((arr || []).filter(Boolean))];
-  const merge = (a, b) => uniq([...(a || []), ...(b || [])]);
+    const uniq = (arr) => [...new Set((arr || []).filter(Boolean))];
+    const merge = (a, b) => uniq([...(a || []), ...(b || [])]);
 
-  const out = {
-    ok: true,
-    types: merge(types, TYPES_FALLBACK),
-    reserves: merge(reserves, RESERVES_FALLBACK),
-    // Contas/canais: se existe gestão, ela manda; senão usa fallback (distinct em transactions).
-    accounts: (() => {
-      const managed = uniq((accountsRows.rows || []).map((r) => String(r.name)));
-      return managed.length ? managed : uniq(accountsDistinct);
-    })(),
-    // Mantém compat (arrays de string) e adiciona listas gerenciáveis (com id).
-    // Importante: apenas opções ATIVAS devem aparecer nos selects.
-    categories: merge((categoriesRows.rows || []).map((r) => r.name), CATEGORIES_FALLBACK),
-    categoriesList: (categoriesRows.rows || []).map((r) => ({ id: Number(r.id), name: String(r.name), isActive: !!r.is_active })),
-    subcategories: merge((subcategoriesRows.rows || []).map((r) => r.name), SUBCATEGORIES_FALLBACK),
-    subcategoriesList: (subcategoriesRows.rows || []).map((r) => ({ id: Number(r.id), name: String(r.name), isActive: !!r.is_active })),
-    paymentMethods: merge(paymentMethods, PAYMENT_METHODS_FALLBACK),
-    statuses: uniq(statuses),
-    monthlyGoals,
-  };
+    const out = {
+      ok: true,
+      types: merge(types, TYPES_FALLBACK),
+      reserves: merge(reserves, RESERVES_FALLBACK),
+      // Contas/canais: se existe gestão, ela manda; senão usa fallback (distinct em transactions).
+      accounts: (() => {
+        const managed = uniq((accountsRows.rows || []).map((r) => String(r.name)));
+        return managed.length ? managed : uniq(accountsDistinct);
+      })(),
+      // Mantém compat (arrays de string) e adiciona listas gerenciáveis (com id).
+      // Importante: apenas opções ATIVAS devem aparecer nos selects.
+      categories: merge((categoriesRows.rows || []).map((r) => r.name), CATEGORIES_FALLBACK),
+      categoriesList: (categoriesRows.rows || []).map((r) => ({ id: Number(r.id), name: String(r.name), isActive: !!r.is_active })),
+      subcategories: merge((subcategoriesRows.rows || []).map((r) => r.name), SUBCATEGORIES_FALLBACK),
+      subcategoriesList: (subcategoriesRows.rows || []).map((r) => ({ id: Number(r.id), name: String(r.name), isActive: !!r.is_active })),
+      paymentMethods: merge(paymentMethods, PAYMENT_METHODS_FALLBACK),
+      statuses: uniq(statuses),
+      monthlyGoals,
+    };
 
-  logger.debug('db_metadata_loaded', { requestId, durationMs: Date.now() - started, counts: { types: out.types.length, accounts: out.accounts.length, categories: out.categories.length } });
-  return out;
+    logger.debug('db_metadata_loaded', { requestId, durationMs: Date.now() - started, counts: { types: out.types.length, accounts: out.accounts.length, categories: out.categories.length } });
+    return out;
+  }, ctx);
 }
 
 export async function addTransaction(payload, ctx = {}) {
@@ -188,6 +240,7 @@ export async function addTransaction(payload, ctx = {}) {
   );
 
   logger.info('db_transaction_created', { requestId, id: rows[0]?.id, type });
+  invalidateDbReadCache('all');
   return { ok: true, row: Number(rows[0]?.id) };
 }
 
@@ -227,6 +280,7 @@ export async function updateTransaction(payload, ctx = {}) {
   );
 
   logger.info('db_transaction_updated', { requestId, id, type });
+  invalidateDbReadCache('all');
   return { ok: true, row: id };
 }
 
@@ -237,5 +291,6 @@ export async function deleteTransaction({ id }, ctx = {}) {
   const started = Date.now();
   await query('delete from transactions where id=$1', [txId]);
   logger.info('db_transaction_deleted', { requestId, id: txId, durationMs: Date.now() - started });
+  invalidateDbReadCache('all');
   return { ok: true, id: txId };
 }
