@@ -816,7 +816,7 @@ router.get('/pluggy/items/:itemId', async (req, res, next) => {
   }
 });
 
-async function runPluggyFetch({ requestId, body = {}, source = 'manual' } = {}) {
+export async function runPluggyFetch({ requestId, body = {}, source = 'manual' } = {}) {
   const overlapMs = Number(process.env.PLUGGY_FETCH_OVERLAP_MS || 5 * 60 * 1000);
   const normalMinIntervalMs = Number(process.env.PLUGGY_FETCH_MIN_INTERVAL_MS || 3 * 60 * 1000);
   const burst = body?.burst === true;
@@ -970,6 +970,55 @@ router.post('/pluggy/fetch-transactions', async (req, res, next) => {
     next(e);
   }
 });
+
+let pluggyAutoFetchTimer = null;
+let pluggyAutoFetchRunning = false;
+
+export function startPluggyAutoFetchScheduler() {
+  const enabled = ['yes', 'true', '1'].includes(String(process.env.PLUGGY_AUTO_FETCH_ENABLED || '').toLowerCase());
+  if (!enabled) {
+    logger.info('pluggy_auto_fetch_scheduler_disabled');
+    return false;
+  }
+
+  if (String(config.dataSource || '').toLowerCase() !== 'db') {
+    logger.warn('pluggy_auto_fetch_scheduler_skipped', { reason: 'DATA_SOURCE is not db', dataSource: config.dataSource });
+    return false;
+  }
+
+  if (pluggyAutoFetchTimer) return true;
+
+  const intervalMsRaw = Number(process.env.PLUGGY_AUTO_FETCH_INTERVAL_MS || 5 * 60 * 1000);
+  const intervalMs = Number.isFinite(intervalMsRaw) ? Math.max(60_000, intervalMsRaw) : 5 * 60 * 1000;
+  const initialDelayMsRaw = Number(process.env.PLUGGY_AUTO_FETCH_INITIAL_DELAY_MS || 45_000);
+  const initialDelayMs = Number.isFinite(initialDelayMsRaw) ? Math.max(5_000, initialDelayMsRaw) : 45_000;
+
+  const tick = async () => {
+    if (pluggyAutoFetchRunning) {
+      logger.debug('pluggy_auto_fetch_tick_skipped', { reason: 'already_running' });
+      return;
+    }
+
+    pluggyAutoFetchRunning = true;
+    const requestId = `auto-${Date.now().toString(36).slice(-6)}`;
+    try {
+      await runPluggyFetch({ requestId, body: {}, source: 'scheduler' });
+    } catch (e) {
+      logger.warn('pluggy_auto_fetch_failed', { requestId, error: e?.message || String(e) });
+    } finally {
+      pluggyAutoFetchRunning = false;
+    }
+  };
+
+  const initial = setTimeout(() => { void tick(); }, initialDelayMs);
+  initial.unref?.();
+
+  pluggyAutoFetchTimer = setInterval(() => { void tick(); }, intervalMs);
+  pluggyAutoFetchTimer.unref?.();
+
+  logger.info('pluggy_auto_fetch_scheduler_started', { intervalMs, initialDelayMs });
+  return true;
+}
 
 // Legado: antes tentávamos forçar update do item via API (PATCH /items), mas itens MeuPluggy não suportam.
 // Mantemos a rota por compatibilidade, mas ela não executa update.
