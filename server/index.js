@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { config, assertConfig } from './config.js';
-import { router } from './routes.js';
+import { router, startPluggyAutoFetchScheduler } from './routes.js';
 import { logger, requestContext, requestLogger, safeError } from './logger.js';
 
 // DB setup on deploy (opt-in)
@@ -56,4 +56,7 @@ app.use((err, req, res, _next) => {
   res.status(500).json({ ok: false, error: 'Erro interno ao processar requisição.', requestId: req.requestId });
 });
 
-app.listen(config.port, () => logger.info('server_started', { port: config.port, nodeEnv: process.env.NODE_ENV || 'development', logLevel: logger.level }));
+app.listen(config.port, () => {
+  logger.info('server_started', { port: config.port, nodeEnv: process.env.NODE_ENV || 'development', logLevel: logger.level });
+  startPluggyAutoFetchScheduler();
+});
